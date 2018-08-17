@@ -249,6 +249,9 @@ impl<'a> Drop for MoneyLossDetector<'a> {
 
 			// Force all channels onto the chain (and time out claim txn)
 			self.manager.force_close_all_channels();
+			for _ in 0..6*24*14 {
+				self.connect_block(&[]);
+			}
 		}
 	}
 }
