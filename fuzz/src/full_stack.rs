@@ -164,6 +164,7 @@ type PeerMan<'a> = PeerManager<Peer<'a>, Arc<ChannelMan>, Arc<NetGraphMsgHandler
 struct MoneyLossDetector<'a> {
 	manager: Arc<ChannelMan>,
 	monitor: Arc<chainmonitor::ChainMonitor<EnforcingSigner, Arc<dyn chain::Filter>, Arc<TestBroadcaster>, Arc<FuzzEstimator>, Arc<dyn Logger>, Arc<TestPersister>>>,
+	broadcaster: Arc<TestBroadcaster>,
 	handler: PeerMan<'a>,
 
 	peers: &'a RefCell<[bool; 256]>,
@@ -178,10 +179,12 @@ impl<'a> MoneyLossDetector<'a> {
 	pub fn new(peers: &'a RefCell<[bool; 256]>,
 	           manager: Arc<ChannelMan>,
 	           monitor: Arc<chainmonitor::ChainMonitor<EnforcingSigner, Arc<dyn chain::Filter>, Arc<TestBroadcaster>, Arc<FuzzEstimator>, Arc<dyn Logger>, Arc<TestPersister>>>,
+	           broadcaster: Arc<TestBroadcaster>,
 	           handler: PeerMan<'a>) -> Self {
 		MoneyLossDetector {
 			manager,
 			monitor,
+			broadcaster,
 			handler,
 
 			peers,
@@ -253,6 +256,34 @@ impl<'a> Drop for MoneyLossDetector<'a> {
 				self.connect_block(&[]);
 			}
 		}
+
+		// Test that all broadcasted transactions either spend one of our funding transactions or
+		// some other broadcasted transaction:
+
+		let mut txn_map = HashMap::new();
+		let mut funding_txn_map = HashMap::new();
+		for tx in self.funding_txn.drain(..) {
+			funding_txn_map.insert(tx.txid(), tx);
+		}
+		let mut txn_broadcasted = self.broadcaster.txn_broadcasted.lock().unwrap();
+		for tx in txn_broadcasted.drain(..) {
+			txn_map.insert(tx.txid(), tx);
+		}
+		/*for (_, tx) in txn_map.iter() {
+			for inp in tx.input.iter() {
+				let prev_tx = match funding_txn_map.get(&inp.prev_hash) {
+					Some(ptx) => ptx,
+					None => {
+						txn_map.get(&inp.prev_hash).unwrap()
+					}
+				};
+				assert!(prev_tx.output.len() > inp.prev_index as usize);
+			}
+		}*/
+
+		//XXX: Find all non-conflicting sets of txn broadcasted and ensure that in each case we
+		//always get back at least the amount we expect minus tx fees (which we should be able to
+		//calculate now!
 	}
 }
 
@@ -374,7 +405,7 @@ pub fn do_test(data: &[u8], logger: &Arc<dyn Logger>) {
 	let net_graph_msg_handler = Arc::new(NetGraphMsgHandler::new(genesis_block(network).block_hash(), None, Arc::clone(&logger)));
 
 	let peers = RefCell::new([false; 256]);
-	let mut loss_detector = MoneyLossDetector::new(&peers, channelmanager.clone(), monitor.clone(), PeerManager::new(MessageHandler {
+	let mut loss_detector = MoneyLossDetector::new(&peers, channelmanager.clone(), monitor.clone(), broadcast.clone(), PeerManager::new(MessageHandler {
 		chan_handler: channelmanager.clone(),
 		route_handler: net_graph_msg_handler.clone(),
 	}, our_network_key, &[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15, 0], Arc::clone(&logger)));
