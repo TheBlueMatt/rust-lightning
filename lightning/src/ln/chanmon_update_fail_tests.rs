@@ -43,6 +43,10 @@ use util::test_utils;
 use prelude::*;
 use std::sync::{Arc, Mutex};
 
+//TODO: Add a test that creates a channel, but in the inbound direction the monitor update fails to
+//persist on funding_signed, but the channelmanager gets persisted, and then when we reload it from
+//disk, we need to make sure the channel gets closed!
+
 // If persister_fail is true, we have the persister return a PermanentFailure
 // instead of the higher-level ChainMonitor.
 fn do_test_simple_monitor_permanent_update_fail(persister_fail: bool) {

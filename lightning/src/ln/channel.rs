@@ -2913,6 +2913,7 @@ debug_assert!(false, "This should be triggerable, and we should add a test case 
 		let commitment_update = if self.monitor_pending_commitment_signed {
 			Some(self.get_last_commitment_update(logger))
 		} else { None };
+//XXX: Should we free_holding_cell_htlcs() here if we dont need a cs normally?
 
 		self.monitor_pending_revoke_and_ack = false;
 		self.monitor_pending_commitment_signed = false;
