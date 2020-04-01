@@ -783,9 +783,10 @@ impl<Signer: Sign> Channel<Signer> {
 			return Err(ChannelError::Close(format!("Insufficient funding amount ({}) for initial commitment. Must be at least {}", funders_amount_msat, lower_limit)));
 		}
 
-		let to_local_msat = msg.push_msat;
 		let to_remote_msat = funders_amount_msat - background_feerate as u64 * COMMITMENT_TX_BASE_WEIGHT;
-		if to_local_msat <= msg.channel_reserve_satoshis * 1000 && to_remote_msat <= holder_selected_channel_reserve_satoshis * 1000 {
+		// While its reasonable for us to not meet the channel reserve initially (if they don't
+		// want to push much to us), our counterparty should always have more than the reserve.
+		if to_remote_msat <= msg.channel_reserve_satoshis * 1000 {
 			return Err(ChannelError::Close("Insufficient funding amount for initial commitment".to_owned()));
 		}
 
