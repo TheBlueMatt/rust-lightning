@@ -5037,9 +5037,16 @@ fn test_static_spendable_outputs_justice_tx_revoked_htlc_timeout_tx() {
 	check_added_monitors!(nodes[1], 1);
 
 	let node_txn = nodes[1].tx_broadcaster.txn_broadcasted.lock().unwrap();
-	assert_eq!(node_txn.len(), 4); // ChannelMonitor: justice tx on revoked commitment, justice tx on revoked HTLC-timeout, adjusted justice tx, ChannelManager: local commitment tx
-	assert_eq!(node_txn[0].input.len(), 2);
-	check_spends!(node_txn[0], revoked_local_txn[0]);
+	assert_eq!(node_txn.len(), 3); // ChannelMonitor: justice tx on revoked commitment, justice tx on revoked HTLC-timeout, adjusted justice tx, ChannelManager: local commitment tx
+
+	// node_txn[0] fully spends revoked_local_txn[0].
+	assert_eq!(node_txn[0].input.len(), 3);
+	assert_eq!(revoked_local_txn[0].output.len(), 2);
+	// node_txn[0] tries to spend both revoked_local_txn[0] and revoked_htlc_txn[0], but
+	// revoked_htlc_txn[0] spends revoked_local_txn[0] (ie this is a double-spend)!
+	check_spends!(node_txn[0], revoked_local_txn[0], revoked_htlc_txn[0]);
+	check_spends!(revoked_htlc_txn[0], revoked_local_txn[0]);
+
 	check_spends!(node_txn[1], chan_1.3);
 	assert_eq!(node_txn[2].input.len(), 1);
 	check_spends!(node_txn[2], revoked_htlc_txn[0]);

@@ -380,9 +380,10 @@ impl ChainWatchInterface for ChainWatchInterfaceUtil {
 		{
 			let watched = self.watched.lock().unwrap();
 			for (index, transaction) in block.txdata.iter().enumerate() {
-				if self.does_match_tx_unguarded(transaction, &watched) {
+				// Note, while some clients filter, we can't rely on all clients filtering!
+				//if self.does_match_tx_unguarded(transaction, &watched) {
 					matched_index.push(index);
-				}
+				//}
 			}
 		}
 		matched_index
