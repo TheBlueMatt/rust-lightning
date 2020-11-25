@@ -33,11 +33,6 @@ pub fn get_single_remaining_path_seg<'a, I: Iterator<Item=&'a syn::PathSegment>>
 	} else { None }
 }
 
-pub fn assert_single_path_seg<'a>(p: &'a syn::Path) -> &'a syn::Ident {
-	if p.leading_colon.is_some() { unimplemented!(); }
-	get_single_remaining_path_seg(&mut p.segments.iter()).unwrap()
-}
-
 pub fn single_ident_generic_path_to_ident(p: &syn::Path) -> Option<&syn::Ident> {
 	if p.segments.len() == 1 {
 		Some(&p.segments.iter().next().unwrap().ident)
@@ -193,6 +188,34 @@ impl<'a> GenericTypes<'a> {
 		true
 	}
 
+	/// Learn the associated types from the trait in the current context.
+	pub fn learn_associated_types<'b, 'c>(&mut self, t: &'a syn::ItemTrait, types: &'b TypeResolver<'a, 'c>) {
+		for item in t.items.iter() {
+			match item {
+				&syn::TraitItem::Type(ref t) => {
+					if t.default.is_some() || t.generics.lt_token.is_some() { unimplemented!(); }
+					let mut bounds_iter = t.bounds.iter();
+					match bounds_iter.next().unwrap() {
+						syn::TypeParamBound::Trait(tr) => {
+							assert_simple_bound(&tr);
+							if let Some(mut path) = types.maybe_resolve_path(&tr.path, None) {
+								if types.skip_path(&path) { continue; }
+								let new_ident = if path != "std::ops::Deref" {
+									path = "crate::".to_string() + &path;
+									Some(&tr.path)
+								} else { None };
+								self.typed_generics.last_mut().unwrap().insert(&t.ident, (path, new_ident));
+							} else { unimplemented!(); }
+						},
+						_ => unimplemented!(),
+					}
+					if bounds_iter.next().is_some() { unimplemented!(); }
+				},
+				_ => {},
+			}
+		}
+	}
+
 	/// Attempt to resolve an Ident as a generic parameter and return the full path.
 	pub fn maybe_resolve_ident<'b>(&'b self, ident: &syn::Ident) -> Option<&'b String> {
 		for gen in self.typed_generics.iter().rev() {
@@ -209,6 +232,16 @@ impl<'a> GenericTypes<'a> {
 			for gen in self.typed_generics.iter().rev() {
 				if let Some(res) = gen.get(ident).map(|(a, b)| (a, b.unwrap())) {
 					return Some(res);
+				}
+			}
+		} else {
+			let mut it = path.segments.iter();
+			if path.segments.len() == 2 && format!("{}", it.next().unwrap().ident) == "Self" {
+				let ident = &it.next().unwrap().ident;
+				for gen in self.typed_generics.iter().rev() {
+					if let Some(res) = gen.get(ident).map(|(a, b)| (a, b.unwrap())) {
+						return Some(res);
+					}
 				}
 			}
 		}
