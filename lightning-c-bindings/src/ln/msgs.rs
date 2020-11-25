@@ -4149,6 +4149,12 @@ impl Drop for ChannelMessageHandler {
 	}
 }
 /// A trait to describe an object which can receive routing messages.
+///
+/// # Implementor DoS Warnings
+///
+/// For `gossip_queries` messages there are potential DoS vectors when handling
+/// inbound queries. Implementors using an on-disk network graph should be aware of
+/// repeated disk I/O for queries accessing different parts of the network graph.
 #[repr(C)]
 pub struct RoutingMessageHandler {
 	pub this_arg: *mut c_void,
@@ -4177,13 +4183,39 @@ pub struct RoutingMessageHandler {
 	/// If None is provided for starting_point, we start at the first node.
 	#[must_use]
 	pub get_next_node_announcements: extern "C" fn (this_arg: *const c_void, starting_point: crate::c_types::PublicKey, batch_amount: u8) -> crate::c_types::derived::CVec_NodeAnnouncementZ,
-	/// Returns whether a full sync should be requested from a peer.
+	/// Called when a connection is established with a peer. This can be used to
+	/// perform routing table synchronization using a strategy defined by the
+	/// implementor.
+	pub sync_routing_table: extern "C" fn (this_arg: *const c_void, their_node_id: crate::c_types::PublicKey, init: &crate::ln::msgs::Init),
+	/// Handles the reply of a query we initiated to learn about channels
+	/// for a given range of blocks. We can expect to receive one or more
+	/// replies to a single query.
 	#[must_use]
-	pub should_request_full_sync: extern "C" fn (this_arg: *const c_void, node_id: crate::c_types::PublicKey) -> bool,
+	pub handle_reply_channel_range: extern "C" fn (this_arg: *const c_void, their_node_id: crate::c_types::PublicKey, msg: crate::ln::msgs::ReplyChannelRange) -> crate::c_types::derived::CResult_NoneLightningErrorZ,
+	/// Handles the reply of a query we initiated asking for routing gossip
+	/// messages for a list of channels. We should receive this message when
+	/// a node has completed its best effort to send us the pertaining routing
+	/// gossip messages.
+	#[must_use]
+	pub handle_reply_short_channel_ids_end: extern "C" fn (this_arg: *const c_void, their_node_id: crate::c_types::PublicKey, msg: crate::ln::msgs::ReplyShortChannelIdsEnd) -> crate::c_types::derived::CResult_NoneLightningErrorZ,
+	/// Handles when a peer asks us to send a list of short_channel_ids
+	/// for the requested range of blocks.
+	#[must_use]
+	pub handle_query_channel_range: extern "C" fn (this_arg: *const c_void, their_node_id: crate::c_types::PublicKey, msg: crate::ln::msgs::QueryChannelRange) -> crate::c_types::derived::CResult_NoneLightningErrorZ,
+	/// Handles when a peer asks us to send routing gossip messages for a
+	/// list of short_channel_ids.
+	#[must_use]
+	pub handle_query_short_channel_ids: extern "C" fn (this_arg: *const c_void, their_node_id: crate::c_types::PublicKey, msg: crate::ln::msgs::QueryShortChannelIds) -> crate::c_types::derived::CResult_NoneLightningErrorZ,
+	pub MessageSendEventsProvider: crate::util::events::MessageSendEventsProvider,
 	pub free: Option<extern "C" fn(this_arg: *mut c_void)>,
 }
 unsafe impl Send for RoutingMessageHandler {}
 unsafe impl Sync for RoutingMessageHandler {}
+impl lightning::util::events::MessageSendEventsProvider for RoutingMessageHandler {
+	fn get_and_clear_pending_msg_events(&self) -> Vec<lightning::util::events::MessageSendEvent> {
+		<crate::util::events::MessageSendEventsProvider as lightning::util::events::MessageSendEventsProvider>::get_and_clear_pending_msg_events(&self.MessageSendEventsProvider)
+	}
+}
 
 use lightning::ln::msgs::RoutingMessageHandler as rustRoutingMessageHandler;
 impl rustRoutingMessageHandler for RoutingMessageHandler {
@@ -4216,9 +4248,28 @@ impl rustRoutingMessageHandler for RoutingMessageHandler {
 		let mut local_ret = Vec::new(); for mut item in ret.into_rust().drain(..) { local_ret.push( { *unsafe { Box::from_raw(item.take_ptr()) } }); };
 		local_ret
 	}
-	fn should_request_full_sync(&self, node_id: &bitcoin::secp256k1::key::PublicKey) -> bool {
-		let mut ret = (self.should_request_full_sync)(self.this_arg, crate::c_types::PublicKey::from_rust(&node_id));
-		ret
+	fn sync_routing_table(&self, their_node_id: &bitcoin::secp256k1::key::PublicKey, init: &lightning::ln::msgs::Init) {
+		(self.sync_routing_table)(self.this_arg, crate::c_types::PublicKey::from_rust(&their_node_id), &crate::ln::msgs::Init { inner: unsafe { (init as *const _) as *mut _ }, is_owned: false })
+	}
+	fn handle_reply_channel_range(&self, their_node_id: &bitcoin::secp256k1::key::PublicKey, msg: lightning::ln::msgs::ReplyChannelRange) -> Result<(), lightning::ln::msgs::LightningError> {
+		let mut ret = (self.handle_reply_channel_range)(self.this_arg, crate::c_types::PublicKey::from_rust(&their_node_id), crate::ln::msgs::ReplyChannelRange { inner: Box::into_raw(Box::new(msg)), is_owned: true });
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		local_ret
+	}
+	fn handle_reply_short_channel_ids_end(&self, their_node_id: &bitcoin::secp256k1::key::PublicKey, msg: lightning::ln::msgs::ReplyShortChannelIdsEnd) -> Result<(), lightning::ln::msgs::LightningError> {
+		let mut ret = (self.handle_reply_short_channel_ids_end)(self.this_arg, crate::c_types::PublicKey::from_rust(&their_node_id), crate::ln::msgs::ReplyShortChannelIdsEnd { inner: Box::into_raw(Box::new(msg)), is_owned: true });
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		local_ret
+	}
+	fn handle_query_channel_range(&self, their_node_id: &bitcoin::secp256k1::key::PublicKey, msg: lightning::ln::msgs::QueryChannelRange) -> Result<(), lightning::ln::msgs::LightningError> {
+		let mut ret = (self.handle_query_channel_range)(self.this_arg, crate::c_types::PublicKey::from_rust(&their_node_id), crate::ln::msgs::QueryChannelRange { inner: Box::into_raw(Box::new(msg)), is_owned: true });
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		local_ret
+	}
+	fn handle_query_short_channel_ids(&self, their_node_id: &bitcoin::secp256k1::key::PublicKey, msg: lightning::ln::msgs::QueryShortChannelIds) -> Result<(), lightning::ln::msgs::LightningError> {
+		let mut ret = (self.handle_query_short_channel_ids)(self.this_arg, crate::c_types::PublicKey::from_rust(&their_node_id), crate::ln::msgs::QueryShortChannelIds { inner: Box::into_raw(Box::new(msg)), is_owned: true });
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		local_ret
 	}
 }
 
@@ -4245,6 +4296,10 @@ pub extern "C" fn AcceptChannel_write(obj: *const AcceptChannel) -> crate::c_typ
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn AcceptChannel_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeAcceptChannel) })
+}
+#[no_mangle]
 pub extern "C" fn AcceptChannel_read(ser: crate::c_types::u8slice) -> AcceptChannel {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		AcceptChannel { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4255,6 +4310,10 @@ pub extern "C" fn AcceptChannel_read(ser: crate::c_types::u8slice) -> AcceptChan
 #[no_mangle]
 pub extern "C" fn AnnouncementSignatures_write(obj: *const AnnouncementSignatures) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn AnnouncementSignatures_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeAnnouncementSignatures) })
 }
 #[no_mangle]
 pub extern "C" fn AnnouncementSignatures_read(ser: crate::c_types::u8slice) -> AnnouncementSignatures {
@@ -4269,6 +4328,10 @@ pub extern "C" fn ChannelReestablish_write(obj: *const ChannelReestablish) -> cr
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn ChannelReestablish_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeChannelReestablish) })
+}
+#[no_mangle]
 pub extern "C" fn ChannelReestablish_read(ser: crate::c_types::u8slice) -> ChannelReestablish {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		ChannelReestablish { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4279,6 +4342,10 @@ pub extern "C" fn ChannelReestablish_read(ser: crate::c_types::u8slice) -> Chann
 #[no_mangle]
 pub extern "C" fn ClosingSigned_write(obj: *const ClosingSigned) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn ClosingSigned_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeClosingSigned) })
 }
 #[no_mangle]
 pub extern "C" fn ClosingSigned_read(ser: crate::c_types::u8slice) -> ClosingSigned {
@@ -4293,6 +4360,10 @@ pub extern "C" fn CommitmentSigned_write(obj: *const CommitmentSigned) -> crate:
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn CommitmentSigned_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeCommitmentSigned) })
+}
+#[no_mangle]
 pub extern "C" fn CommitmentSigned_read(ser: crate::c_types::u8slice) -> CommitmentSigned {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		CommitmentSigned { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4303,6 +4374,10 @@ pub extern "C" fn CommitmentSigned_read(ser: crate::c_types::u8slice) -> Commitm
 #[no_mangle]
 pub extern "C" fn FundingCreated_write(obj: *const FundingCreated) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn FundingCreated_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeFundingCreated) })
 }
 #[no_mangle]
 pub extern "C" fn FundingCreated_read(ser: crate::c_types::u8slice) -> FundingCreated {
@@ -4317,6 +4392,10 @@ pub extern "C" fn FundingSigned_write(obj: *const FundingSigned) -> crate::c_typ
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn FundingSigned_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeFundingSigned) })
+}
+#[no_mangle]
 pub extern "C" fn FundingSigned_read(ser: crate::c_types::u8slice) -> FundingSigned {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		FundingSigned { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4327,6 +4406,10 @@ pub extern "C" fn FundingSigned_read(ser: crate::c_types::u8slice) -> FundingSig
 #[no_mangle]
 pub extern "C" fn FundingLocked_write(obj: *const FundingLocked) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn FundingLocked_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeFundingLocked) })
 }
 #[no_mangle]
 pub extern "C" fn FundingLocked_read(ser: crate::c_types::u8slice) -> FundingLocked {
@@ -4341,6 +4424,10 @@ pub extern "C" fn Init_write(obj: *const Init) -> crate::c_types::derived::CVec_
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn Init_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeInit) })
+}
+#[no_mangle]
 pub extern "C" fn Init_read(ser: crate::c_types::u8slice) -> Init {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		Init { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4351,6 +4438,10 @@ pub extern "C" fn Init_read(ser: crate::c_types::u8slice) -> Init {
 #[no_mangle]
 pub extern "C" fn OpenChannel_write(obj: *const OpenChannel) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn OpenChannel_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeOpenChannel) })
 }
 #[no_mangle]
 pub extern "C" fn OpenChannel_read(ser: crate::c_types::u8slice) -> OpenChannel {
@@ -4365,6 +4456,10 @@ pub extern "C" fn RevokeAndACK_write(obj: *const RevokeAndACK) -> crate::c_types
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn RevokeAndACK_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeRevokeAndACK) })
+}
+#[no_mangle]
 pub extern "C" fn RevokeAndACK_read(ser: crate::c_types::u8slice) -> RevokeAndACK {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		RevokeAndACK { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4375,6 +4470,10 @@ pub extern "C" fn RevokeAndACK_read(ser: crate::c_types::u8slice) -> RevokeAndAC
 #[no_mangle]
 pub extern "C" fn Shutdown_write(obj: *const Shutdown) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn Shutdown_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeShutdown) })
 }
 #[no_mangle]
 pub extern "C" fn Shutdown_read(ser: crate::c_types::u8slice) -> Shutdown {
@@ -4389,6 +4488,10 @@ pub extern "C" fn UpdateFailHTLC_write(obj: *const UpdateFailHTLC) -> crate::c_t
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn UpdateFailHTLC_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeUpdateFailHTLC) })
+}
+#[no_mangle]
 pub extern "C" fn UpdateFailHTLC_read(ser: crate::c_types::u8slice) -> UpdateFailHTLC {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		UpdateFailHTLC { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4399,6 +4502,10 @@ pub extern "C" fn UpdateFailHTLC_read(ser: crate::c_types::u8slice) -> UpdateFai
 #[no_mangle]
 pub extern "C" fn UpdateFailMalformedHTLC_write(obj: *const UpdateFailMalformedHTLC) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn UpdateFailMalformedHTLC_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeUpdateFailMalformedHTLC) })
 }
 #[no_mangle]
 pub extern "C" fn UpdateFailMalformedHTLC_read(ser: crate::c_types::u8slice) -> UpdateFailMalformedHTLC {
@@ -4413,6 +4520,10 @@ pub extern "C" fn UpdateFee_write(obj: *const UpdateFee) -> crate::c_types::deri
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn UpdateFee_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeUpdateFee) })
+}
+#[no_mangle]
 pub extern "C" fn UpdateFee_read(ser: crate::c_types::u8slice) -> UpdateFee {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		UpdateFee { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4423,6 +4534,10 @@ pub extern "C" fn UpdateFee_read(ser: crate::c_types::u8slice) -> UpdateFee {
 #[no_mangle]
 pub extern "C" fn UpdateFulfillHTLC_write(obj: *const UpdateFulfillHTLC) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn UpdateFulfillHTLC_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeUpdateFulfillHTLC) })
 }
 #[no_mangle]
 pub extern "C" fn UpdateFulfillHTLC_read(ser: crate::c_types::u8slice) -> UpdateFulfillHTLC {
@@ -4437,6 +4552,10 @@ pub extern "C" fn UpdateAddHTLC_write(obj: *const UpdateAddHTLC) -> crate::c_typ
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn UpdateAddHTLC_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeUpdateAddHTLC) })
+}
+#[no_mangle]
 pub extern "C" fn UpdateAddHTLC_read(ser: crate::c_types::u8slice) -> UpdateAddHTLC {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		UpdateAddHTLC { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4447,6 +4566,10 @@ pub extern "C" fn UpdateAddHTLC_read(ser: crate::c_types::u8slice) -> UpdateAddH
 #[no_mangle]
 pub extern "C" fn Ping_write(obj: *const Ping) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn Ping_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativePing) })
 }
 #[no_mangle]
 pub extern "C" fn Ping_read(ser: crate::c_types::u8slice) -> Ping {
@@ -4461,6 +4584,10 @@ pub extern "C" fn Pong_write(obj: *const Pong) -> crate::c_types::derived::CVec_
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn Pong_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativePong) })
+}
+#[no_mangle]
 pub extern "C" fn Pong_read(ser: crate::c_types::u8slice) -> Pong {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		Pong { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4471,6 +4598,10 @@ pub extern "C" fn Pong_read(ser: crate::c_types::u8slice) -> Pong {
 #[no_mangle]
 pub extern "C" fn UnsignedChannelAnnouncement_write(obj: *const UnsignedChannelAnnouncement) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn UnsignedChannelAnnouncement_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeUnsignedChannelAnnouncement) })
 }
 #[no_mangle]
 pub extern "C" fn UnsignedChannelAnnouncement_read(ser: crate::c_types::u8slice) -> UnsignedChannelAnnouncement {
@@ -4485,6 +4616,10 @@ pub extern "C" fn ChannelAnnouncement_write(obj: *const ChannelAnnouncement) -> 
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn ChannelAnnouncement_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeChannelAnnouncement) })
+}
+#[no_mangle]
 pub extern "C" fn ChannelAnnouncement_read(ser: crate::c_types::u8slice) -> ChannelAnnouncement {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		ChannelAnnouncement { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4495,6 +4630,10 @@ pub extern "C" fn ChannelAnnouncement_read(ser: crate::c_types::u8slice) -> Chan
 #[no_mangle]
 pub extern "C" fn UnsignedChannelUpdate_write(obj: *const UnsignedChannelUpdate) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn UnsignedChannelUpdate_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeUnsignedChannelUpdate) })
 }
 #[no_mangle]
 pub extern "C" fn UnsignedChannelUpdate_read(ser: crate::c_types::u8slice) -> UnsignedChannelUpdate {
@@ -4509,6 +4648,10 @@ pub extern "C" fn ChannelUpdate_write(obj: *const ChannelUpdate) -> crate::c_typ
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn ChannelUpdate_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeChannelUpdate) })
+}
+#[no_mangle]
 pub extern "C" fn ChannelUpdate_read(ser: crate::c_types::u8slice) -> ChannelUpdate {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		ChannelUpdate { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4519,6 +4662,10 @@ pub extern "C" fn ChannelUpdate_read(ser: crate::c_types::u8slice) -> ChannelUpd
 #[no_mangle]
 pub extern "C" fn ErrorMessage_write(obj: *const ErrorMessage) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn ErrorMessage_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeErrorMessage) })
 }
 #[no_mangle]
 pub extern "C" fn ErrorMessage_read(ser: crate::c_types::u8slice) -> ErrorMessage {
@@ -4533,6 +4680,10 @@ pub extern "C" fn UnsignedNodeAnnouncement_write(obj: *const UnsignedNodeAnnounc
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn UnsignedNodeAnnouncement_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeUnsignedNodeAnnouncement) })
+}
+#[no_mangle]
 pub extern "C" fn UnsignedNodeAnnouncement_read(ser: crate::c_types::u8slice) -> UnsignedNodeAnnouncement {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		UnsignedNodeAnnouncement { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4543,6 +4694,10 @@ pub extern "C" fn UnsignedNodeAnnouncement_read(ser: crate::c_types::u8slice) ->
 #[no_mangle]
 pub extern "C" fn NodeAnnouncement_write(obj: *const NodeAnnouncement) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn NodeAnnouncement_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeNodeAnnouncement) })
 }
 #[no_mangle]
 pub extern "C" fn NodeAnnouncement_read(ser: crate::c_types::u8slice) -> NodeAnnouncement {
@@ -4565,6 +4720,10 @@ pub extern "C" fn QueryShortChannelIds_write(obj: *const QueryShortChannelIds) -
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn QueryShortChannelIds_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeQueryShortChannelIds) })
+}
+#[no_mangle]
 pub extern "C" fn ReplyShortChannelIdsEnd_read(ser: crate::c_types::u8slice) -> ReplyShortChannelIdsEnd {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		ReplyShortChannelIdsEnd { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4575,6 +4734,10 @@ pub extern "C" fn ReplyShortChannelIdsEnd_read(ser: crate::c_types::u8slice) -> 
 #[no_mangle]
 pub extern "C" fn ReplyShortChannelIdsEnd_write(obj: *const ReplyShortChannelIdsEnd) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn ReplyShortChannelIdsEnd_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeReplyShortChannelIdsEnd) })
 }
 #[no_mangle]
 pub extern "C" fn QueryChannelRange_read(ser: crate::c_types::u8slice) -> QueryChannelRange {
@@ -4589,6 +4752,10 @@ pub extern "C" fn QueryChannelRange_write(obj: *const QueryChannelRange) -> crat
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn QueryChannelRange_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeQueryChannelRange) })
+}
+#[no_mangle]
 pub extern "C" fn ReplyChannelRange_read(ser: crate::c_types::u8slice) -> ReplyChannelRange {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		ReplyChannelRange { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4601,6 +4768,10 @@ pub extern "C" fn ReplyChannelRange_write(obj: *const ReplyChannelRange) -> crat
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn ReplyChannelRange_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeReplyChannelRange) })
+}
+#[no_mangle]
 pub extern "C" fn GossipTimestampFilter_read(ser: crate::c_types::u8slice) -> GossipTimestampFilter {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		GossipTimestampFilter { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -4611,4 +4782,8 @@ pub extern "C" fn GossipTimestampFilter_read(ser: crate::c_types::u8slice) -> Go
 #[no_mangle]
 pub extern "C" fn GossipTimestampFilter_write(obj: *const GossipTimestampFilter) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+}
+#[no_mangle]
+pub(crate) extern "C" fn GossipTimestampFilter_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeGossipTimestampFilter) })
 }

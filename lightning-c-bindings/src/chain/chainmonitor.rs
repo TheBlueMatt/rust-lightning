@@ -117,6 +117,16 @@ pub extern "C" fn ChainMonitor_new(chain_source: *mut crate::chain::Filter, mut 
 	ChainMonitor { inner: Box::into_raw(Box::new(ret)), is_owned: true }
 }
 
+impl From<nativeChainMonitor> for crate::chain::Watch {
+	fn from(obj: nativeChainMonitor) -> Self {
+		let mut rust_obj = ChainMonitor { inner: Box::into_raw(Box::new(obj)), is_owned: true };
+		let mut ret = ChainMonitor_as_Watch(&rust_obj);
+		// We want to free rust_obj when ret gets drop()'d, not rust_obj, so wipe rust_obj's pointer and set ret's free() fn
+		rust_obj.inner = std::ptr::null_mut();
+		ret.free = Some(ChainMonitor_free_void);
+		ret
+	}
+}
 #[no_mangle]
 pub extern "C" fn ChainMonitor_as_Watch(this_arg: *const ChainMonitor) -> crate::chain::Watch {
 	crate::chain::Watch {
@@ -147,6 +157,16 @@ extern "C" fn ChainMonitor_Watch_release_pending_monitor_events(this_arg: *const
 	local_ret.into()
 }
 
+impl From<nativeChainMonitor> for crate::util::events::EventsProvider {
+	fn from(obj: nativeChainMonitor) -> Self {
+		let mut rust_obj = ChainMonitor { inner: Box::into_raw(Box::new(obj)), is_owned: true };
+		let mut ret = ChainMonitor_as_EventsProvider(&rust_obj);
+		// We want to free rust_obj when ret gets drop()'d, not rust_obj, so wipe rust_obj's pointer and set ret's free() fn
+		rust_obj.inner = std::ptr::null_mut();
+		ret.free = Some(ChainMonitor_free_void);
+		ret
+	}
+}
 #[no_mangle]
 pub extern "C" fn ChainMonitor_as_EventsProvider(this_arg: *const ChainMonitor) -> crate::util::events::EventsProvider {
 	crate::util::events::EventsProvider {

@@ -556,6 +556,16 @@ pub extern "C" fn ChannelManager_channel_monitor_updated(this_arg: &ChannelManag
 	unsafe { &*this_arg.inner }.channel_monitor_updated(unsafe { &*funding_txo.inner }, highest_applied_update_id)
 }
 
+impl From<nativeChannelManager> for crate::util::events::MessageSendEventsProvider {
+	fn from(obj: nativeChannelManager) -> Self {
+		let mut rust_obj = ChannelManager { inner: Box::into_raw(Box::new(obj)), is_owned: true };
+		let mut ret = ChannelManager_as_MessageSendEventsProvider(&rust_obj);
+		// We want to free rust_obj when ret gets drop()'d, not rust_obj, so wipe rust_obj's pointer and set ret's free() fn
+		rust_obj.inner = std::ptr::null_mut();
+		ret.free = Some(ChannelManager_free_void);
+		ret
+	}
+}
 #[no_mangle]
 pub extern "C" fn ChannelManager_as_MessageSendEventsProvider(this_arg: *const ChannelManager) -> crate::util::events::MessageSendEventsProvider {
 	crate::util::events::MessageSendEventsProvider {
@@ -572,6 +582,16 @@ extern "C" fn ChannelManager_MessageSendEventsProvider_get_and_clear_pending_msg
 	local_ret.into()
 }
 
+impl From<nativeChannelManager> for crate::util::events::EventsProvider {
+	fn from(obj: nativeChannelManager) -> Self {
+		let mut rust_obj = ChannelManager { inner: Box::into_raw(Box::new(obj)), is_owned: true };
+		let mut ret = ChannelManager_as_EventsProvider(&rust_obj);
+		// We want to free rust_obj when ret gets drop()'d, not rust_obj, so wipe rust_obj's pointer and set ret's free() fn
+		rust_obj.inner = std::ptr::null_mut();
+		ret.free = Some(ChannelManager_free_void);
+		ret
+	}
+}
 #[no_mangle]
 pub extern "C" fn ChannelManager_as_EventsProvider(this_arg: *const ChannelManager) -> crate::util::events::EventsProvider {
 	crate::util::events::EventsProvider {
@@ -604,6 +624,16 @@ pub extern "C" fn ChannelManager_block_disconnected(this_arg: &ChannelManager, h
 	unsafe { &*this_arg.inner }.block_disconnected(&::bitcoin::consensus::encode::deserialize(unsafe { &*header }).unwrap())
 }
 
+impl From<nativeChannelManager> for crate::ln::msgs::ChannelMessageHandler {
+	fn from(obj: nativeChannelManager) -> Self {
+		let mut rust_obj = ChannelManager { inner: Box::into_raw(Box::new(obj)), is_owned: true };
+		let mut ret = ChannelManager_as_ChannelMessageHandler(&rust_obj);
+		// We want to free rust_obj when ret gets drop()'d, not rust_obj, so wipe rust_obj's pointer and set ret's free() fn
+		rust_obj.inner = std::ptr::null_mut();
+		ret.free = Some(ChannelManager_free_void);
+		ret
+	}
+}
 #[no_mangle]
 pub extern "C" fn ChannelManager_as_ChannelMessageHandler(this_arg: *const ChannelManager) -> crate::ln::msgs::ChannelMessageHandler {
 	crate::ln::msgs::ChannelMessageHandler {
@@ -753,14 +783,16 @@ impl ChannelManagerReadArgs {
 	}
 }
 /// The keys provider which will give us relevant keys. Some keys will be loaded during
-/// deserialization.
+/// deserialization and KeysInterface::read_chan_signer will be used to read per-Channel
+/// signing data.
 #[no_mangle]
 pub extern "C" fn ChannelManagerReadArgs_get_keys_manager(this_ptr: &ChannelManagerReadArgs) -> *const crate::chain::keysinterface::KeysInterface {
 	let mut inner_val = &mut unsafe { &mut *this_ptr.inner }.keys_manager;
 	&(*inner_val)
 }
 /// The keys provider which will give us relevant keys. Some keys will be loaded during
-/// deserialization.
+/// deserialization and KeysInterface::read_chan_signer will be used to read per-Channel
+/// signing data.
 #[no_mangle]
 pub extern "C" fn ChannelManagerReadArgs_set_keys_manager(this_ptr: &mut ChannelManagerReadArgs, mut val: crate::chain::keysinterface::KeysInterface) {
 	unsafe { &mut *this_ptr.inner }.keys_manager = val;
