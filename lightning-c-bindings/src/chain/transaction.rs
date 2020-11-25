@@ -105,6 +105,10 @@ pub extern "C" fn OutPoint_write(obj: *const OutPoint) -> crate::c_types::derive
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn OutPoint_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeOutPoint) })
+}
+#[no_mangle]
 pub extern "C" fn OutPoint_read(ser: crate::c_types::u8slice) -> OutPoint {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		OutPoint { inner: Box::into_raw(Box::new(res)), is_owned: true }

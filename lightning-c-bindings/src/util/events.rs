@@ -407,6 +407,17 @@ pub enum MessageSendEvent {
 	PaymentFailureNetworkUpdate {
 		update: crate::ln::msgs::HTLCFailChannelUpdate,
 	},
+	/// Query a peer for channels with funding transaction UTXOs in a block range.
+	SendChannelRangeQuery {
+		node_id: crate::c_types::PublicKey,
+		msg: crate::ln::msgs::QueryChannelRange,
+	},
+	/// Request routing gossip messages from a peer for a list of channels identified by
+	/// their short_channel_ids.
+	SendShortIdsQuery {
+		node_id: crate::c_types::PublicKey,
+		msg: crate::ln::msgs::QueryShortChannelIds,
+	},
 }
 use lightning::util::events::MessageSendEvent as nativeMessageSendEvent;
 impl MessageSendEvent {
@@ -535,6 +546,22 @@ impl MessageSendEvent {
 					update: update_nonref.into_native(),
 				}
 			},
+			MessageSendEvent::SendChannelRangeQuery {ref node_id, ref msg, } => {
+				let mut node_id_nonref = (*node_id).clone();
+				let mut msg_nonref = (*msg).clone();
+				nativeMessageSendEvent::SendChannelRangeQuery {
+					node_id: node_id_nonref.into_rust(),
+					msg: *unsafe { Box::from_raw(msg_nonref.take_ptr()) },
+				}
+			},
+			MessageSendEvent::SendShortIdsQuery {ref node_id, ref msg, } => {
+				let mut node_id_nonref = (*node_id).clone();
+				let mut msg_nonref = (*msg).clone();
+				nativeMessageSendEvent::SendShortIdsQuery {
+					node_id: node_id_nonref.into_rust(),
+					msg: *unsafe { Box::from_raw(msg_nonref.take_ptr()) },
+				}
+			},
 		}
 	}
 	#[allow(unused)]
@@ -631,6 +658,18 @@ impl MessageSendEvent {
 			MessageSendEvent::PaymentFailureNetworkUpdate {mut update, } => {
 				nativeMessageSendEvent::PaymentFailureNetworkUpdate {
 					update: update.into_native(),
+				}
+			},
+			MessageSendEvent::SendChannelRangeQuery {mut node_id, mut msg, } => {
+				nativeMessageSendEvent::SendChannelRangeQuery {
+					node_id: node_id.into_rust(),
+					msg: *unsafe { Box::from_raw(msg.take_ptr()) },
+				}
+			},
+			MessageSendEvent::SendShortIdsQuery {mut node_id, mut msg, } => {
+				nativeMessageSendEvent::SendShortIdsQuery {
+					node_id: node_id.into_rust(),
+					msg: *unsafe { Box::from_raw(msg.take_ptr()) },
 				}
 			},
 		}
@@ -760,6 +799,22 @@ impl MessageSendEvent {
 					update: crate::ln::msgs::HTLCFailChannelUpdate::native_into(update_nonref),
 				}
 			},
+			nativeMessageSendEvent::SendChannelRangeQuery {ref node_id, ref msg, } => {
+				let mut node_id_nonref = (*node_id).clone();
+				let mut msg_nonref = (*msg).clone();
+				MessageSendEvent::SendChannelRangeQuery {
+					node_id: crate::c_types::PublicKey::from_rust(&node_id_nonref),
+					msg: crate::ln::msgs::QueryChannelRange { inner: Box::into_raw(Box::new(msg_nonref)), is_owned: true },
+				}
+			},
+			nativeMessageSendEvent::SendShortIdsQuery {ref node_id, ref msg, } => {
+				let mut node_id_nonref = (*node_id).clone();
+				let mut msg_nonref = (*msg).clone();
+				MessageSendEvent::SendShortIdsQuery {
+					node_id: crate::c_types::PublicKey::from_rust(&node_id_nonref),
+					msg: crate::ln::msgs::QueryShortChannelIds { inner: Box::into_raw(Box::new(msg_nonref)), is_owned: true },
+				}
+			},
 		}
 	}
 	#[allow(unused)]
@@ -856,6 +911,18 @@ impl MessageSendEvent {
 			nativeMessageSendEvent::PaymentFailureNetworkUpdate {mut update, } => {
 				MessageSendEvent::PaymentFailureNetworkUpdate {
 					update: crate::ln::msgs::HTLCFailChannelUpdate::native_into(update),
+				}
+			},
+			nativeMessageSendEvent::SendChannelRangeQuery {mut node_id, mut msg, } => {
+				MessageSendEvent::SendChannelRangeQuery {
+					node_id: crate::c_types::PublicKey::from_rust(&node_id),
+					msg: crate::ln::msgs::QueryChannelRange { inner: Box::into_raw(Box::new(msg)), is_owned: true },
+				}
+			},
+			nativeMessageSendEvent::SendShortIdsQuery {mut node_id, mut msg, } => {
+				MessageSendEvent::SendShortIdsQuery {
+					node_id: crate::c_types::PublicKey::from_rust(&node_id),
+					msg: crate::ln::msgs::QueryShortChannelIds { inner: Box::into_raw(Box::new(msg)), is_owned: true },
 				}
 			},
 		}

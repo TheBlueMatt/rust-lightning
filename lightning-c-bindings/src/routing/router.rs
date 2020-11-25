@@ -226,6 +226,10 @@ pub extern "C" fn Route_write(obj: *const Route) -> crate::c_types::derived::CVe
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn Route_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeRoute) })
+}
+#[no_mangle]
 pub extern "C" fn Route_read(ser: crate::c_types::u8slice) -> Route {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		Route { inner: Box::into_raw(Box::new(res)), is_owned: true }

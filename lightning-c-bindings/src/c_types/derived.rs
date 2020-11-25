@@ -110,11 +110,6 @@ pub extern "C" fn C2Tuple_u64u64Z_new(a: u64, b: u64) -> C2Tuple_u64u64Z {
 }
 
 #[no_mangle]
-pub type CVec_HTLCOutputInCommitmentZ = crate::c_types::CVecTempl<crate::ln::chan_utils::HTLCOutputInCommitment>;
-#[no_mangle]
-pub static CVec_HTLCOutputInCommitmentZ_free: extern "C" fn(CVec_HTLCOutputInCommitmentZ) = crate::c_types::CVecTempl_free::<crate::ln::chan_utils::HTLCOutputInCommitment>;
-
-#[no_mangle]
 pub type CVec_SignatureZ = crate::c_types::CVecTempl<crate::c_types::Signature>;
 #[no_mangle]
 pub static CVec_SignatureZ_free: extern "C" fn(CVec_SignatureZ) = crate::c_types::CVecTempl_free::<crate::c_types::Signature>;
@@ -166,6 +161,18 @@ pub static CResult_CVec_SignatureZNoneZ_ok: extern "C" fn (CVec_SignatureZ) -> C
 pub extern "C" fn CResult_CVec_SignatureZNoneZ_err() -> CResult_CVec_SignatureZNoneZ {
 	crate::c_types::CResultTempl::err(0)
 }
+
+#[no_mangle]
+pub type CResult_ChanKeySignerDecodeErrorZ = crate::c_types::CResultTempl<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>;
+#[no_mangle]
+pub static CResult_ChanKeySignerDecodeErrorZ_free: extern "C" fn(CResult_ChanKeySignerDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>;
+#[no_mangle]
+pub static CResult_ChanKeySignerDecodeErrorZ_ok: extern "C" fn (crate::chain::keysinterface::ChannelKeys) -> CResult_ChanKeySignerDecodeErrorZ =
+	crate::c_types::CResultTempl::<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>::ok;
+
+#[no_mangle]
+pub static CResult_ChanKeySignerDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_ChanKeySignerDecodeErrorZ =
+	crate::c_types::CResultTempl::<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>::err;
 
 #[no_mangle]
 pub type CResult_TxOutAccessErrorZ = crate::c_types::CResultTempl<crate::c_types::TxOut, crate::chain::AccessError>;
@@ -277,6 +284,19 @@ pub type CVec_NodeAnnouncementZ = crate::c_types::CVecTempl<crate::ln::msgs::Nod
 pub static CVec_NodeAnnouncementZ_free: extern "C" fn(CVec_NodeAnnouncementZ) = crate::c_types::CVecTempl_free::<crate::ln::msgs::NodeAnnouncement>;
 
 #[no_mangle]
+pub type CResult_NoneLightningErrorZ = crate::c_types::CResultTempl<u8, crate::ln::msgs::LightningError>;
+#[no_mangle]
+pub static CResult_NoneLightningErrorZ_free: extern "C" fn(CResult_NoneLightningErrorZ) = crate::c_types::CResultTempl_free::<u8, crate::ln::msgs::LightningError>;
+#[no_mangle]
+pub extern "C" fn CResult_NoneLightningErrorZ_ok() -> CResult_NoneLightningErrorZ {
+	crate::c_types::CResultTempl::ok(0)
+}
+
+#[no_mangle]
+pub static CResult_NoneLightningErrorZ_err: extern "C" fn (crate::ln::msgs::LightningError) -> CResult_NoneLightningErrorZ =
+	crate::c_types::CResultTempl::<u8, crate::ln::msgs::LightningError>::err;
+
+#[no_mangle]
 pub type CVec_PublicKeyZ = crate::c_types::CVecTempl<crate::c_types::PublicKey>;
 #[no_mangle]
 pub static CVec_PublicKeyZ_free: extern "C" fn(CVec_PublicKeyZ) = crate::c_types::CVecTempl_free::<crate::c_types::PublicKey>;
@@ -360,18 +380,17 @@ pub static CResult_TxCreationKeysSecpErrorZ_err: extern "C" fn (crate::c_types::
 	crate::c_types::CResultTempl::<crate::ln::chan_utils::TxCreationKeys, crate::c_types::Secp256k1Error>::err;
 
 #[no_mangle]
-pub type C2Tuple_HTLCOutputInCommitmentSignatureZ = crate::c_types::C2TupleTempl<crate::ln::chan_utils::HTLCOutputInCommitment, crate::c_types::Signature>;
+pub type CResult_TrustedCommitmentTransactionNoneZ = crate::c_types::CResultTempl<crate::ln::chan_utils::TrustedCommitmentTransaction, u8>;
 #[no_mangle]
-pub static C2Tuple_HTLCOutputInCommitmentSignatureZ_free: extern "C" fn(C2Tuple_HTLCOutputInCommitmentSignatureZ) = crate::c_types::C2TupleTempl_free::<crate::ln::chan_utils::HTLCOutputInCommitment, crate::c_types::Signature>;
+pub static CResult_TrustedCommitmentTransactionNoneZ_free: extern "C" fn(CResult_TrustedCommitmentTransactionNoneZ) = crate::c_types::CResultTempl_free::<crate::ln::chan_utils::TrustedCommitmentTransaction, u8>;
 #[no_mangle]
-pub extern "C" fn C2Tuple_HTLCOutputInCommitmentSignatureZ_new(a: crate::ln::chan_utils::HTLCOutputInCommitment, b: crate::c_types::Signature) -> C2Tuple_HTLCOutputInCommitmentSignatureZ {
-	C2Tuple_HTLCOutputInCommitmentSignatureZ { a, b, }
-}
+pub static CResult_TrustedCommitmentTransactionNoneZ_ok: extern "C" fn (crate::ln::chan_utils::TrustedCommitmentTransaction) -> CResult_TrustedCommitmentTransactionNoneZ =
+	crate::c_types::CResultTempl::<crate::ln::chan_utils::TrustedCommitmentTransaction, u8>::ok;
 
 #[no_mangle]
-pub type CVec_C2Tuple_HTLCOutputInCommitmentSignatureZZ = crate::c_types::CVecTempl<crate::c_types::C2TupleTempl<crate::ln::chan_utils::HTLCOutputInCommitment, crate::c_types::Signature>>;
-#[no_mangle]
-pub static CVec_C2Tuple_HTLCOutputInCommitmentSignatureZZ_free: extern "C" fn(CVec_C2Tuple_HTLCOutputInCommitmentSignatureZZ) = crate::c_types::CVecTempl_free::<crate::c_types::C2TupleTempl<crate::ln::chan_utils::HTLCOutputInCommitment, crate::c_types::Signature>>;
+pub extern "C" fn CResult_TrustedCommitmentTransactionNoneZ_err() -> CResult_TrustedCommitmentTransactionNoneZ {
+	crate::c_types::CResultTempl::err(0)
+}
 
 #[no_mangle]
 pub type CVec_RouteHopZ = crate::c_types::CVecTempl<crate::routing::router::RouteHop>;
@@ -399,17 +418,4 @@ pub static CResult_RouteLightningErrorZ_ok: extern "C" fn (crate::routing::route
 #[no_mangle]
 pub static CResult_RouteLightningErrorZ_err: extern "C" fn (crate::ln::msgs::LightningError) -> CResult_RouteLightningErrorZ =
 	crate::c_types::CResultTempl::<crate::routing::router::Route, crate::ln::msgs::LightningError>::err;
-
-#[no_mangle]
-pub type CResult_NoneLightningErrorZ = crate::c_types::CResultTempl<u8, crate::ln::msgs::LightningError>;
-#[no_mangle]
-pub static CResult_NoneLightningErrorZ_free: extern "C" fn(CResult_NoneLightningErrorZ) = crate::c_types::CResultTempl_free::<u8, crate::ln::msgs::LightningError>;
-#[no_mangle]
-pub extern "C" fn CResult_NoneLightningErrorZ_ok() -> CResult_NoneLightningErrorZ {
-	crate::c_types::CResultTempl::ok(0)
-}
-
-#[no_mangle]
-pub static CResult_NoneLightningErrorZ_err: extern "C" fn (crate::ln::msgs::LightningError) -> CResult_NoneLightningErrorZ =
-	crate::c_types::CResultTempl::<u8, crate::ln::msgs::LightningError>::err;
 

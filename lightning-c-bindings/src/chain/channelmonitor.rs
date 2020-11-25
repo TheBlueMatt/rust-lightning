@@ -116,6 +116,10 @@ pub extern "C" fn ChannelMonitorUpdate_write(obj: *const ChannelMonitorUpdate) -
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn ChannelMonitorUpdate_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeChannelMonitorUpdate) })
+}
+#[no_mangle]
 pub extern "C" fn ChannelMonitorUpdate_read(ser: crate::c_types::u8slice) -> ChannelMonitorUpdate {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		ChannelMonitorUpdate { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -381,6 +385,10 @@ pub extern "C" fn HTLCUpdate_write(obj: *const HTLCUpdate) -> crate::c_types::de
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
+pub(crate) extern "C" fn HTLCUpdate_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeHTLCUpdate) })
+}
+#[no_mangle]
 pub extern "C" fn HTLCUpdate_read(ser: crate::c_types::u8slice) -> HTLCUpdate {
 	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
 		HTLCUpdate { inner: Box::into_raw(Box::new(res)), is_owned: true }
@@ -402,6 +410,12 @@ type nativeChannelMonitor = nativeChannelMonitorImport<crate::chain::keysinterfa
 /// get_and_clear_pending_monitor_events or get_and_clear_pending_events are serialized to disk and
 /// reloaded at deserialize-time. Thus, you must ensure that, when handling events, all events
 /// gotten are fully handled before re-serializing the new state.
+///
+/// Note that the deserializer is only implemented for (Sha256dHash, ChannelMonitor), which
+/// tells you the last block hash which was block_connect()ed. You MUST rescan any blocks along
+/// the \"reorg path\" (ie disconnecting blocks until you find a common ancestor from both the
+/// returned block hash and the the current chain and then reconnecting blocks to get to the
+/// best chain) upon deserializing the object!
 #[must_use]
 #[repr(C)]
 pub struct ChannelMonitor {
