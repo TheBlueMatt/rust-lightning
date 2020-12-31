@@ -271,6 +271,28 @@ pub static CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_ok: extern "C" f
 pub static CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ =
 	crate::c_types::CResultTempl::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>::err;
 
+pub type CResult_NetAddressu8Z = crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>;
+#[no_mangle]
+pub static CResult_NetAddressu8Z_free: extern "C" fn(CResult_NetAddressu8Z) = crate::c_types::CResultTempl_free::<crate::ln::msgs::NetAddress, u8>;
+#[no_mangle]
+pub static CResult_NetAddressu8Z_ok: extern "C" fn (crate::ln::msgs::NetAddress) -> CResult_NetAddressu8Z =
+	crate::c_types::CResultTempl::<crate::ln::msgs::NetAddress, u8>::ok;
+
+#[no_mangle]
+pub static CResult_NetAddressu8Z_err: extern "C" fn (u8) -> CResult_NetAddressu8Z =
+	crate::c_types::CResultTempl::<crate::ln::msgs::NetAddress, u8>::err;
+
+pub type CResult_CResult_NetAddressu8ZDecodeErrorZ = crate::c_types::CResultTempl<crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>, crate::ln::msgs::DecodeError>;
+#[no_mangle]
+pub static CResult_CResult_NetAddressu8ZDecodeErrorZ_free: extern "C" fn(CResult_CResult_NetAddressu8ZDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>, crate::ln::msgs::DecodeError>;
+#[no_mangle]
+pub static CResult_CResult_NetAddressu8ZDecodeErrorZ_ok: extern "C" fn (CResult_NetAddressu8Z) -> CResult_CResult_NetAddressu8ZDecodeErrorZ =
+	crate::c_types::CResultTempl::<crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>, crate::ln::msgs::DecodeError>::ok;
+
+#[no_mangle]
+pub static CResult_CResult_NetAddressu8ZDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_CResult_NetAddressu8ZDecodeErrorZ =
+	crate::c_types::CResultTempl::<crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>, crate::ln::msgs::DecodeError>::err;
+
 pub type CVec_u64Z = crate::c_types::CVecTempl<u64>;
 #[no_mangle]
 pub static CVec_u64Z_free: extern "C" fn(CVec_u64Z) = crate::c_types::CVecTempl_free::<u64>;
