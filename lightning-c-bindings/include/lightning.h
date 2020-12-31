@@ -2715,6 +2715,28 @@ typedef struct MUST_USE_STRUCT LDKDataLossProtect {
    bool is_owned;
 } LDKDataLossProtect;
 
+typedef union LDKCResultPtr_NetAddress__u8 {
+   struct LDKNetAddress *result;
+   uint8_t *err;
+} LDKCResultPtr_NetAddress__u8;
+
+typedef struct LDKCResultTempl_NetAddress__u8 {
+   union LDKCResultPtr_NetAddress__u8 contents;
+   bool result_ok;
+} LDKCResultTempl_NetAddress__u8;
+
+typedef union LDKCResultPtr_CResultTempl_NetAddress__u8_____DecodeError {
+   struct LDKCResultTempl_NetAddress__u8 *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_CResultTempl_NetAddress__u8_____DecodeError;
+
+typedef struct LDKCResultTempl_CResultTempl_NetAddress__u8_____DecodeError {
+   union LDKCResultPtr_CResultTempl_NetAddress__u8_____DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_CResultTempl_NetAddress__u8_____DecodeError;
+
+typedef struct LDKCResultTempl_CResultTempl_NetAddress__u8_____DecodeError LDKCResult_CResult_NetAddressu8ZDecodeErrorZ;
+
 
 
 /**
@@ -3574,6 +3596,8 @@ typedef struct LDKCResultTempl_NetworkGraph__DecodeError {
 
 typedef struct LDKCResultTempl_NetworkGraph__DecodeError LDKCResult_NetworkGraphDecodeErrorZ;
 
+typedef struct LDKCResultTempl_NetAddress__u8 LDKCResult_NetAddressu8Z;
+
 typedef struct LDKCVecTempl_RouteHop LDKCVec_RouteHopZ;
 
 extern const void (*CVec_SpendableOutputDescriptorZ_free)(LDKCVec_SpendableOutputDescriptorZ);
@@ -3685,6 +3709,18 @@ extern const void (*CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_free)(L
 extern const LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ (*CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_ok)(LDKC2Tuple_BlockHashChannelManagerZ);
 
 extern const LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ (*CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_NetAddressu8Z_free)(LDKCResult_NetAddressu8Z);
+
+extern const LDKCResult_NetAddressu8Z (*CResult_NetAddressu8Z_ok)(struct LDKNetAddress);
+
+extern const LDKCResult_NetAddressu8Z (*CResult_NetAddressu8Z_err)(uint8_t);
+
+extern const void (*CResult_CResult_NetAddressu8ZDecodeErrorZ_free)(LDKCResult_CResult_NetAddressu8ZDecodeErrorZ);
+
+extern const LDKCResult_CResult_NetAddressu8ZDecodeErrorZ (*CResult_CResult_NetAddressu8ZDecodeErrorZ_ok)(LDKCResult_NetAddressu8Z);
+
+extern const LDKCResult_CResult_NetAddressu8ZDecodeErrorZ (*CResult_CResult_NetAddressu8ZDecodeErrorZ_err)(struct LDKDecodeError);
 
 extern const void (*CVec_u64Z_free)(LDKCVec_u64Z);
 
@@ -4494,6 +4530,8 @@ struct LDKHTLCUpdate HTLCUpdate_read(struct LDKu8slice ser);
 
 void ChannelMonitor_free(struct LDKChannelMonitor this_ptr);
 
+LDKCVec_u8Z ChannelMonitor_write(const struct LDKChannelMonitor *obj);
+
 /**
  * Updates a ChannelMonitor on the basis of some new information provided by the Channel
  * itself.
@@ -5129,6 +5167,8 @@ void ChannelManager_block_connected(const struct LDKChannelManager *this_arg, co
 void ChannelManager_block_disconnected(const struct LDKChannelManager *this_arg, const uint8_t (*header)[80]);
 
 struct LDKChannelMessageHandler ChannelManager_as_ChannelMessageHandler(const struct LDKChannelManager *this_arg);
+
+LDKCVec_u8Z ChannelManager_write(const struct LDKChannelManager *obj);
 
 void ChannelManagerReadArgs_free(struct LDKChannelManagerReadArgs this_ptr);
 
@@ -6153,6 +6193,8 @@ void NetAddress_free(struct LDKNetAddress this_ptr);
 struct LDKNetAddress NetAddress_clone(const struct LDKNetAddress *orig);
 
 LDKCVec_u8Z NetAddress_write(const struct LDKNetAddress *obj);
+
+LDKCResult_CResult_NetAddressu8ZDecodeErrorZ Result_read(struct LDKu8slice ser);
 
 void UnsignedNodeAnnouncement_free(struct LDKUnsignedNodeAnnouncement this_ptr);
 

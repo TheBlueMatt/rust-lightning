@@ -2411,6 +2411,12 @@ pub extern "C" fn NetAddress_clone(orig: &NetAddress) -> NetAddress {
 pub extern "C" fn NetAddress_write(obj: *const NetAddress) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(&unsafe { &*obj }.to_native())
 }
+#[no_mangle]
+pub extern "C" fn Result_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_CResult_NetAddressu8ZDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { let mut local_res_0 = match o { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::ln::msgs::NetAddress::native_into(o) }), Err(mut e) => crate::c_types::CResultTempl::err( { e }) }; local_res_0 }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	local_res
+}
 
 use lightning::ln::msgs::UnsignedNodeAnnouncement as nativeUnsignedNodeAnnouncementImport;
 type nativeUnsignedNodeAnnouncement = nativeUnsignedNodeAnnouncementImport;

@@ -447,6 +447,14 @@ impl ChannelMonitor {
 		ret
 	}
 }
+#[no_mangle]
+pub extern "C" fn ChannelMonitor_write(obj: *const ChannelMonitor) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
+}
+#[no_mangle]
+pub(crate) extern "C" fn ChannelMonitor_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeChannelMonitor) })
+}
 /// Updates a ChannelMonitor on the basis of some new information provided by the Channel
 /// itself.
 ///

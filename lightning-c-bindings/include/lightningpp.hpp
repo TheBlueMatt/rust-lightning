@@ -2054,6 +2054,20 @@ public:
 	const LDKCResult_SpendableOutputDescriptorDecodeErrorZ* operator &() const { return &self; }
 	const LDKCResult_SpendableOutputDescriptorDecodeErrorZ* operator ->() const { return &self; }
 };
+class CResult_NetAddressu8Z {
+private:
+	LDKCResult_NetAddressu8Z self;
+public:
+	CResult_NetAddressu8Z(const CResult_NetAddressu8Z&) = delete;
+	~CResult_NetAddressu8Z() { CResult_NetAddressu8Z_free(self); }
+	CResult_NetAddressu8Z(CResult_NetAddressu8Z&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_NetAddressu8Z)); }
+	CResult_NetAddressu8Z(LDKCResult_NetAddressu8Z&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_NetAddressu8Z)); }
+	operator LDKCResult_NetAddressu8Z() { LDKCResult_NetAddressu8Z res = self; memset(&self, 0, sizeof(LDKCResult_NetAddressu8Z)); return res; }
+	LDKCResult_NetAddressu8Z* operator &() { return &self; }
+	LDKCResult_NetAddressu8Z* operator ->() { return &self; }
+	const LDKCResult_NetAddressu8Z* operator &() const { return &self; }
+	const LDKCResult_NetAddressu8Z* operator ->() const { return &self; }
+};
 class CVec_UpdateFailMalformedHTLCZ {
 private:
 	LDKCVec_UpdateFailMalformedHTLCZ self;
@@ -2333,6 +2347,20 @@ public:
 	LDKCResult_ReplyShortChannelIdsEndDecodeErrorZ* operator ->() { return &self; }
 	const LDKCResult_ReplyShortChannelIdsEndDecodeErrorZ* operator &() const { return &self; }
 	const LDKCResult_ReplyShortChannelIdsEndDecodeErrorZ* operator ->() const { return &self; }
+};
+class CResult_CResult_NetAddressu8ZDecodeErrorZ {
+private:
+	LDKCResult_CResult_NetAddressu8ZDecodeErrorZ self;
+public:
+	CResult_CResult_NetAddressu8ZDecodeErrorZ(const CResult_CResult_NetAddressu8ZDecodeErrorZ&) = delete;
+	~CResult_CResult_NetAddressu8ZDecodeErrorZ() { CResult_CResult_NetAddressu8ZDecodeErrorZ_free(self); }
+	CResult_CResult_NetAddressu8ZDecodeErrorZ(CResult_CResult_NetAddressu8ZDecodeErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_CResult_NetAddressu8ZDecodeErrorZ)); }
+	CResult_CResult_NetAddressu8ZDecodeErrorZ(LDKCResult_CResult_NetAddressu8ZDecodeErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_CResult_NetAddressu8ZDecodeErrorZ)); }
+	operator LDKCResult_CResult_NetAddressu8ZDecodeErrorZ() { LDKCResult_CResult_NetAddressu8ZDecodeErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_CResult_NetAddressu8ZDecodeErrorZ)); return res; }
+	LDKCResult_CResult_NetAddressu8ZDecodeErrorZ* operator &() { return &self; }
+	LDKCResult_CResult_NetAddressu8ZDecodeErrorZ* operator ->() { return &self; }
+	const LDKCResult_CResult_NetAddressu8ZDecodeErrorZ* operator &() const { return &self; }
+	const LDKCResult_CResult_NetAddressu8ZDecodeErrorZ* operator ->() const { return &self; }
 };
 class CVec_ChannelDetailsZ {
 private:
