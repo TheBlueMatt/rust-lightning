@@ -35,7 +35,7 @@ extern "C" fn NetworkGraph_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl NetworkGraph {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeNetworkGraph {
+	pub(crate) fn take_inner(mut self) -> *mut nativeNetworkGraph {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -75,7 +75,7 @@ extern "C" fn LockedNetworkGraph_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl LockedNetworkGraph {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeLockedNetworkGraph {
+	pub(crate) fn take_inner(mut self) -> *mut nativeLockedNetworkGraph {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -117,7 +117,7 @@ extern "C" fn NetGraphMsgHandler_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl NetGraphMsgHandler {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeNetGraphMsgHandler {
+	pub(crate) fn take_inner(mut self) -> *mut nativeNetGraphMsgHandler {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -143,7 +143,7 @@ pub extern "C" fn NetGraphMsgHandler_new(mut genesis_hash: crate::c_types::Thirt
 #[no_mangle]
 pub extern "C" fn NetGraphMsgHandler_from_net_graph(chain_access: *mut crate::chain::Access, mut logger: crate::util::logger::Logger, mut network_graph: crate::routing::network_graph::NetworkGraph) -> NetGraphMsgHandler {
 	let mut local_chain_access = if chain_access == std::ptr::null_mut() { None } else { Some( { unsafe { *Box::from_raw(chain_access) } }) };
-	let mut ret = lightning::routing::network_graph::NetGraphMsgHandler::from_net_graph(local_chain_access, logger, *unsafe { Box::from_raw(network_graph.take_ptr()) });
+	let mut ret = lightning::routing::network_graph::NetGraphMsgHandler::from_net_graph(local_chain_access, logger, *unsafe { Box::from_raw(network_graph.take_inner()) });
 	NetGraphMsgHandler { inner: Box::into_raw(Box::new(ret)), is_owned: true }
 }
 
@@ -239,25 +239,25 @@ extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_sync_routing_table(this_a
 }
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_reply_channel_range(this_arg: *const c_void, mut their_node_id: crate::c_types::PublicKey, mut msg: crate::ln::msgs::ReplyChannelRange) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
-	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_reply_channel_range(&their_node_id.into_rust(), *unsafe { Box::from_raw(msg.take_ptr()) });
+	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_reply_channel_range(&their_node_id.into_rust(), *unsafe { Box::from_raw(msg.take_inner()) });
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
 	local_ret
 }
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_reply_short_channel_ids_end(this_arg: *const c_void, mut their_node_id: crate::c_types::PublicKey, mut msg: crate::ln::msgs::ReplyShortChannelIdsEnd) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
-	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_reply_short_channel_ids_end(&their_node_id.into_rust(), *unsafe { Box::from_raw(msg.take_ptr()) });
+	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_reply_short_channel_ids_end(&their_node_id.into_rust(), *unsafe { Box::from_raw(msg.take_inner()) });
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
 	local_ret
 }
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_query_channel_range(this_arg: *const c_void, mut _their_node_id: crate::c_types::PublicKey, mut _msg: crate::ln::msgs::QueryChannelRange) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
-	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_query_channel_range(&_their_node_id.into_rust(), *unsafe { Box::from_raw(_msg.take_ptr()) });
+	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_query_channel_range(&_their_node_id.into_rust(), *unsafe { Box::from_raw(_msg.take_inner()) });
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
 	local_ret
 }
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_query_short_channel_ids(this_arg: *const c_void, mut _their_node_id: crate::c_types::PublicKey, mut _msg: crate::ln::msgs::QueryShortChannelIds) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
-	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_query_short_channel_ids(&_their_node_id.into_rust(), *unsafe { Box::from_raw(_msg.take_ptr()) });
+	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_query_short_channel_ids(&_their_node_id.into_rust(), *unsafe { Box::from_raw(_msg.take_inner()) });
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
 	local_ret
 }
@@ -327,7 +327,7 @@ extern "C" fn DirectionalChannelInfo_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl DirectionalChannelInfo {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeDirectionalChannelInfo {
+	pub(crate) fn take_inner(mut self) -> *mut nativeDirectionalChannelInfo {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -389,7 +389,7 @@ pub extern "C" fn DirectionalChannelInfo_get_fees(this_ptr: &DirectionalChannelI
 /// Fees charged when the channel is used for routing
 #[no_mangle]
 pub extern "C" fn DirectionalChannelInfo_set_fees(this_ptr: &mut DirectionalChannelInfo, mut val: crate::routing::network_graph::RoutingFees) {
-	unsafe { &mut *this_ptr.inner }.fees = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.fees = *unsafe { Box::from_raw(val.take_inner()) };
 }
 /// Most recent update for the channel received from the network
 /// Mostly redundant with the data we store in fields explicitly.
@@ -407,7 +407,7 @@ pub extern "C" fn DirectionalChannelInfo_get_last_update_message(this_ptr: &Dire
 /// Not stored if contains excess data to prevent DoS.
 #[no_mangle]
 pub extern "C" fn DirectionalChannelInfo_set_last_update_message(this_ptr: &mut DirectionalChannelInfo, mut val: crate::ln::msgs::ChannelUpdate) {
-	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_ptr()) } }) };
+	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_inner()) } }) };
 	unsafe { &mut *this_ptr.inner }.last_update_message = local_val;
 }
 #[no_mangle]
@@ -458,7 +458,7 @@ extern "C" fn ChannelInfo_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelInfo {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelInfo {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelInfo {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -474,7 +474,7 @@ pub extern "C" fn ChannelInfo_get_features(this_ptr: &ChannelInfo) -> crate::ln:
 /// Protocol features of a channel communicated during its announcement
 #[no_mangle]
 pub extern "C" fn ChannelInfo_set_features(this_ptr: &mut ChannelInfo, mut val: crate::ln::features::ChannelFeatures) {
-	unsafe { &mut *this_ptr.inner }.features = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.features = *unsafe { Box::from_raw(val.take_inner()) };
 }
 /// Source node of the first direction of a channel
 #[no_mangle]
@@ -497,7 +497,7 @@ pub extern "C" fn ChannelInfo_get_one_to_two(this_ptr: &ChannelInfo) -> crate::r
 /// Details about the first direction of a channel
 #[no_mangle]
 pub extern "C" fn ChannelInfo_set_one_to_two(this_ptr: &mut ChannelInfo, mut val: crate::routing::network_graph::DirectionalChannelInfo) {
-	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_ptr()) } }) };
+	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_inner()) } }) };
 	unsafe { &mut *this_ptr.inner }.one_to_two = local_val;
 }
 /// Source node of the second direction of a channel
@@ -521,7 +521,7 @@ pub extern "C" fn ChannelInfo_get_two_to_one(this_ptr: &ChannelInfo) -> crate::r
 /// Details about the second direction of a channel
 #[no_mangle]
 pub extern "C" fn ChannelInfo_set_two_to_one(this_ptr: &mut ChannelInfo, mut val: crate::routing::network_graph::DirectionalChannelInfo) {
-	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_ptr()) } }) };
+	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_inner()) } }) };
 	unsafe { &mut *this_ptr.inner }.two_to_one = local_val;
 }
 /// An initial announcement of the channel
@@ -540,7 +540,7 @@ pub extern "C" fn ChannelInfo_get_announcement_message(this_ptr: &ChannelInfo) -
 /// Not stored if contains excess data to prevent DoS.
 #[no_mangle]
 pub extern "C" fn ChannelInfo_set_announcement_message(this_ptr: &mut ChannelInfo, mut val: crate::ln::msgs::ChannelAnnouncement) {
-	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_ptr()) } }) };
+	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_inner()) } }) };
 	unsafe { &mut *this_ptr.inner }.announcement_message = local_val;
 }
 #[no_mangle]
@@ -590,7 +590,7 @@ extern "C" fn RoutingFees_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl RoutingFees {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeRoutingFees {
+	pub(crate) fn take_inner(mut self) -> *mut nativeRoutingFees {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -693,7 +693,7 @@ extern "C" fn NodeAnnouncementInfo_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl NodeAnnouncementInfo {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeNodeAnnouncementInfo {
+	pub(crate) fn take_inner(mut self) -> *mut nativeNodeAnnouncementInfo {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -709,7 +709,7 @@ pub extern "C" fn NodeAnnouncementInfo_get_features(this_ptr: &NodeAnnouncementI
 /// Protocol features the node announced support for
 #[no_mangle]
 pub extern "C" fn NodeAnnouncementInfo_set_features(this_ptr: &mut NodeAnnouncementInfo, mut val: crate::ln::features::NodeFeatures) {
-	unsafe { &mut *this_ptr.inner }.features = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.features = *unsafe { Box::from_raw(val.take_inner()) };
 }
 /// When the last known update to the node state was issued.
 /// Value is opaque, as set in the announcement.
@@ -772,16 +772,16 @@ pub extern "C" fn NodeAnnouncementInfo_get_announcement_message(this_ptr: &NodeA
 /// Not stored if contains excess data to prevent DoS.
 #[no_mangle]
 pub extern "C" fn NodeAnnouncementInfo_set_announcement_message(this_ptr: &mut NodeAnnouncementInfo, mut val: crate::ln::msgs::NodeAnnouncement) {
-	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_ptr()) } }) };
+	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_inner()) } }) };
 	unsafe { &mut *this_ptr.inner }.announcement_message = local_val;
 }
 #[must_use]
 #[no_mangle]
 pub extern "C" fn NodeAnnouncementInfo_new(mut features_arg: crate::ln::features::NodeFeatures, mut last_update_arg: u32, mut rgb_arg: crate::c_types::ThreeBytes, mut alias_arg: crate::c_types::ThirtyTwoBytes, mut addresses_arg: crate::c_types::derived::CVec_NetAddressZ, mut announcement_message_arg: crate::ln::msgs::NodeAnnouncement) -> NodeAnnouncementInfo {
 	let mut local_addresses_arg = Vec::new(); for mut item in addresses_arg.into_rust().drain(..) { local_addresses_arg.push( { item.into_native() }); };
-	let mut local_announcement_message_arg = if announcement_message_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(announcement_message_arg.take_ptr()) } }) };
+	let mut local_announcement_message_arg = if announcement_message_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(announcement_message_arg.take_inner()) } }) };
 	NodeAnnouncementInfo { inner: Box::into_raw(Box::new(nativeNodeAnnouncementInfo {
-		features: *unsafe { Box::from_raw(features_arg.take_ptr()) },
+		features: *unsafe { Box::from_raw(features_arg.take_inner()) },
 		last_update: last_update_arg,
 		rgb: rgb_arg.data,
 		alias: alias_arg.data,
@@ -836,7 +836,7 @@ extern "C" fn NodeInfo_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl NodeInfo {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeNodeInfo {
+	pub(crate) fn take_inner(mut self) -> *mut nativeNodeInfo {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -863,7 +863,7 @@ pub extern "C" fn NodeInfo_get_lowest_inbound_channel_fees(this_ptr: &NodeInfo) 
 /// meaning they don't have to refer to the same channel.
 #[no_mangle]
 pub extern "C" fn NodeInfo_set_lowest_inbound_channel_fees(this_ptr: &mut NodeInfo, mut val: crate::routing::network_graph::RoutingFees) {
-	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_ptr()) } }) };
+	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_inner()) } }) };
 	unsafe { &mut *this_ptr.inner }.lowest_inbound_channel_fees = local_val;
 }
 /// More information about a node from node_announcement.
@@ -880,15 +880,15 @@ pub extern "C" fn NodeInfo_get_announcement_info(this_ptr: &NodeInfo) -> crate::
 /// a channel announcement, but before receiving a node announcement.
 #[no_mangle]
 pub extern "C" fn NodeInfo_set_announcement_info(this_ptr: &mut NodeInfo, mut val: crate::routing::network_graph::NodeAnnouncementInfo) {
-	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_ptr()) } }) };
+	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_inner()) } }) };
 	unsafe { &mut *this_ptr.inner }.announcement_info = local_val;
 }
 #[must_use]
 #[no_mangle]
 pub extern "C" fn NodeInfo_new(mut channels_arg: crate::c_types::derived::CVec_u64Z, mut lowest_inbound_channel_fees_arg: crate::routing::network_graph::RoutingFees, mut announcement_info_arg: crate::routing::network_graph::NodeAnnouncementInfo) -> NodeInfo {
 	let mut local_channels_arg = Vec::new(); for mut item in channels_arg.into_rust().drain(..) { local_channels_arg.push( { item }); };
-	let mut local_lowest_inbound_channel_fees_arg = if lowest_inbound_channel_fees_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(lowest_inbound_channel_fees_arg.take_ptr()) } }) };
-	let mut local_announcement_info_arg = if announcement_info_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(announcement_info_arg.take_ptr()) } }) };
+	let mut local_lowest_inbound_channel_fees_arg = if lowest_inbound_channel_fees_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(lowest_inbound_channel_fees_arg.take_inner()) } }) };
+	let mut local_announcement_info_arg = if announcement_info_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(announcement_info_arg.take_inner()) } }) };
 	NodeInfo { inner: Box::into_raw(Box::new(nativeNodeInfo {
 		channels: local_channels_arg,
 		lowest_inbound_channel_fees: local_lowest_inbound_channel_fees_arg,

@@ -113,7 +113,7 @@ extern "C" fn TxCreationKeys_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl TxCreationKeys {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeTxCreationKeys {
+	pub(crate) fn take_inner(mut self) -> *mut nativeTxCreationKeys {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -254,7 +254,7 @@ extern "C" fn ChannelPublicKeys_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelPublicKeys {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelPublicKeys {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelPublicKeys {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -438,7 +438,7 @@ extern "C" fn HTLCOutputInCommitment_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl HTLCOutputInCommitment {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeHTLCOutputInCommitment {
+	pub(crate) fn take_inner(mut self) -> *mut nativeHTLCOutputInCommitment {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -589,7 +589,7 @@ extern "C" fn ChannelTransactionParameters_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelTransactionParameters {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelTransactionParameters {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelTransactionParameters {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -622,7 +622,7 @@ pub extern "C" fn ChannelTransactionParameters_get_holder_pubkeys(this_ptr: &Cha
 /// Holder public keys
 #[no_mangle]
 pub extern "C" fn ChannelTransactionParameters_set_holder_pubkeys(this_ptr: &mut ChannelTransactionParameters, mut val: crate::ln::chan_utils::ChannelPublicKeys) {
-	unsafe { &mut *this_ptr.inner }.holder_pubkeys = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.holder_pubkeys = *unsafe { Box::from_raw(val.take_inner()) };
 }
 /// The contest delay selected by the holder, which applies to counterparty-broadcast transactions
 #[no_mangle]
@@ -660,7 +660,7 @@ pub extern "C" fn ChannelTransactionParameters_get_counterparty_parameters(this_
 /// These parameters are populated at the point in the protocol where the counterparty provides them.
 #[no_mangle]
 pub extern "C" fn ChannelTransactionParameters_set_counterparty_parameters(this_ptr: &mut ChannelTransactionParameters, mut val: crate::ln::chan_utils::CounterpartyChannelTransactionParameters) {
-	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_ptr()) } }) };
+	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_inner()) } }) };
 	unsafe { &mut *this_ptr.inner }.counterparty_parameters = local_val;
 }
 /// The late-bound funding outpoint
@@ -673,16 +673,16 @@ pub extern "C" fn ChannelTransactionParameters_get_funding_outpoint(this_ptr: &C
 /// The late-bound funding outpoint
 #[no_mangle]
 pub extern "C" fn ChannelTransactionParameters_set_funding_outpoint(this_ptr: &mut ChannelTransactionParameters, mut val: crate::chain::transaction::OutPoint) {
-	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_ptr()) } }) };
+	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_inner()) } }) };
 	unsafe { &mut *this_ptr.inner }.funding_outpoint = local_val;
 }
 #[must_use]
 #[no_mangle]
 pub extern "C" fn ChannelTransactionParameters_new(mut holder_pubkeys_arg: crate::ln::chan_utils::ChannelPublicKeys, mut holder_selected_contest_delay_arg: u16, mut is_outbound_from_holder_arg: bool, mut counterparty_parameters_arg: crate::ln::chan_utils::CounterpartyChannelTransactionParameters, mut funding_outpoint_arg: crate::chain::transaction::OutPoint) -> ChannelTransactionParameters {
-	let mut local_counterparty_parameters_arg = if counterparty_parameters_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(counterparty_parameters_arg.take_ptr()) } }) };
-	let mut local_funding_outpoint_arg = if funding_outpoint_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(funding_outpoint_arg.take_ptr()) } }) };
+	let mut local_counterparty_parameters_arg = if counterparty_parameters_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(counterparty_parameters_arg.take_inner()) } }) };
+	let mut local_funding_outpoint_arg = if funding_outpoint_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(funding_outpoint_arg.take_inner()) } }) };
 	ChannelTransactionParameters { inner: Box::into_raw(Box::new(nativeChannelTransactionParameters {
-		holder_pubkeys: *unsafe { Box::from_raw(holder_pubkeys_arg.take_ptr()) },
+		holder_pubkeys: *unsafe { Box::from_raw(holder_pubkeys_arg.take_inner()) },
 		holder_selected_contest_delay: holder_selected_contest_delay_arg,
 		is_outbound_from_holder: is_outbound_from_holder_arg,
 		counterparty_parameters: local_counterparty_parameters_arg,
@@ -720,7 +720,7 @@ extern "C" fn CounterpartyChannelTransactionParameters_free_void(this_ptr: *mut 
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl CounterpartyChannelTransactionParameters {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeCounterpartyChannelTransactionParameters {
+	pub(crate) fn take_inner(mut self) -> *mut nativeCounterpartyChannelTransactionParameters {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -753,7 +753,7 @@ pub extern "C" fn CounterpartyChannelTransactionParameters_get_pubkeys(this_ptr:
 /// Counter-party public keys
 #[no_mangle]
 pub extern "C" fn CounterpartyChannelTransactionParameters_set_pubkeys(this_ptr: &mut CounterpartyChannelTransactionParameters, mut val: crate::ln::chan_utils::ChannelPublicKeys) {
-	unsafe { &mut *this_ptr.inner }.pubkeys = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.pubkeys = *unsafe { Box::from_raw(val.take_inner()) };
 }
 /// The contest delay selected by the counterparty, which applies to holder-broadcast transactions
 #[no_mangle]
@@ -770,7 +770,7 @@ pub extern "C" fn CounterpartyChannelTransactionParameters_set_selected_contest_
 #[no_mangle]
 pub extern "C" fn CounterpartyChannelTransactionParameters_new(mut pubkeys_arg: crate::ln::chan_utils::ChannelPublicKeys, mut selected_contest_delay_arg: u16) -> CounterpartyChannelTransactionParameters {
 	CounterpartyChannelTransactionParameters { inner: Box::into_raw(Box::new(nativeCounterpartyChannelTransactionParameters {
-		pubkeys: *unsafe { Box::from_raw(pubkeys_arg.take_ptr()) },
+		pubkeys: *unsafe { Box::from_raw(pubkeys_arg.take_inner()) },
 		selected_contest_delay: selected_contest_delay_arg,
 	})), is_owned: true }
 }
@@ -871,7 +871,7 @@ extern "C" fn DirectedChannelTransactionParameters_free_void(this_ptr: *mut c_vo
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl DirectedChannelTransactionParameters {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeDirectedChannelTransactionParameters {
+	pub(crate) fn take_inner(mut self) -> *mut nativeDirectedChannelTransactionParameters {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -955,7 +955,7 @@ extern "C" fn HolderCommitmentTransaction_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl HolderCommitmentTransaction {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeHolderCommitmentTransaction {
+	pub(crate) fn take_inner(mut self) -> *mut nativeHolderCommitmentTransaction {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1018,7 +1018,7 @@ pub extern "C" fn HolderCommitmentTransaction_read(ser: crate::c_types::u8slice)
 #[no_mangle]
 pub extern "C" fn HolderCommitmentTransaction_new(mut commitment_tx: crate::ln::chan_utils::CommitmentTransaction, mut counterparty_sig: crate::c_types::Signature, mut counterparty_htlc_sigs: crate::c_types::derived::CVec_SignatureZ, mut holder_funding_key: crate::c_types::PublicKey, mut counterparty_funding_key: crate::c_types::PublicKey) -> HolderCommitmentTransaction {
 	let mut local_counterparty_htlc_sigs = Vec::new(); for mut item in counterparty_htlc_sigs.into_rust().drain(..) { local_counterparty_htlc_sigs.push( { item.into_rust() }); };
-	let mut ret = lightning::ln::chan_utils::HolderCommitmentTransaction::new(*unsafe { Box::from_raw(commitment_tx.take_ptr()) }, counterparty_sig.into_rust(), local_counterparty_htlc_sigs, &holder_funding_key.into_rust(), &counterparty_funding_key.into_rust());
+	let mut ret = lightning::ln::chan_utils::HolderCommitmentTransaction::new(*unsafe { Box::from_raw(commitment_tx.take_inner()) }, counterparty_sig.into_rust(), local_counterparty_htlc_sigs, &holder_funding_key.into_rust(), &counterparty_funding_key.into_rust());
 	HolderCommitmentTransaction { inner: Box::into_raw(Box::new(ret)), is_owned: true }
 }
 
@@ -1053,7 +1053,7 @@ extern "C" fn BuiltCommitmentTransaction_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl BuiltCommitmentTransaction {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeBuiltCommitmentTransaction {
+	pub(crate) fn take_inner(mut self) -> *mut nativeBuiltCommitmentTransaction {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1185,7 +1185,7 @@ extern "C" fn CommitmentTransaction_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl CommitmentTransaction {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeCommitmentTransaction {
+	pub(crate) fn take_inner(mut self) -> *mut nativeCommitmentTransaction {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1320,7 +1320,7 @@ extern "C" fn TrustedCommitmentTransaction_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl TrustedCommitmentTransaction {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeTrustedCommitmentTransaction {
+	pub(crate) fn take_inner(mut self) -> *mut nativeTrustedCommitmentTransaction {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();

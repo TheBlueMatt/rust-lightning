@@ -50,7 +50,7 @@ extern "C" fn DecodeError_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl DecodeError {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeDecodeError {
+	pub(crate) fn take_inner(mut self) -> *mut nativeDecodeError {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -88,7 +88,7 @@ extern "C" fn Init_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl Init {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeInit {
+	pub(crate) fn take_inner(mut self) -> *mut nativeInit {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -143,7 +143,7 @@ extern "C" fn ErrorMessage_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ErrorMessage {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeErrorMessage {
+	pub(crate) fn take_inner(mut self) -> *mut nativeErrorMessage {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -234,7 +234,7 @@ extern "C" fn Ping_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl Ping {
-	pub(crate) fn take_ptr(mut self) -> *mut nativePing {
+	pub(crate) fn take_inner(mut self) -> *mut nativePing {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -321,7 +321,7 @@ extern "C" fn Pong_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl Pong {
-	pub(crate) fn take_ptr(mut self) -> *mut nativePong {
+	pub(crate) fn take_inner(mut self) -> *mut nativePong {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -396,7 +396,7 @@ extern "C" fn OpenChannel_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl OpenChannel {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeOpenChannel {
+	pub(crate) fn take_inner(mut self) -> *mut nativeOpenChannel {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -649,7 +649,7 @@ extern "C" fn AcceptChannel_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl AcceptChannel {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeAcceptChannel {
+	pub(crate) fn take_inner(mut self) -> *mut nativeAcceptChannel {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -858,7 +858,7 @@ extern "C" fn FundingCreated_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl FundingCreated {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeFundingCreated {
+	pub(crate) fn take_inner(mut self) -> *mut nativeFundingCreated {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -967,7 +967,7 @@ extern "C" fn FundingSigned_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl FundingSigned {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeFundingSigned {
+	pub(crate) fn take_inner(mut self) -> *mut nativeFundingSigned {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1052,7 +1052,7 @@ extern "C" fn FundingLocked_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl FundingLocked {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeFundingLocked {
+	pub(crate) fn take_inner(mut self) -> *mut nativeFundingLocked {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1137,7 +1137,7 @@ extern "C" fn Shutdown_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl Shutdown {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeShutdown {
+	pub(crate) fn take_inner(mut self) -> *mut nativeShutdown {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1224,7 +1224,7 @@ extern "C" fn ClosingSigned_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ClosingSigned {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeClosingSigned {
+	pub(crate) fn take_inner(mut self) -> *mut nativeClosingSigned {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1321,7 +1321,7 @@ extern "C" fn UpdateAddHTLC_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl UpdateAddHTLC {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeUpdateAddHTLC {
+	pub(crate) fn take_inner(mut self) -> *mut nativeUpdateAddHTLC {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1431,7 +1431,7 @@ extern "C" fn UpdateFulfillHTLC_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl UpdateFulfillHTLC {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeUpdateFulfillHTLC {
+	pub(crate) fn take_inner(mut self) -> *mut nativeUpdateFulfillHTLC {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1528,7 +1528,7 @@ extern "C" fn UpdateFailHTLC_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl UpdateFailHTLC {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeUpdateFailHTLC {
+	pub(crate) fn take_inner(mut self) -> *mut nativeUpdateFailHTLC {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1605,7 +1605,7 @@ extern "C" fn UpdateFailMalformedHTLC_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl UpdateFailMalformedHTLC {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeUpdateFailMalformedHTLC {
+	pub(crate) fn take_inner(mut self) -> *mut nativeUpdateFailMalformedHTLC {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1693,7 +1693,7 @@ extern "C" fn CommitmentSigned_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl CommitmentSigned {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeCommitmentSigned {
+	pub(crate) fn take_inner(mut self) -> *mut nativeCommitmentSigned {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1786,7 +1786,7 @@ extern "C" fn RevokeAndACK_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl RevokeAndACK {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeRevokeAndACK {
+	pub(crate) fn take_inner(mut self) -> *mut nativeRevokeAndACK {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1883,7 +1883,7 @@ extern "C" fn UpdateFee_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl UpdateFee {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeUpdateFee {
+	pub(crate) fn take_inner(mut self) -> *mut nativeUpdateFee {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -1971,7 +1971,7 @@ extern "C" fn DataLossProtect_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl DataLossProtect {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeDataLossProtect {
+	pub(crate) fn take_inner(mut self) -> *mut nativeDataLossProtect {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -2058,7 +2058,7 @@ extern "C" fn ChannelReestablish_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelReestablish {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelReestablish {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelReestablish {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -2146,7 +2146,7 @@ extern "C" fn AnnouncementSignatures_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl AnnouncementSignatures {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeAnnouncementSignatures {
+	pub(crate) fn take_inner(mut self) -> *mut nativeAnnouncementSignatures {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -2438,7 +2438,7 @@ extern "C" fn UnsignedNodeAnnouncement_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl UnsignedNodeAnnouncement {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeUnsignedNodeAnnouncement {
+	pub(crate) fn take_inner(mut self) -> *mut nativeUnsignedNodeAnnouncement {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -2471,7 +2471,7 @@ pub extern "C" fn UnsignedNodeAnnouncement_get_features(this_ptr: &UnsignedNodeA
 /// The advertised features
 #[no_mangle]
 pub extern "C" fn UnsignedNodeAnnouncement_set_features(this_ptr: &mut UnsignedNodeAnnouncement, mut val: crate::ln::features::NodeFeatures) {
-	unsafe { &mut *this_ptr.inner }.features = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.features = *unsafe { Box::from_raw(val.take_inner()) };
 }
 /// A strictly monotonic announcement counter, with gaps allowed
 #[no_mangle]
@@ -2558,7 +2558,7 @@ extern "C" fn NodeAnnouncement_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl NodeAnnouncement {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeNodeAnnouncement {
+	pub(crate) fn take_inner(mut self) -> *mut nativeNodeAnnouncement {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -2602,14 +2602,14 @@ pub extern "C" fn NodeAnnouncement_get_contents(this_ptr: &NodeAnnouncement) -> 
 /// The actual content of the announcement
 #[no_mangle]
 pub extern "C" fn NodeAnnouncement_set_contents(this_ptr: &mut NodeAnnouncement, mut val: crate::ln::msgs::UnsignedNodeAnnouncement) {
-	unsafe { &mut *this_ptr.inner }.contents = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.contents = *unsafe { Box::from_raw(val.take_inner()) };
 }
 #[must_use]
 #[no_mangle]
 pub extern "C" fn NodeAnnouncement_new(mut signature_arg: crate::c_types::Signature, mut contents_arg: crate::ln::msgs::UnsignedNodeAnnouncement) -> NodeAnnouncement {
 	NodeAnnouncement { inner: Box::into_raw(Box::new(nativeNodeAnnouncement {
 		signature: signature_arg.into_rust(),
-		contents: *unsafe { Box::from_raw(contents_arg.take_ptr()) },
+		contents: *unsafe { Box::from_raw(contents_arg.take_inner()) },
 	})), is_owned: true }
 }
 
@@ -2643,7 +2643,7 @@ extern "C" fn UnsignedChannelAnnouncement_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl UnsignedChannelAnnouncement {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeUnsignedChannelAnnouncement {
+	pub(crate) fn take_inner(mut self) -> *mut nativeUnsignedChannelAnnouncement {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -2676,7 +2676,7 @@ pub extern "C" fn UnsignedChannelAnnouncement_get_features(this_ptr: &UnsignedCh
 /// The advertised channel features
 #[no_mangle]
 pub extern "C" fn UnsignedChannelAnnouncement_set_features(this_ptr: &mut UnsignedChannelAnnouncement, mut val: crate::ln::features::ChannelFeatures) {
-	unsafe { &mut *this_ptr.inner }.features = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.features = *unsafe { Box::from_raw(val.take_inner()) };
 }
 /// The genesis hash of the blockchain where the channel is to be opened
 #[no_mangle]
@@ -2775,7 +2775,7 @@ extern "C" fn ChannelAnnouncement_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelAnnouncement {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelAnnouncement {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelAnnouncement {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -2852,7 +2852,7 @@ pub extern "C" fn ChannelAnnouncement_get_contents(this_ptr: &ChannelAnnouncemen
 /// The actual announcement
 #[no_mangle]
 pub extern "C" fn ChannelAnnouncement_set_contents(this_ptr: &mut ChannelAnnouncement, mut val: crate::ln::msgs::UnsignedChannelAnnouncement) {
-	unsafe { &mut *this_ptr.inner }.contents = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.contents = *unsafe { Box::from_raw(val.take_inner()) };
 }
 #[must_use]
 #[no_mangle]
@@ -2862,7 +2862,7 @@ pub extern "C" fn ChannelAnnouncement_new(mut node_signature_1_arg: crate::c_typ
 		node_signature_2: node_signature_2_arg.into_rust(),
 		bitcoin_signature_1: bitcoin_signature_1_arg.into_rust(),
 		bitcoin_signature_2: bitcoin_signature_2_arg.into_rust(),
-		contents: *unsafe { Box::from_raw(contents_arg.take_ptr()) },
+		contents: *unsafe { Box::from_raw(contents_arg.take_inner()) },
 	})), is_owned: true }
 }
 
@@ -2896,7 +2896,7 @@ extern "C" fn UnsignedChannelUpdate_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl UnsignedChannelUpdate {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeUnsignedChannelUpdate {
+	pub(crate) fn take_inner(mut self) -> *mut nativeUnsignedChannelUpdate {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -3039,7 +3039,7 @@ extern "C" fn ChannelUpdate_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelUpdate {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelUpdate {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelUpdate {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -3083,14 +3083,14 @@ pub extern "C" fn ChannelUpdate_get_contents(this_ptr: &ChannelUpdate) -> crate:
 /// The actual channel update
 #[no_mangle]
 pub extern "C" fn ChannelUpdate_set_contents(this_ptr: &mut ChannelUpdate, mut val: crate::ln::msgs::UnsignedChannelUpdate) {
-	unsafe { &mut *this_ptr.inner }.contents = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.contents = *unsafe { Box::from_raw(val.take_inner()) };
 }
 #[must_use]
 #[no_mangle]
 pub extern "C" fn ChannelUpdate_new(mut signature_arg: crate::c_types::Signature, mut contents_arg: crate::ln::msgs::UnsignedChannelUpdate) -> ChannelUpdate {
 	ChannelUpdate { inner: Box::into_raw(Box::new(nativeChannelUpdate {
 		signature: signature_arg.into_rust(),
-		contents: *unsafe { Box::from_raw(contents_arg.take_ptr()) },
+		contents: *unsafe { Box::from_raw(contents_arg.take_inner()) },
 	})), is_owned: true }
 }
 
@@ -3127,7 +3127,7 @@ extern "C" fn QueryChannelRange_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl QueryChannelRange {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeQueryChannelRange {
+	pub(crate) fn take_inner(mut self) -> *mut nativeQueryChannelRange {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -3230,7 +3230,7 @@ extern "C" fn ReplyChannelRange_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ReplyChannelRange {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeReplyChannelRange {
+	pub(crate) fn take_inner(mut self) -> *mut nativeReplyChannelRange {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -3356,7 +3356,7 @@ extern "C" fn QueryShortChannelIds_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl QueryShortChannelIds {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeQueryShortChannelIds {
+	pub(crate) fn take_inner(mut self) -> *mut nativeQueryShortChannelIds {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -3440,7 +3440,7 @@ extern "C" fn ReplyShortChannelIdsEnd_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ReplyShortChannelIdsEnd {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeReplyShortChannelIdsEnd {
+	pub(crate) fn take_inner(mut self) -> *mut nativeReplyShortChannelIdsEnd {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -3529,7 +3529,7 @@ extern "C" fn GossipTimestampFilter_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl GossipTimestampFilter {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeGossipTimestampFilter {
+	pub(crate) fn take_inner(mut self) -> *mut nativeGossipTimestampFilter {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -3618,7 +3618,7 @@ impl ErrorAction {
 		match self {
 			ErrorAction::DisconnectPeer {ref msg, } => {
 				let mut msg_nonref = (*msg).clone();
-				let mut local_msg_nonref = if msg_nonref.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(msg_nonref.take_ptr()) } }) };
+				let mut local_msg_nonref = if msg_nonref.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(msg_nonref.take_inner()) } }) };
 				nativeErrorAction::DisconnectPeer {
 					msg: local_msg_nonref,
 				}
@@ -3627,7 +3627,7 @@ impl ErrorAction {
 			ErrorAction::SendErrorMessage {ref msg, } => {
 				let mut msg_nonref = (*msg).clone();
 				nativeErrorAction::SendErrorMessage {
-					msg: *unsafe { Box::from_raw(msg_nonref.take_ptr()) },
+					msg: *unsafe { Box::from_raw(msg_nonref.take_inner()) },
 				}
 			},
 		}
@@ -3636,7 +3636,7 @@ impl ErrorAction {
 	pub(crate) fn into_native(self) -> nativeErrorAction {
 		match self {
 			ErrorAction::DisconnectPeer {mut msg, } => {
-				let mut local_msg = if msg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(msg.take_ptr()) } }) };
+				let mut local_msg = if msg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(msg.take_inner()) } }) };
 				nativeErrorAction::DisconnectPeer {
 					msg: local_msg,
 				}
@@ -3644,7 +3644,7 @@ impl ErrorAction {
 			ErrorAction::IgnoreError => nativeErrorAction::IgnoreError,
 			ErrorAction::SendErrorMessage {mut msg, } => {
 				nativeErrorAction::SendErrorMessage {
-					msg: *unsafe { Box::from_raw(msg.take_ptr()) },
+					msg: *unsafe { Box::from_raw(msg.take_inner()) },
 				}
 			},
 		}
@@ -3723,7 +3723,7 @@ extern "C" fn LightningError_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl LightningError {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeLightningError {
+	pub(crate) fn take_inner(mut self) -> *mut nativeLightningError {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -3792,7 +3792,7 @@ extern "C" fn CommitmentUpdate_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl CommitmentUpdate {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeCommitmentUpdate {
+	pub(crate) fn take_inner(mut self) -> *mut nativeCommitmentUpdate {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -3819,25 +3819,25 @@ pub extern "C" fn CommitmentUpdate_clone(orig: &CommitmentUpdate) -> CommitmentU
 /// update_add_htlc messages which should be sent
 #[no_mangle]
 pub extern "C" fn CommitmentUpdate_set_update_add_htlcs(this_ptr: &mut CommitmentUpdate, mut val: crate::c_types::derived::CVec_UpdateAddHTLCZ) {
-	let mut local_val = Vec::new(); for mut item in val.into_rust().drain(..) { local_val.push( { *unsafe { Box::from_raw(item.take_ptr()) } }); };
+	let mut local_val = Vec::new(); for mut item in val.into_rust().drain(..) { local_val.push( { *unsafe { Box::from_raw(item.take_inner()) } }); };
 	unsafe { &mut *this_ptr.inner }.update_add_htlcs = local_val;
 }
 /// update_fulfill_htlc messages which should be sent
 #[no_mangle]
 pub extern "C" fn CommitmentUpdate_set_update_fulfill_htlcs(this_ptr: &mut CommitmentUpdate, mut val: crate::c_types::derived::CVec_UpdateFulfillHTLCZ) {
-	let mut local_val = Vec::new(); for mut item in val.into_rust().drain(..) { local_val.push( { *unsafe { Box::from_raw(item.take_ptr()) } }); };
+	let mut local_val = Vec::new(); for mut item in val.into_rust().drain(..) { local_val.push( { *unsafe { Box::from_raw(item.take_inner()) } }); };
 	unsafe { &mut *this_ptr.inner }.update_fulfill_htlcs = local_val;
 }
 /// update_fail_htlc messages which should be sent
 #[no_mangle]
 pub extern "C" fn CommitmentUpdate_set_update_fail_htlcs(this_ptr: &mut CommitmentUpdate, mut val: crate::c_types::derived::CVec_UpdateFailHTLCZ) {
-	let mut local_val = Vec::new(); for mut item in val.into_rust().drain(..) { local_val.push( { *unsafe { Box::from_raw(item.take_ptr()) } }); };
+	let mut local_val = Vec::new(); for mut item in val.into_rust().drain(..) { local_val.push( { *unsafe { Box::from_raw(item.take_inner()) } }); };
 	unsafe { &mut *this_ptr.inner }.update_fail_htlcs = local_val;
 }
 /// update_fail_malformed_htlc messages which should be sent
 #[no_mangle]
 pub extern "C" fn CommitmentUpdate_set_update_fail_malformed_htlcs(this_ptr: &mut CommitmentUpdate, mut val: crate::c_types::derived::CVec_UpdateFailMalformedHTLCZ) {
-	let mut local_val = Vec::new(); for mut item in val.into_rust().drain(..) { local_val.push( { *unsafe { Box::from_raw(item.take_ptr()) } }); };
+	let mut local_val = Vec::new(); for mut item in val.into_rust().drain(..) { local_val.push( { *unsafe { Box::from_raw(item.take_inner()) } }); };
 	unsafe { &mut *this_ptr.inner }.update_fail_malformed_htlcs = local_val;
 }
 /// An update_fee message which should be sent
@@ -3850,7 +3850,7 @@ pub extern "C" fn CommitmentUpdate_get_update_fee(this_ptr: &CommitmentUpdate) -
 /// An update_fee message which should be sent
 #[no_mangle]
 pub extern "C" fn CommitmentUpdate_set_update_fee(this_ptr: &mut CommitmentUpdate, mut val: crate::ln::msgs::UpdateFee) {
-	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_ptr()) } }) };
+	let mut local_val = if val.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(val.take_inner()) } }) };
 	unsafe { &mut *this_ptr.inner }.update_fee = local_val;
 }
 /// Finally, the commitment_signed message which should be sent
@@ -3862,23 +3862,23 @@ pub extern "C" fn CommitmentUpdate_get_commitment_signed(this_ptr: &CommitmentUp
 /// Finally, the commitment_signed message which should be sent
 #[no_mangle]
 pub extern "C" fn CommitmentUpdate_set_commitment_signed(this_ptr: &mut CommitmentUpdate, mut val: crate::ln::msgs::CommitmentSigned) {
-	unsafe { &mut *this_ptr.inner }.commitment_signed = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.commitment_signed = *unsafe { Box::from_raw(val.take_inner()) };
 }
 #[must_use]
 #[no_mangle]
 pub extern "C" fn CommitmentUpdate_new(mut update_add_htlcs_arg: crate::c_types::derived::CVec_UpdateAddHTLCZ, mut update_fulfill_htlcs_arg: crate::c_types::derived::CVec_UpdateFulfillHTLCZ, mut update_fail_htlcs_arg: crate::c_types::derived::CVec_UpdateFailHTLCZ, mut update_fail_malformed_htlcs_arg: crate::c_types::derived::CVec_UpdateFailMalformedHTLCZ, mut update_fee_arg: crate::ln::msgs::UpdateFee, mut commitment_signed_arg: crate::ln::msgs::CommitmentSigned) -> CommitmentUpdate {
-	let mut local_update_add_htlcs_arg = Vec::new(); for mut item in update_add_htlcs_arg.into_rust().drain(..) { local_update_add_htlcs_arg.push( { *unsafe { Box::from_raw(item.take_ptr()) } }); };
-	let mut local_update_fulfill_htlcs_arg = Vec::new(); for mut item in update_fulfill_htlcs_arg.into_rust().drain(..) { local_update_fulfill_htlcs_arg.push( { *unsafe { Box::from_raw(item.take_ptr()) } }); };
-	let mut local_update_fail_htlcs_arg = Vec::new(); for mut item in update_fail_htlcs_arg.into_rust().drain(..) { local_update_fail_htlcs_arg.push( { *unsafe { Box::from_raw(item.take_ptr()) } }); };
-	let mut local_update_fail_malformed_htlcs_arg = Vec::new(); for mut item in update_fail_malformed_htlcs_arg.into_rust().drain(..) { local_update_fail_malformed_htlcs_arg.push( { *unsafe { Box::from_raw(item.take_ptr()) } }); };
-	let mut local_update_fee_arg = if update_fee_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(update_fee_arg.take_ptr()) } }) };
+	let mut local_update_add_htlcs_arg = Vec::new(); for mut item in update_add_htlcs_arg.into_rust().drain(..) { local_update_add_htlcs_arg.push( { *unsafe { Box::from_raw(item.take_inner()) } }); };
+	let mut local_update_fulfill_htlcs_arg = Vec::new(); for mut item in update_fulfill_htlcs_arg.into_rust().drain(..) { local_update_fulfill_htlcs_arg.push( { *unsafe { Box::from_raw(item.take_inner()) } }); };
+	let mut local_update_fail_htlcs_arg = Vec::new(); for mut item in update_fail_htlcs_arg.into_rust().drain(..) { local_update_fail_htlcs_arg.push( { *unsafe { Box::from_raw(item.take_inner()) } }); };
+	let mut local_update_fail_malformed_htlcs_arg = Vec::new(); for mut item in update_fail_malformed_htlcs_arg.into_rust().drain(..) { local_update_fail_malformed_htlcs_arg.push( { *unsafe { Box::from_raw(item.take_inner()) } }); };
+	let mut local_update_fee_arg = if update_fee_arg.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(update_fee_arg.take_inner()) } }) };
 	CommitmentUpdate { inner: Box::into_raw(Box::new(nativeCommitmentUpdate {
 		update_add_htlcs: local_update_add_htlcs_arg,
 		update_fulfill_htlcs: local_update_fulfill_htlcs_arg,
 		update_fail_htlcs: local_update_fail_htlcs_arg,
 		update_fail_malformed_htlcs: local_update_fail_malformed_htlcs_arg,
 		update_fee: local_update_fee_arg,
-		commitment_signed: *unsafe { Box::from_raw(commitment_signed_arg.take_ptr()) },
+		commitment_signed: *unsafe { Box::from_raw(commitment_signed_arg.take_inner()) },
 	})), is_owned: true }
 }
 /// The information we received from a peer along the route of a payment we originated. This is
@@ -3911,7 +3911,7 @@ impl HTLCFailChannelUpdate {
 			HTLCFailChannelUpdate::ChannelUpdateMessage {ref msg, } => {
 				let mut msg_nonref = (*msg).clone();
 				nativeHTLCFailChannelUpdate::ChannelUpdateMessage {
-					msg: *unsafe { Box::from_raw(msg_nonref.take_ptr()) },
+					msg: *unsafe { Box::from_raw(msg_nonref.take_inner()) },
 				}
 			},
 			HTLCFailChannelUpdate::ChannelClosed {ref short_channel_id, ref is_permanent, } => {
@@ -3937,7 +3937,7 @@ impl HTLCFailChannelUpdate {
 		match self {
 			HTLCFailChannelUpdate::ChannelUpdateMessage {mut msg, } => {
 				nativeHTLCFailChannelUpdate::ChannelUpdateMessage {
-					msg: *unsafe { Box::from_raw(msg.take_ptr()) },
+					msg: *unsafe { Box::from_raw(msg.take_inner()) },
 				}
 			},
 			HTLCFailChannelUpdate::ChannelClosed {mut short_channel_id, mut is_permanent, } => {
@@ -4221,17 +4221,17 @@ use lightning::ln::msgs::RoutingMessageHandler as rustRoutingMessageHandler;
 impl rustRoutingMessageHandler for RoutingMessageHandler {
 	fn handle_node_announcement(&self, msg: &lightning::ln::msgs::NodeAnnouncement) -> Result<bool, lightning::ln::msgs::LightningError> {
 		let mut ret = (self.handle_node_announcement)(self.this_arg, &crate::ln::msgs::NodeAnnouncement { inner: unsafe { (msg as *const _) as *mut _ }, is_owned: false });
-		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }) }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }) }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_inner()) } })};
 		local_ret
 	}
 	fn handle_channel_announcement(&self, msg: &lightning::ln::msgs::ChannelAnnouncement) -> Result<bool, lightning::ln::msgs::LightningError> {
 		let mut ret = (self.handle_channel_announcement)(self.this_arg, &crate::ln::msgs::ChannelAnnouncement { inner: unsafe { (msg as *const _) as *mut _ }, is_owned: false });
-		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }) }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }) }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_inner()) } })};
 		local_ret
 	}
 	fn handle_channel_update(&self, msg: &lightning::ln::msgs::ChannelUpdate) -> Result<bool, lightning::ln::msgs::LightningError> {
 		let mut ret = (self.handle_channel_update)(self.this_arg, &crate::ln::msgs::ChannelUpdate { inner: unsafe { (msg as *const _) as *mut _ }, is_owned: false });
-		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }) }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }) }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_inner()) } })};
 		local_ret
 	}
 	fn handle_htlc_fail_channel_update(&self, update: &lightning::ln::msgs::HTLCFailChannelUpdate) {
@@ -4239,13 +4239,13 @@ impl rustRoutingMessageHandler for RoutingMessageHandler {
 	}
 	fn get_next_channel_announcements(&self, starting_point: u64, batch_amount: u8) -> Vec<(lightning::ln::msgs::ChannelAnnouncement, Option<lightning::ln::msgs::ChannelUpdate>, Option<lightning::ln::msgs::ChannelUpdate>)> {
 		let mut ret = (self.get_next_channel_announcements)(self.this_arg, starting_point, batch_amount);
-		let mut local_ret = Vec::new(); for mut item in ret.into_rust().drain(..) { local_ret.push( { let (mut orig_ret_0_0, mut orig_ret_0_1, mut orig_ret_0_2) = item.to_rust(); let mut local_orig_ret_0_1 = if orig_ret_0_1.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(orig_ret_0_1.take_ptr()) } }) }; let mut local_orig_ret_0_2 = if orig_ret_0_2.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(orig_ret_0_2.take_ptr()) } }) }; let mut local_ret_0 = (*unsafe { Box::from_raw(orig_ret_0_0.take_ptr()) }, local_orig_ret_0_1, local_orig_ret_0_2); local_ret_0 }); };
+		let mut local_ret = Vec::new(); for mut item in ret.into_rust().drain(..) { local_ret.push( { let (mut orig_ret_0_0, mut orig_ret_0_1, mut orig_ret_0_2) = item.to_rust(); let mut local_orig_ret_0_1 = if orig_ret_0_1.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(orig_ret_0_1.take_inner()) } }) }; let mut local_orig_ret_0_2 = if orig_ret_0_2.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(orig_ret_0_2.take_inner()) } }) }; let mut local_ret_0 = (*unsafe { Box::from_raw(orig_ret_0_0.take_inner()) }, local_orig_ret_0_1, local_orig_ret_0_2); local_ret_0 }); };
 		local_ret
 	}
 	fn get_next_node_announcements(&self, starting_point: Option<&bitcoin::secp256k1::key::PublicKey>, batch_amount: u8) -> Vec<lightning::ln::msgs::NodeAnnouncement> {
 		let mut local_starting_point = if starting_point.is_none() { crate::c_types::PublicKey::null() } else {  { crate::c_types::PublicKey::from_rust(&(starting_point.unwrap())) } };
 		let mut ret = (self.get_next_node_announcements)(self.this_arg, local_starting_point, batch_amount);
-		let mut local_ret = Vec::new(); for mut item in ret.into_rust().drain(..) { local_ret.push( { *unsafe { Box::from_raw(item.take_ptr()) } }); };
+		let mut local_ret = Vec::new(); for mut item in ret.into_rust().drain(..) { local_ret.push( { *unsafe { Box::from_raw(item.take_inner()) } }); };
 		local_ret
 	}
 	fn sync_routing_table(&self, their_node_id: &bitcoin::secp256k1::key::PublicKey, init: &lightning::ln::msgs::Init) {
@@ -4253,22 +4253,22 @@ impl rustRoutingMessageHandler for RoutingMessageHandler {
 	}
 	fn handle_reply_channel_range(&self, their_node_id: &bitcoin::secp256k1::key::PublicKey, msg: lightning::ln::msgs::ReplyChannelRange) -> Result<(), lightning::ln::msgs::LightningError> {
 		let mut ret = (self.handle_reply_channel_range)(self.this_arg, crate::c_types::PublicKey::from_rust(&their_node_id), crate::ln::msgs::ReplyChannelRange { inner: Box::into_raw(Box::new(msg)), is_owned: true });
-		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_inner()) } })};
 		local_ret
 	}
 	fn handle_reply_short_channel_ids_end(&self, their_node_id: &bitcoin::secp256k1::key::PublicKey, msg: lightning::ln::msgs::ReplyShortChannelIdsEnd) -> Result<(), lightning::ln::msgs::LightningError> {
 		let mut ret = (self.handle_reply_short_channel_ids_end)(self.this_arg, crate::c_types::PublicKey::from_rust(&their_node_id), crate::ln::msgs::ReplyShortChannelIdsEnd { inner: Box::into_raw(Box::new(msg)), is_owned: true });
-		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_inner()) } })};
 		local_ret
 	}
 	fn handle_query_channel_range(&self, their_node_id: &bitcoin::secp256k1::key::PublicKey, msg: lightning::ln::msgs::QueryChannelRange) -> Result<(), lightning::ln::msgs::LightningError> {
 		let mut ret = (self.handle_query_channel_range)(self.this_arg, crate::c_types::PublicKey::from_rust(&their_node_id), crate::ln::msgs::QueryChannelRange { inner: Box::into_raw(Box::new(msg)), is_owned: true });
-		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_inner()) } })};
 		local_ret
 	}
 	fn handle_query_short_channel_ids(&self, their_node_id: &bitcoin::secp256k1::key::PublicKey, msg: lightning::ln::msgs::QueryShortChannelIds) -> Result<(), lightning::ln::msgs::LightningError> {
 		let mut ret = (self.handle_query_short_channel_ids)(self.this_arg, crate::c_types::PublicKey::from_rust(&their_node_id), crate::ln::msgs::QueryShortChannelIds { inner: Box::into_raw(Box::new(msg)), is_owned: true });
-		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_ptr()) } })};
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_inner()) } })};
 		local_ret
 	}
 }

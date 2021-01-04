@@ -79,7 +79,7 @@ extern "C" fn ChannelManager_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelManager {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelManager {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelManager {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -117,7 +117,7 @@ extern "C" fn ChannelDetails_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelDetails {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelDetails {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelDetails {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -182,7 +182,7 @@ pub extern "C" fn ChannelDetails_get_counterparty_features(this_ptr: &ChannelDet
 /// many routing-relevant features are present in the init context.
 #[no_mangle]
 pub extern "C" fn ChannelDetails_set_counterparty_features(this_ptr: &mut ChannelDetails, mut val: crate::ln::features::InitFeatures) {
-	unsafe { &mut *this_ptr.inner }.counterparty_features = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.counterparty_features = *unsafe { Box::from_raw(val.take_inner()) };
 }
 /// The value, in satoshis, of this channel as appears in the funding output
 #[no_mangle]
@@ -288,7 +288,7 @@ extern "C" fn PaymentSendFailure_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl PaymentSendFailure {
-	pub(crate) fn take_ptr(mut self) -> *mut nativePaymentSendFailure {
+	pub(crate) fn take_inner(mut self) -> *mut nativePaymentSendFailure {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -312,7 +312,7 @@ impl PaymentSendFailure {
 #[must_use]
 #[no_mangle]
 pub extern "C" fn ChannelManager_new(mut network: crate::bitcoin::network::Network, mut fee_est: crate::chain::chaininterface::FeeEstimator, mut chain_monitor: crate::chain::Watch, mut tx_broadcaster: crate::chain::chaininterface::BroadcasterInterface, mut logger: crate::util::logger::Logger, mut keys_manager: crate::chain::keysinterface::KeysInterface, mut config: crate::util::config::UserConfig, mut current_blockchain_height: usize) -> ChannelManager {
-	let mut ret = lightning::ln::channelmanager::ChannelManager::new(network.into_bitcoin(), fee_est, chain_monitor, tx_broadcaster, logger, keys_manager, *unsafe { Box::from_raw(config.take_ptr()) }, current_blockchain_height);
+	let mut ret = lightning::ln::channelmanager::ChannelManager::new(network.into_bitcoin(), fee_est, chain_monitor, tx_broadcaster, logger, keys_manager, *unsafe { Box::from_raw(config.take_inner()) }, current_blockchain_height);
 	ChannelManager { inner: Box::into_raw(Box::new(ret)), is_owned: true }
 }
 
@@ -331,7 +331,7 @@ pub extern "C" fn ChannelManager_new(mut network: crate::bitcoin::network::Netwo
 #[must_use]
 #[no_mangle]
 pub extern "C" fn ChannelManager_create_channel(this_arg: &ChannelManager, mut their_network_key: crate::c_types::PublicKey, mut channel_value_satoshis: u64, mut push_msat: u64, mut user_id: u64, mut override_config: crate::util::config::UserConfig) -> crate::c_types::derived::CResult_NoneAPIErrorZ {
-	let mut local_override_config = if override_config.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(override_config.take_ptr()) } }) };
+	let mut local_override_config = if override_config.inner.is_null() { None } else { Some( { *unsafe { Box::from_raw(override_config.take_inner()) } }) };
 	let mut ret = unsafe { &*this_arg.inner }.create_channel(their_network_key.into_rust(), channel_value_satoshis, push_msat, user_id, local_override_config);
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::util::errors::APIError::native_into(e) }) };
 	local_ret
@@ -446,7 +446,7 @@ pub extern "C" fn ChannelManager_send_payment(this_arg: &ChannelManager, route: 
 /// be trivially prevented by using unique funding transaction keys per-channel).
 #[no_mangle]
 pub extern "C" fn ChannelManager_funding_transaction_generated(this_arg: &ChannelManager, temporary_channel_id: *const [u8; 32], mut funding_txo: crate::chain::transaction::OutPoint) {
-	unsafe { &*this_arg.inner }.funding_transaction_generated(unsafe { &*temporary_channel_id}, *unsafe { Box::from_raw(funding_txo.take_ptr()) })
+	unsafe { &*this_arg.inner }.funding_transaction_generated(unsafe { &*temporary_channel_id}, *unsafe { Box::from_raw(funding_txo.take_inner()) })
 }
 
 /// Generates a signed node_announcement from the given arguments and creates a
@@ -667,10 +667,10 @@ pub extern "C" fn ChannelManager_as_ChannelMessageHandler(this_arg: *const Chann
 }
 use lightning::ln::msgs::ChannelMessageHandler as ChannelMessageHandlerTraitImport;
 extern "C" fn ChannelManager_ChannelMessageHandler_handle_open_channel(this_arg: *const c_void, mut counterparty_node_id: crate::c_types::PublicKey, mut their_features: crate::ln::features::InitFeatures, msg: &crate::ln::msgs::OpenChannel) {
-	unsafe { &mut *(this_arg as *mut nativeChannelManager) }.handle_open_channel(&counterparty_node_id.into_rust(), *unsafe { Box::from_raw(their_features.take_ptr()) }, unsafe { &*msg.inner })
+	unsafe { &mut *(this_arg as *mut nativeChannelManager) }.handle_open_channel(&counterparty_node_id.into_rust(), *unsafe { Box::from_raw(their_features.take_inner()) }, unsafe { &*msg.inner })
 }
 extern "C" fn ChannelManager_ChannelMessageHandler_handle_accept_channel(this_arg: *const c_void, mut counterparty_node_id: crate::c_types::PublicKey, mut their_features: crate::ln::features::InitFeatures, msg: &crate::ln::msgs::AcceptChannel) {
-	unsafe { &mut *(this_arg as *mut nativeChannelManager) }.handle_accept_channel(&counterparty_node_id.into_rust(), *unsafe { Box::from_raw(their_features.take_ptr()) }, unsafe { &*msg.inner })
+	unsafe { &mut *(this_arg as *mut nativeChannelManager) }.handle_accept_channel(&counterparty_node_id.into_rust(), *unsafe { Box::from_raw(their_features.take_inner()) }, unsafe { &*msg.inner })
 }
 extern "C" fn ChannelManager_ChannelMessageHandler_handle_funding_created(this_arg: *const c_void, mut counterparty_node_id: crate::c_types::PublicKey, msg: &crate::ln::msgs::FundingCreated) {
 	unsafe { &mut *(this_arg as *mut nativeChannelManager) }.handle_funding_created(&counterparty_node_id.into_rust(), unsafe { &*msg.inner })
@@ -775,7 +775,7 @@ extern "C" fn ChannelManagerReadArgs_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelManagerReadArgs {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelManagerReadArgs {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelManagerReadArgs {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -870,7 +870,7 @@ pub extern "C" fn ChannelManagerReadArgs_get_default_config(this_ptr: &ChannelMa
 /// runtime settings which were stored when the ChannelManager was serialized.
 #[no_mangle]
 pub extern "C" fn ChannelManagerReadArgs_set_default_config(this_ptr: &mut ChannelManagerReadArgs, mut val: crate::util::config::UserConfig) {
-	unsafe { &mut *this_ptr.inner }.default_config = *unsafe { Box::from_raw(val.take_ptr()) };
+	unsafe { &mut *this_ptr.inner }.default_config = *unsafe { Box::from_raw(val.take_inner()) };
 }
 /// Simple utility function to create a ChannelManagerReadArgs which creates the monitor
 /// HashMap for you. This is primarily useful for C bindings where it is not practical to
@@ -879,7 +879,7 @@ pub extern "C" fn ChannelManagerReadArgs_set_default_config(this_ptr: &mut Chann
 #[no_mangle]
 pub extern "C" fn ChannelManagerReadArgs_new(mut keys_manager: crate::chain::keysinterface::KeysInterface, mut fee_estimator: crate::chain::chaininterface::FeeEstimator, mut chain_monitor: crate::chain::Watch, mut tx_broadcaster: crate::chain::chaininterface::BroadcasterInterface, mut logger: crate::util::logger::Logger, mut default_config: crate::util::config::UserConfig, mut channel_monitors: crate::c_types::derived::CVec_ChannelMonitorZ) -> ChannelManagerReadArgs {
 	let mut local_channel_monitors = Vec::new(); for mut item in channel_monitors.into_rust().drain(..) { local_channel_monitors.push( { unsafe { &mut *item.inner } }); };
-	let mut ret = lightning::ln::channelmanager::ChannelManagerReadArgs::new(keys_manager, fee_estimator, chain_monitor, tx_broadcaster, logger, *unsafe { Box::from_raw(default_config.take_ptr()) }, local_channel_monitors);
+	let mut ret = lightning::ln::channelmanager::ChannelManagerReadArgs::new(keys_manager, fee_estimator, chain_monitor, tx_broadcaster, logger, *unsafe { Box::from_raw(default_config.take_inner()) }, local_channel_monitors);
 	ChannelManagerReadArgs { inner: Box::into_raw(Box::new(ret)), is_owned: true }
 }
 
