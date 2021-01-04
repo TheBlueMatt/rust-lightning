@@ -324,6 +324,24 @@ typedef struct LDKC2TupleTempl_ThirtyTwoBytes__CVecTempl_C2TupleTempl_u32__TxOut
 
 typedef struct LDKCVecTempl_C2TupleTempl_u32__TxOut LDKCVec_C2Tuple_u32TxOutZZ;
 
+typedef struct LDKPublicKey {
+   uint8_t compressed_form[33];
+} LDKPublicKey;
+
+
+
+/**
+ * One counterparty's public keys which do not change over the life of a channel.
+ */
+typedef struct MUST_USE_STRUCT LDKChannelPublicKeys {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeChannelPublicKeys *inner;
+   bool is_owned;
+} LDKChannelPublicKeys;
+
 typedef struct LDKC2TupleTempl_u64__u64 {
    uint64_t a;
    uint64_t b;
@@ -345,10 +363,6 @@ typedef struct LDKC2TupleTempl_Signature__CVecTempl_Signature {
    struct LDKCVecTempl_Signature b;
 } LDKC2TupleTempl_Signature__CVecTempl_Signature;
 
-typedef struct LDKC2TupleTempl_Signature__CVecTempl_Signature LDKC2Tuple_SignatureCVec_SignatureZZ;
-
-typedef struct LDKCVecTempl_Signature LDKCVec_SignatureZ;
-
 typedef union LDKCResultPtr_C2TupleTempl_Signature__CVecTempl_Signature________u8 {
    struct LDKC2TupleTempl_Signature__CVecTempl_Signature *result;
    uint8_t *err;
@@ -360,6 +374,25 @@ typedef struct LDKCResultTempl_C2TupleTempl_Signature__CVecTempl_Signature______
 } LDKCResultTempl_C2TupleTempl_Signature__CVecTempl_Signature________u8;
 
 typedef struct LDKCResultTempl_C2TupleTempl_Signature__CVecTempl_Signature________u8 LDKCResult_C2Tuple_SignatureCVec_SignatureZZNoneZ;
+
+
+
+/**
+ * This class tracks the per-transaction information needed to build a commitment transaction and to
+ * actually build it and sign.  It is used for holder transactions that we sign only when needed
+ * and for transactions we sign for the counterparty.
+ *
+ * This class can be used inside a signer implementation to generate a signature given the relevant
+ * secret key.
+ */
+typedef struct MUST_USE_STRUCT LDKCommitmentTransaction {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeCommitmentTransaction *inner;
+   bool is_owned;
+} LDKCommitmentTransaction;
 
 typedef union LDKCResultPtr_Signature__u8 {
    struct LDKSignature *result;
@@ -373,6 +406,22 @@ typedef struct LDKCResultTempl_Signature__u8 {
 
 typedef struct LDKCResultTempl_Signature__u8 LDKCResult_SignatureNoneZ;
 
+
+
+/**
+ * Information needed to build and sign a holder's commitment transaction.
+ *
+ * The transaction is only signed once we are ready to broadcast.
+ */
+typedef struct MUST_USE_STRUCT LDKHolderCommitmentTransaction {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeHolderCommitmentTransaction *inner;
+   bool is_owned;
+} LDKHolderCommitmentTransaction;
+
 typedef union LDKCResultPtr_CVecTempl_Signature_____u8 {
    struct LDKCVecTempl_Signature *result;
    uint8_t *err;
@@ -384,6 +433,253 @@ typedef struct LDKCResultTempl_CVecTempl_Signature_____u8 {
 } LDKCResultTempl_CVecTempl_Signature_____u8;
 
 typedef struct LDKCResultTempl_CVecTempl_Signature_____u8 LDKCResult_CVec_SignatureZNoneZ;
+
+
+
+/**
+ * Information about an HTLC as it appears in a commitment transaction
+ */
+typedef struct MUST_USE_STRUCT LDKHTLCOutputInCommitment {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeHTLCOutputInCommitment *inner;
+   bool is_owned;
+} LDKHTLCOutputInCommitment;
+
+
+
+/**
+ * The unsigned part of a channel_announcement
+ */
+typedef struct MUST_USE_STRUCT LDKUnsignedChannelAnnouncement {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeUnsignedChannelAnnouncement *inner;
+   bool is_owned;
+} LDKUnsignedChannelAnnouncement;
+
+
+
+/**
+ * Per-channel data used to build transactions in conjunction with the per-commitment data (CommitmentTransaction).
+ * The fields are organized by holder/counterparty.
+ *
+ * Normally, this is converted to the broadcaster/countersignatory-organized DirectedChannelTransactionParameters
+ * before use, via the as_holder_broadcastable and as_counterparty_broadcastable functions.
+ */
+typedef struct MUST_USE_STRUCT LDKChannelTransactionParameters {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeChannelTransactionParameters *inner;
+   bool is_owned;
+} LDKChannelTransactionParameters;
+
+/**
+ * Set of lightning keys needed to operate a channel as described in BOLT 3.
+ *
+ * Signing services could be implemented on a hardware wallet. In this case,
+ * the current ChannelKeys would be a front-end on top of a communication
+ * channel connected to your secure device and lightning key material wouldn't
+ * reside on a hot server. Nevertheless, a this deployment would still need
+ * to trust the ChannelManager to avoid loss of funds as this latest component
+ * could ask to sign commitment transaction with HTLCs paying to attacker pubkeys.
+ *
+ * A more secure iteration would be to use hashlock (or payment points) to pair
+ * invoice/incoming HTLCs with outgoing HTLCs to implement a no-trust-ChannelManager
+ * at the price of more state and computation on the hardware wallet side. In the future,
+ * we are looking forward to design such interface.
+ *
+ * In any case, ChannelMonitor or fallback watchtowers are always going to be trusted
+ * to act, as liveness and breach reply correctness are always going to be hard requirements
+ * of LN security model, orthogonal of key management issues.
+ *
+ * If you're implementing a custom signer, you almost certainly want to implement
+ * Readable/Writable to serialize out a unique reference to this set of keys so
+ * that you can serialize the full ChannelManager object.
+ *
+ */
+typedef struct LDKChannelKeys {
+   void *this_arg;
+   /**
+    * Gets the per-commitment point for a specific commitment number
+    *
+    * Note that the commitment number starts at (1 << 48) - 1 and counts backwards.
+    */
+   struct LDKPublicKey (*get_per_commitment_point)(const void *this_arg, uint64_t idx);
+   /**
+    * Gets the commitment secret for a specific commitment number as part of the revocation process
+    *
+    * An external signer implementation should error here if the commitment was already signed
+    * and should refuse to sign it in the future.
+    *
+    * May be called more than once for the same index.
+    *
+    * Note that the commitment number starts at (1 << 48) - 1 and counts backwards.
+    * TODO: return a Result so we can signal a validation error
+    */
+   struct LDKThirtyTwoBytes (*release_commitment_secret)(const void *this_arg, uint64_t idx);
+   /**
+    * Gets the holder's channel public keys and basepoints
+    */
+   struct LDKChannelPublicKeys pubkeys;
+   /**
+    * Fill in the pubkeys field as a reference to it will be given to Rust after this returns
+    * Note that this takes a pointer to this object, not the this_ptr like other methods do
+    * This function pointer may be NULL if pubkeys is filled in when this object is created and never needs updating.
+    */
+   void (*set_pubkeys)(const struct LDKChannelKeys*);
+   /**
+    * Gets arbitrary identifiers describing the set of keys which are provided back to you in
+    * some SpendableOutputDescriptor types. These should be sufficient to identify this
+    * ChannelKeys object uniquely and lookup or re-derive its keys.
+    */
+   LDKC2Tuple_u64u64Z (*key_derivation_params)(const void *this_arg);
+   /**
+    * Create a signature for a counterparty's commitment transaction and associated HTLC transactions.
+    *
+    * Note that if signing fails or is rejected, the channel will be force-closed.
+    */
+   LDKCResult_C2Tuple_SignatureCVec_SignatureZZNoneZ (*sign_counterparty_commitment)(const void *this_arg, const struct LDKCommitmentTransaction *commitment_tx);
+   /**
+    * Create a signature for a holder's commitment transaction. This will only ever be called with
+    * the same commitment_tx (or a copy thereof), though there are currently no guarantees
+    * that it will not be called multiple times.
+    * An external signer implementation should check that the commitment has not been revoked.
+    */
+   LDKCResult_SignatureNoneZ (*sign_holder_commitment)(const void *this_arg, const struct LDKHolderCommitmentTransaction *commitment_tx);
+   /**
+    * Create a signature for each HTLC transaction spending a holder's commitment transaction.
+    *
+    * Unlike sign_holder_commitment, this may be called multiple times with *different*
+    * commitment_tx values. While this will never be called with a revoked
+    * commitment_tx, it is possible that it is called with the second-latest
+    * commitment_tx (only if we haven't yet revoked it) if some watchtower/secondary
+    * ChannelMonitor decided to broadcast before it had been updated to the latest.
+    *
+    * Either an Err should be returned, or a Vec with one entry for each HTLC which exists in
+    * commitment_tx.
+    */
+   LDKCResult_CVec_SignatureZNoneZ (*sign_holder_commitment_htlc_transactions)(const void *this_arg, const struct LDKHolderCommitmentTransaction *commitment_tx);
+   /**
+    * Create a signature for the given input in a transaction spending an HTLC or commitment
+    * transaction output when our counterparty broadcasts an old state.
+    *
+    * A justice transaction may claim multiples outputs at the same time if timelocks are
+    * similar, but only a signature for the input at index `input` should be signed for here.
+    * It may be called multiples time for same output(s) if a fee-bump is needed with regards
+    * to an upcoming timelock expiration.
+    *
+    * Amount is value of the output spent by this input, committed to in the BIP 143 signature.
+    *
+    * per_commitment_key is revocation secret which was provided by our counterparty when they
+    * revoked the state which they eventually broadcast. It's not a _holder_ secret key and does
+    * not allow the spending of any funds by itself (you need our holder revocation_secret to do
+    * so).
+    *
+    * htlc holds HTLC elements (hash, timelock) if the output being spent is a HTLC output, thus
+    * changing the format of the witness script (which is committed to in the BIP 143
+    * signatures).
+    */
+   LDKCResult_SignatureNoneZ (*sign_justice_transaction)(const void *this_arg, struct LDKTransaction justice_tx, uintptr_t input, uint64_t amount, const uint8_t (*per_commitment_key)[32], const struct LDKHTLCOutputInCommitment *htlc);
+   /**
+    * Create a signature for a claiming transaction for a HTLC output on a counterparty's commitment
+    * transaction, either offered or received.
+    *
+    * Such a transaction may claim multiples offered outputs at same time if we know the
+    * preimage for each when we create it, but only the input at index `input` should be
+    * signed for here. It may be called multiple times for same output(s) if a fee-bump is
+    * needed with regards to an upcoming timelock expiration.
+    *
+    * Witness_script is either a offered or received script as defined in BOLT3 for HTLC
+    * outputs.
+    *
+    * Amount is value of the output spent by this input, committed to in the BIP 143 signature.
+    *
+    * Per_commitment_point is the dynamic point corresponding to the channel state
+    * detected onchain. It has been generated by our counterparty and is used to derive
+    * channel state keys, which are then included in the witness script and committed to in the
+    * BIP 143 signature.
+    */
+   LDKCResult_SignatureNoneZ (*sign_counterparty_htlc_transaction)(const void *this_arg, struct LDKTransaction htlc_tx, uintptr_t input, uint64_t amount, struct LDKPublicKey per_commitment_point, const struct LDKHTLCOutputInCommitment *htlc);
+   /**
+    * Create a signature for a (proposed) closing transaction.
+    *
+    * Note that, due to rounding, there may be one \"missing\" satoshi, and either party may have
+    * chosen to forgo their output as dust.
+    */
+   LDKCResult_SignatureNoneZ (*sign_closing_transaction)(const void *this_arg, struct LDKTransaction closing_tx);
+   /**
+    * Signs a channel announcement message with our funding key, proving it comes from one
+    * of the channel participants.
+    *
+    * Note that if this fails or is rejected, the channel will not be publicly announced and
+    * our counterparty may (though likely will not) close the channel on us for violating the
+    * protocol.
+    */
+   LDKCResult_SignatureNoneZ (*sign_channel_announcement)(const void *this_arg, const struct LDKUnsignedChannelAnnouncement *msg);
+   /**
+    * Set the counterparty static channel data, including basepoints,
+    * counterparty_selected/holder_selected_contest_delay and funding outpoint.
+    * This is done as soon as the funding outpoint is known.  Since these are static channel data,
+    * they MUST NOT be allowed to change to different values once set.
+    *
+    * channel_parameters.is_populated() MUST be true.
+    *
+    * We bind holder_selected_contest_delay late here for API convenience.
+    *
+    * Will be called before any signatures are applied.
+    */
+   void (*ready_channel)(void *this_arg, const struct LDKChannelTransactionParameters *channel_parameters);
+   void *(*clone)(const void *this_arg);
+   LDKCVec_u8Z (*write)(const void *this_arg);
+   void (*free)(void *this_arg);
+} LDKChannelKeys;
+
+
+
+/**
+ * A ChannelMonitor handles chain events (blocks connected and disconnected) and generates
+ * on-chain transactions to ensure no loss of funds occurs.
+ *
+ * You MUST ensure that no ChannelMonitors for a given channel anywhere contain out-of-date
+ * information and are actively monitoring the chain.
+ *
+ * Pending Events or updated HTLCs which have not yet been read out by
+ * get_and_clear_pending_monitor_events or get_and_clear_pending_events are serialized to disk and
+ * reloaded at deserialize-time. Thus, you must ensure that, when handling events, all events
+ * gotten are fully handled before re-serializing the new state.
+ *
+ * Note that the deserializer is only implemented for (Sha256dHash, ChannelMonitor), which
+ * tells you the last block hash which was block_connect()ed. You MUST rescan any blocks along
+ * the \"reorg path\" (ie disconnecting blocks until you find a common ancestor from both the
+ * returned block hash and the the current chain and then reconnecting blocks to get to the
+ * best chain) upon deserializing the object!
+ */
+typedef struct MUST_USE_STRUCT LDKChannelMonitor {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeChannelMonitor *inner;
+   bool is_owned;
+} LDKChannelMonitor;
+
+typedef struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelMonitor {
+   struct LDKThirtyTwoBytes a;
+   struct LDKChannelMonitor b;
+} LDKC2TupleTempl_ThirtyTwoBytes__ChannelMonitor;
+
+typedef struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelMonitor LDKC2Tuple_BlockHashChannelMonitorZ;
+
+typedef struct LDKC2TupleTempl_Signature__CVecTempl_Signature LDKC2Tuple_SignatureCVec_SignatureZZ;
+
+typedef struct LDKCVecTempl_Signature LDKCVec_SignatureZ;
 
 /**
  * A Rust str object, ie a reference to a UTF8-valid string.
@@ -498,6 +794,275 @@ typedef struct LDKCResultTempl_u8__PaymentSendFailure {
 } LDKCResultTempl_u8__PaymentSendFailure;
 
 typedef struct LDKCResultTempl_u8__PaymentSendFailure LDKCResult_NonePaymentSendFailureZ;
+
+
+
+/**
+ * An update generated by the underlying Channel itself which contains some new information the
+ * ChannelMonitor should be made aware of.
+ */
+typedef struct MUST_USE_STRUCT LDKChannelMonitorUpdate {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeChannelMonitorUpdate *inner;
+   bool is_owned;
+} LDKChannelMonitorUpdate;
+
+
+
+/**
+ * An event to be processed by the ChannelManager.
+ */
+typedef struct MUST_USE_STRUCT LDKMonitorEvent {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeMonitorEvent *inner;
+   bool is_owned;
+} LDKMonitorEvent;
+
+typedef struct LDKCVecTempl_MonitorEvent {
+   struct LDKMonitorEvent *data;
+   uintptr_t datalen;
+} LDKCVecTempl_MonitorEvent;
+
+typedef struct LDKCVecTempl_MonitorEvent LDKCVec_MonitorEventZ;
+
+/**
+ * The `Watch` trait defines behavior for watching on-chain activity pertaining to channels as
+ * blocks are connected and disconnected.
+ *
+ * Each channel is associated with a [`ChannelMonitor`]. Implementations of this trait are
+ * responsible for maintaining a set of monitors such that they can be updated accordingly as
+ * channel state changes and HTLCs are resolved. See method documentation for specific
+ * requirements.
+ *
+ * Implementations **must** ensure that updates are successfully applied and persisted upon method
+ * completion. If an update fails with a [`PermanentFailure`], then it must immediately shut down
+ * without taking any further action such as persisting the current state.
+ *
+ * If an implementation maintains multiple instances of a channel's monitor (e.g., by storing
+ * backup copies), then it must ensure that updates are applied across all instances. Otherwise, it
+ * could result in a revoked transaction being broadcast, allowing the counterparty to claim all
+ * funds in the channel. See [`ChannelMonitorUpdateErr`] for more details about how to handle
+ * multiple instances.
+ *
+ * [`ChannelMonitor`]: channelmonitor/struct.ChannelMonitor.html
+ * [`ChannelMonitorUpdateErr`]: channelmonitor/enum.ChannelMonitorUpdateErr.html
+ * [`PermanentFailure`]: channelmonitor/enum.ChannelMonitorUpdateErr.html#variant.PermanentFailure
+ */
+typedef struct LDKWatch {
+   void *this_arg;
+   /**
+    * Watches a channel identified by `funding_txo` using `monitor`.
+    *
+    * Implementations are responsible for watching the chain for the funding transaction along
+    * with any spends of outputs returned by [`get_outputs_to_watch`]. In practice, this means
+    * calling [`block_connected`] and [`block_disconnected`] on the monitor.
+    *
+    * [`get_outputs_to_watch`]: channelmonitor/struct.ChannelMonitor.html#method.get_outputs_to_watch
+    * [`block_connected`]: channelmonitor/struct.ChannelMonitor.html#method.block_connected
+    * [`block_disconnected`]: channelmonitor/struct.ChannelMonitor.html#method.block_disconnected
+    */
+   LDKCResult_NoneChannelMonitorUpdateErrZ (*watch_channel)(const void *this_arg, struct LDKOutPoint funding_txo, struct LDKChannelMonitor monitor);
+   /**
+    * Updates a channel identified by `funding_txo` by applying `update` to its monitor.
+    *
+    * Implementations must call [`update_monitor`] with the given update. See
+    * [`ChannelMonitorUpdateErr`] for invariants around returning an error.
+    *
+    * [`update_monitor`]: channelmonitor/struct.ChannelMonitor.html#method.update_monitor
+    * [`ChannelMonitorUpdateErr`]: channelmonitor/enum.ChannelMonitorUpdateErr.html
+    */
+   LDKCResult_NoneChannelMonitorUpdateErrZ (*update_channel)(const void *this_arg, struct LDKOutPoint funding_txo, struct LDKChannelMonitorUpdate update);
+   /**
+    * Returns any monitor events since the last call. Subsequent calls must only return new
+    * events.
+    */
+   LDKCVec_MonitorEventZ (*release_pending_monitor_events)(const void *this_arg);
+   void (*free)(void *this_arg);
+} LDKWatch;
+
+/**
+ * An interface to send a transaction to the Bitcoin network.
+ */
+typedef struct LDKBroadcasterInterface {
+   void *this_arg;
+   /**
+    * Sends a transaction out to (hopefully) be mined.
+    */
+   void (*broadcast_transaction)(const void *this_arg, struct LDKTransaction tx);
+   void (*free)(void *this_arg);
+} LDKBroadcasterInterface;
+
+typedef struct LDKSecretKey {
+   uint8_t bytes[32];
+} LDKSecretKey;
+
+
+
+/**
+ * An error in decoding a message or struct.
+ */
+typedef struct MUST_USE_STRUCT LDKDecodeError {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeDecodeError *inner;
+   bool is_owned;
+} LDKDecodeError;
+
+typedef union LDKCResultPtr_ChannelKeys__DecodeError {
+   struct LDKChannelKeys *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_ChannelKeys__DecodeError;
+
+typedef struct LDKCResultTempl_ChannelKeys__DecodeError {
+   union LDKCResultPtr_ChannelKeys__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_ChannelKeys__DecodeError;
+
+typedef struct LDKCResultTempl_ChannelKeys__DecodeError LDKCResult_ChanKeySignerDecodeErrorZ;
+
+typedef struct LDKu8slice {
+   const uint8_t *data;
+   uintptr_t datalen;
+} LDKu8slice;
+
+/**
+ * A trait to describe an object which can get user secrets and key material.
+ */
+typedef struct LDKKeysInterface {
+   void *this_arg;
+   /**
+    * Get node secret key (aka node_id or network_key)
+    */
+   struct LDKSecretKey (*get_node_secret)(const void *this_arg);
+   /**
+    * Get destination redeemScript to encumber static protocol exit points.
+    */
+   LDKCVec_u8Z (*get_destination_script)(const void *this_arg);
+   /**
+    * Get shutdown_pubkey to use as PublicKey at channel closure
+    */
+   struct LDKPublicKey (*get_shutdown_pubkey)(const void *this_arg);
+   /**
+    * Get a new set of ChannelKeys for per-channel secrets. These MUST be unique even if you
+    * restarted with some stale data!
+    */
+   struct LDKChannelKeys (*get_channel_keys)(const void *this_arg, bool inbound, uint64_t channel_value_satoshis);
+   /**
+    * Gets a unique, cryptographically-secure, random 32 byte value. This is used for encrypting
+    * onion packets and for temporary channel IDs. There is no requirement that these be
+    * persisted anywhere, though they must be unique across restarts.
+    */
+   struct LDKThirtyTwoBytes (*get_secure_random_bytes)(const void *this_arg);
+   /**
+    * Reads a `ChanKeySigner` for this `KeysInterface` from the given input stream.
+    * This is only called during deserialization of other objects which contain
+    * `ChannelKeys`-implementing objects (ie `ChannelMonitor`s and `ChannelManager`s).
+    * The bytes are exactly those which `<Self::ChanKeySigner as Writeable>::write()` writes, and
+    * contain no versioning scheme. You may wish to include your own version prefix and ensure
+    * you've read all of the provided bytes to ensure no corruption occurred.
+    */
+   LDKCResult_ChanKeySignerDecodeErrorZ (*read_chan_signer)(const void *this_arg, struct LDKu8slice reader);
+   void (*free)(void *this_arg);
+} LDKKeysInterface;
+
+/**
+ * A trait which should be implemented to provide feerate information on a number of time
+ * horizons.
+ *
+ * Note that all of the functions implemented here *must* be reentrant-safe (obviously - they're
+ * called from inside the library in response to chain events, P2P events, or timer events).
+ */
+typedef struct LDKFeeEstimator {
+   void *this_arg;
+   /**
+    * Gets estimated satoshis of fee required per 1000 Weight-Units.
+    *
+    * Must be no smaller than 253 (ie 1 satoshi-per-byte rounded up to ensure later round-downs
+    * don't put us below 1 satoshi-per-byte).
+    *
+    * This translates to:
+    *  * satoshis-per-byte * 250
+    *  * ceil(satoshis-per-kbyte / 4)
+    */
+   uint32_t (*get_est_sat_per_1000_weight)(const void *this_arg, enum LDKConfirmationTarget confirmation_target);
+   void (*free)(void *this_arg);
+} LDKFeeEstimator;
+
+/**
+ * A trait encapsulating the operations required of a logger
+ */
+typedef struct LDKLogger {
+   void *this_arg;
+   /**
+    * Logs the `Record`
+    */
+   void (*log)(const void *this_arg, const char *record);
+   void (*free)(void *this_arg);
+} LDKLogger;
+
+
+
+/**
+ * Manager which keeps track of a number of channels and sends messages to the appropriate
+ * channel, also tracking HTLC preimages and forwarding onion packets appropriately.
+ *
+ * Implements ChannelMessageHandler, handling the multi-channel parts and passing things through
+ * to individual Channels.
+ *
+ * Implements Writeable to write out all channel state to disk. Implies peer_disconnected() for
+ * all peers during write/read (though does not modify this instance, only the instance being
+ * serialized). This will result in any channels which have not yet exchanged funding_created (ie
+ * called funding_transaction_generated for outbound channels).
+ *
+ * Note that you can be a bit lazier about writing out ChannelManager than you can be with
+ * ChannelMonitors. With ChannelMonitors you MUST write each monitor update out to disk before
+ * returning from chain::Watch::watch_/update_channel, with ChannelManagers, writing updates
+ * happens out-of-band (and will prevent any other ChannelManager operations from occurring during
+ * the serialization process). If the deserialized version is out-of-date compared to the
+ * ChannelMonitors passed by reference to read(), those channels will be force-closed based on the
+ * ChannelMonitor state and no funds will be lost (mod on-chain transaction fees).
+ *
+ * Note that the deserializer is only implemented for (Sha256dHash, ChannelManager), which
+ * tells you the last block hash which was block_connect()ed. You MUST rescan any blocks along
+ * the \"reorg path\" (ie call block_disconnected() until you get to a common block and then call
+ * block_connected() to step towards your best block) upon deserialization before using the
+ * object!
+ *
+ * Note that ChannelManager is responsible for tracking liveness of its channels and generating
+ * ChannelUpdate messages informing peers that the channel is temporarily disabled. To avoid
+ * spam due to quick disconnection/reconnection, updates are not sent until the channel has been
+ * offline for a full minute. In order to track this, you must call
+ * timer_chan_freshness_every_min roughly once per minute, though it doesn't have to be perfect.
+ *
+ * Rather than using a plain ChannelManager, it is preferable to use either a SimpleArcChannelManager
+ * a SimpleRefChannelManager, for conciseness. See their documentation for more details, but
+ * essentially you should default to using a SimpleRefChannelManager, and use a
+ * SimpleArcChannelManager when you require a ChannelManager with a static lifetime, such as when
+ * you're using lightning-net-tokio.
+ */
+typedef struct MUST_USE_STRUCT LDKChannelManager {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeChannelManager *inner;
+   bool is_owned;
+} LDKChannelManager;
+
+typedef struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelManager {
+   struct LDKThirtyTwoBytes a;
+   struct LDKChannelManager b;
+} LDKC2TupleTempl_ThirtyTwoBytes__ChannelManager;
+
+typedef struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelManager LDKC2Tuple_BlockHashChannelManagerZ;
 
 
 
@@ -621,10 +1186,6 @@ typedef struct LDKCResultTempl_TrustedCommitmentTransaction__u8 {
 } LDKCResultTempl_TrustedCommitmentTransaction__u8;
 
 typedef struct LDKCResultTempl_TrustedCommitmentTransaction__u8 LDKCResult_TrustedCommitmentTransactionNoneZ;
-
-typedef struct LDKPublicKey {
-   uint8_t compressed_form[33];
-} LDKPublicKey;
 
 /**
  * When on-chain outputs are created by rust-lightning (which our counterparty is not able to
@@ -1393,18 +1954,6 @@ typedef struct LDKEventsProvider {
    void (*free)(void *this_arg);
 } LDKEventsProvider;
 
-/**
- * A trait encapsulating the operations required of a logger
- */
-typedef struct LDKLogger {
-   void *this_arg;
-   /**
-    * Logs the `Record`
-    */
-   void (*log)(const void *this_arg, const char *record);
-   void (*free)(void *this_arg);
-} LDKLogger;
-
 
 
 /**
@@ -1460,11 +2009,6 @@ typedef struct MUST_USE_STRUCT LDKChannelConfig {
    bool is_owned;
 } LDKChannelConfig;
 
-typedef struct LDKu8slice {
-   const uint8_t *data;
-   uintptr_t datalen;
-} LDKu8slice;
-
 
 
 /**
@@ -1511,382 +2055,6 @@ typedef struct LDKAccess {
    void (*free)(void *this_arg);
 } LDKAccess;
 
-
-
-/**
- * One counterparty's public keys which do not change over the life of a channel.
- */
-typedef struct MUST_USE_STRUCT LDKChannelPublicKeys {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeChannelPublicKeys *inner;
-   bool is_owned;
-} LDKChannelPublicKeys;
-
-
-
-/**
- * This class tracks the per-transaction information needed to build a commitment transaction and to
- * actually build it and sign.  It is used for holder transactions that we sign only when needed
- * and for transactions we sign for the counterparty.
- *
- * This class can be used inside a signer implementation to generate a signature given the relevant
- * secret key.
- */
-typedef struct MUST_USE_STRUCT LDKCommitmentTransaction {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeCommitmentTransaction *inner;
-   bool is_owned;
-} LDKCommitmentTransaction;
-
-
-
-/**
- * Information needed to build and sign a holder's commitment transaction.
- *
- * The transaction is only signed once we are ready to broadcast.
- */
-typedef struct MUST_USE_STRUCT LDKHolderCommitmentTransaction {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeHolderCommitmentTransaction *inner;
-   bool is_owned;
-} LDKHolderCommitmentTransaction;
-
-
-
-/**
- * Information about an HTLC as it appears in a commitment transaction
- */
-typedef struct MUST_USE_STRUCT LDKHTLCOutputInCommitment {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeHTLCOutputInCommitment *inner;
-   bool is_owned;
-} LDKHTLCOutputInCommitment;
-
-
-
-/**
- * The unsigned part of a channel_announcement
- */
-typedef struct MUST_USE_STRUCT LDKUnsignedChannelAnnouncement {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeUnsignedChannelAnnouncement *inner;
-   bool is_owned;
-} LDKUnsignedChannelAnnouncement;
-
-
-
-/**
- * Per-channel data used to build transactions in conjunction with the per-commitment data (CommitmentTransaction).
- * The fields are organized by holder/counterparty.
- *
- * Normally, this is converted to the broadcaster/countersignatory-organized DirectedChannelTransactionParameters
- * before use, via the as_holder_broadcastable and as_counterparty_broadcastable functions.
- */
-typedef struct MUST_USE_STRUCT LDKChannelTransactionParameters {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeChannelTransactionParameters *inner;
-   bool is_owned;
-} LDKChannelTransactionParameters;
-
-/**
- * Set of lightning keys needed to operate a channel as described in BOLT 3.
- *
- * Signing services could be implemented on a hardware wallet. In this case,
- * the current ChannelKeys would be a front-end on top of a communication
- * channel connected to your secure device and lightning key material wouldn't
- * reside on a hot server. Nevertheless, a this deployment would still need
- * to trust the ChannelManager to avoid loss of funds as this latest component
- * could ask to sign commitment transaction with HTLCs paying to attacker pubkeys.
- *
- * A more secure iteration would be to use hashlock (or payment points) to pair
- * invoice/incoming HTLCs with outgoing HTLCs to implement a no-trust-ChannelManager
- * at the price of more state and computation on the hardware wallet side. In the future,
- * we are looking forward to design such interface.
- *
- * In any case, ChannelMonitor or fallback watchtowers are always going to be trusted
- * to act, as liveness and breach reply correctness are always going to be hard requirements
- * of LN security model, orthogonal of key management issues.
- *
- * If you're implementing a custom signer, you almost certainly want to implement
- * Readable/Writable to serialize out a unique reference to this set of keys so
- * that you can serialize the full ChannelManager object.
- *
- */
-typedef struct LDKChannelKeys {
-   void *this_arg;
-   /**
-    * Gets the per-commitment point for a specific commitment number
-    *
-    * Note that the commitment number starts at (1 << 48) - 1 and counts backwards.
-    */
-   struct LDKPublicKey (*get_per_commitment_point)(const void *this_arg, uint64_t idx);
-   /**
-    * Gets the commitment secret for a specific commitment number as part of the revocation process
-    *
-    * An external signer implementation should error here if the commitment was already signed
-    * and should refuse to sign it in the future.
-    *
-    * May be called more than once for the same index.
-    *
-    * Note that the commitment number starts at (1 << 48) - 1 and counts backwards.
-    * TODO: return a Result so we can signal a validation error
-    */
-   struct LDKThirtyTwoBytes (*release_commitment_secret)(const void *this_arg, uint64_t idx);
-   /**
-    * Gets the holder's channel public keys and basepoints
-    */
-   struct LDKChannelPublicKeys pubkeys;
-   /**
-    * Fill in the pubkeys field as a reference to it will be given to Rust after this returns
-    * Note that this takes a pointer to this object, not the this_ptr like other methods do
-    * This function pointer may be NULL if pubkeys is filled in when this object is created and never needs updating.
-    */
-   void (*set_pubkeys)(const struct LDKChannelKeys*);
-   /**
-    * Gets arbitrary identifiers describing the set of keys which are provided back to you in
-    * some SpendableOutputDescriptor types. These should be sufficient to identify this
-    * ChannelKeys object uniquely and lookup or re-derive its keys.
-    */
-   LDKC2Tuple_u64u64Z (*key_derivation_params)(const void *this_arg);
-   /**
-    * Create a signature for a counterparty's commitment transaction and associated HTLC transactions.
-    *
-    * Note that if signing fails or is rejected, the channel will be force-closed.
-    */
-   LDKCResult_C2Tuple_SignatureCVec_SignatureZZNoneZ (*sign_counterparty_commitment)(const void *this_arg, const struct LDKCommitmentTransaction *commitment_tx);
-   /**
-    * Create a signature for a holder's commitment transaction. This will only ever be called with
-    * the same commitment_tx (or a copy thereof), though there are currently no guarantees
-    * that it will not be called multiple times.
-    * An external signer implementation should check that the commitment has not been revoked.
-    */
-   LDKCResult_SignatureNoneZ (*sign_holder_commitment)(const void *this_arg, const struct LDKHolderCommitmentTransaction *commitment_tx);
-   /**
-    * Create a signature for each HTLC transaction spending a holder's commitment transaction.
-    *
-    * Unlike sign_holder_commitment, this may be called multiple times with *different*
-    * commitment_tx values. While this will never be called with a revoked
-    * commitment_tx, it is possible that it is called with the second-latest
-    * commitment_tx (only if we haven't yet revoked it) if some watchtower/secondary
-    * ChannelMonitor decided to broadcast before it had been updated to the latest.
-    *
-    * Either an Err should be returned, or a Vec with one entry for each HTLC which exists in
-    * commitment_tx.
-    */
-   LDKCResult_CVec_SignatureZNoneZ (*sign_holder_commitment_htlc_transactions)(const void *this_arg, const struct LDKHolderCommitmentTransaction *commitment_tx);
-   /**
-    * Create a signature for the given input in a transaction spending an HTLC or commitment
-    * transaction output when our counterparty broadcasts an old state.
-    *
-    * A justice transaction may claim multiples outputs at the same time if timelocks are
-    * similar, but only a signature for the input at index `input` should be signed for here.
-    * It may be called multiples time for same output(s) if a fee-bump is needed with regards
-    * to an upcoming timelock expiration.
-    *
-    * Amount is value of the output spent by this input, committed to in the BIP 143 signature.
-    *
-    * per_commitment_key is revocation secret which was provided by our counterparty when they
-    * revoked the state which they eventually broadcast. It's not a _holder_ secret key and does
-    * not allow the spending of any funds by itself (you need our holder revocation_secret to do
-    * so).
-    *
-    * htlc holds HTLC elements (hash, timelock) if the output being spent is a HTLC output, thus
-    * changing the format of the witness script (which is committed to in the BIP 143
-    * signatures).
-    */
-   LDKCResult_SignatureNoneZ (*sign_justice_transaction)(const void *this_arg, struct LDKTransaction justice_tx, uintptr_t input, uint64_t amount, const uint8_t (*per_commitment_key)[32], const struct LDKHTLCOutputInCommitment *htlc);
-   /**
-    * Create a signature for a claiming transaction for a HTLC output on a counterparty's commitment
-    * transaction, either offered or received.
-    *
-    * Such a transaction may claim multiples offered outputs at same time if we know the
-    * preimage for each when we create it, but only the input at index `input` should be
-    * signed for here. It may be called multiple times for same output(s) if a fee-bump is
-    * needed with regards to an upcoming timelock expiration.
-    *
-    * Witness_script is either a offered or received script as defined in BOLT3 for HTLC
-    * outputs.
-    *
-    * Amount is value of the output spent by this input, committed to in the BIP 143 signature.
-    *
-    * Per_commitment_point is the dynamic point corresponding to the channel state
-    * detected onchain. It has been generated by our counterparty and is used to derive
-    * channel state keys, which are then included in the witness script and committed to in the
-    * BIP 143 signature.
-    */
-   LDKCResult_SignatureNoneZ (*sign_counterparty_htlc_transaction)(const void *this_arg, struct LDKTransaction htlc_tx, uintptr_t input, uint64_t amount, struct LDKPublicKey per_commitment_point, const struct LDKHTLCOutputInCommitment *htlc);
-   /**
-    * Create a signature for a (proposed) closing transaction.
-    *
-    * Note that, due to rounding, there may be one \"missing\" satoshi, and either party may have
-    * chosen to forgo their output as dust.
-    */
-   LDKCResult_SignatureNoneZ (*sign_closing_transaction)(const void *this_arg, struct LDKTransaction closing_tx);
-   /**
-    * Signs a channel announcement message with our funding key, proving it comes from one
-    * of the channel participants.
-    *
-    * Note that if this fails or is rejected, the channel will not be publicly announced and
-    * our counterparty may (though likely will not) close the channel on us for violating the
-    * protocol.
-    */
-   LDKCResult_SignatureNoneZ (*sign_channel_announcement)(const void *this_arg, const struct LDKUnsignedChannelAnnouncement *msg);
-   /**
-    * Set the counterparty static channel data, including basepoints,
-    * counterparty_selected/holder_selected_contest_delay and funding outpoint.
-    * This is done as soon as the funding outpoint is known.  Since these are static channel data,
-    * they MUST NOT be allowed to change to different values once set.
-    *
-    * channel_parameters.is_populated() MUST be true.
-    *
-    * We bind holder_selected_contest_delay late here for API convenience.
-    *
-    * Will be called before any signatures are applied.
-    */
-   void (*ready_channel)(void *this_arg, const struct LDKChannelTransactionParameters *channel_parameters);
-   void *(*clone)(const void *this_arg);
-   LDKCVec_u8Z (*write)(const void *this_arg);
-   void (*free)(void *this_arg);
-} LDKChannelKeys;
-
-
-
-/**
- * A ChannelMonitor handles chain events (blocks connected and disconnected) and generates
- * on-chain transactions to ensure no loss of funds occurs.
- *
- * You MUST ensure that no ChannelMonitors for a given channel anywhere contain out-of-date
- * information and are actively monitoring the chain.
- *
- * Pending Events or updated HTLCs which have not yet been read out by
- * get_and_clear_pending_monitor_events or get_and_clear_pending_events are serialized to disk and
- * reloaded at deserialize-time. Thus, you must ensure that, when handling events, all events
- * gotten are fully handled before re-serializing the new state.
- *
- * Note that the deserializer is only implemented for (Sha256dHash, ChannelMonitor), which
- * tells you the last block hash which was block_connect()ed. You MUST rescan any blocks along
- * the \"reorg path\" (ie disconnecting blocks until you find a common ancestor from both the
- * returned block hash and the the current chain and then reconnecting blocks to get to the
- * best chain) upon deserializing the object!
- */
-typedef struct MUST_USE_STRUCT LDKChannelMonitor {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeChannelMonitor *inner;
-   bool is_owned;
-} LDKChannelMonitor;
-
-
-
-/**
- * An update generated by the underlying Channel itself which contains some new information the
- * ChannelMonitor should be made aware of.
- */
-typedef struct MUST_USE_STRUCT LDKChannelMonitorUpdate {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeChannelMonitorUpdate *inner;
-   bool is_owned;
-} LDKChannelMonitorUpdate;
-
-
-
-/**
- * An event to be processed by the ChannelManager.
- */
-typedef struct MUST_USE_STRUCT LDKMonitorEvent {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeMonitorEvent *inner;
-   bool is_owned;
-} LDKMonitorEvent;
-
-typedef struct LDKCVecTempl_MonitorEvent {
-   struct LDKMonitorEvent *data;
-   uintptr_t datalen;
-} LDKCVecTempl_MonitorEvent;
-
-typedef struct LDKCVecTempl_MonitorEvent LDKCVec_MonitorEventZ;
-
-/**
- * The `Watch` trait defines behavior for watching on-chain activity pertaining to channels as
- * blocks are connected and disconnected.
- *
- * Each channel is associated with a [`ChannelMonitor`]. Implementations of this trait are
- * responsible for maintaining a set of monitors such that they can be updated accordingly as
- * channel state changes and HTLCs are resolved. See method documentation for specific
- * requirements.
- *
- * Implementations **must** ensure that updates are successfully applied and persisted upon method
- * completion. If an update fails with a [`PermanentFailure`], then it must immediately shut down
- * without taking any further action such as persisting the current state.
- *
- * If an implementation maintains multiple instances of a channel's monitor (e.g., by storing
- * backup copies), then it must ensure that updates are applied across all instances. Otherwise, it
- * could result in a revoked transaction being broadcast, allowing the counterparty to claim all
- * funds in the channel. See [`ChannelMonitorUpdateErr`] for more details about how to handle
- * multiple instances.
- *
- * [`ChannelMonitor`]: channelmonitor/struct.ChannelMonitor.html
- * [`ChannelMonitorUpdateErr`]: channelmonitor/enum.ChannelMonitorUpdateErr.html
- * [`PermanentFailure`]: channelmonitor/enum.ChannelMonitorUpdateErr.html#variant.PermanentFailure
- */
-typedef struct LDKWatch {
-   void *this_arg;
-   /**
-    * Watches a channel identified by `funding_txo` using `monitor`.
-    *
-    * Implementations are responsible for watching the chain for the funding transaction along
-    * with any spends of outputs returned by [`get_outputs_to_watch`]. In practice, this means
-    * calling [`block_connected`] and [`block_disconnected`] on the monitor.
-    *
-    * [`get_outputs_to_watch`]: channelmonitor/struct.ChannelMonitor.html#method.get_outputs_to_watch
-    * [`block_connected`]: channelmonitor/struct.ChannelMonitor.html#method.block_connected
-    * [`block_disconnected`]: channelmonitor/struct.ChannelMonitor.html#method.block_disconnected
-    */
-   LDKCResult_NoneChannelMonitorUpdateErrZ (*watch_channel)(const void *this_arg, struct LDKOutPoint funding_txo, struct LDKChannelMonitor monitor);
-   /**
-    * Updates a channel identified by `funding_txo` by applying `update` to its monitor.
-    *
-    * Implementations must call [`update_monitor`] with the given update. See
-    * [`ChannelMonitorUpdateErr`] for invariants around returning an error.
-    *
-    * [`update_monitor`]: channelmonitor/struct.ChannelMonitor.html#method.update_monitor
-    * [`ChannelMonitorUpdateErr`]: channelmonitor/enum.ChannelMonitorUpdateErr.html
-    */
-   LDKCResult_NoneChannelMonitorUpdateErrZ (*update_channel)(const void *this_arg, struct LDKOutPoint funding_txo, struct LDKChannelMonitorUpdate update);
-   /**
-    * Returns any monitor events since the last call. Subsequent calls must only return new
-    * events.
-    */
-   LDKCVec_MonitorEventZ (*release_pending_monitor_events)(const void *this_arg);
-   void (*free)(void *this_arg);
-} LDKWatch;
-
 /**
  * The `Filter` trait defines behavior for indicating chain activity of interest pertaining to
  * channels.
@@ -1924,41 +2092,6 @@ typedef struct LDKFilter {
    void (*register_output)(const void *this_arg, const struct LDKOutPoint *outpoint, struct LDKu8slice script_pubkey);
    void (*free)(void *this_arg);
 } LDKFilter;
-
-/**
- * An interface to send a transaction to the Bitcoin network.
- */
-typedef struct LDKBroadcasterInterface {
-   void *this_arg;
-   /**
-    * Sends a transaction out to (hopefully) be mined.
-    */
-   void (*broadcast_transaction)(const void *this_arg, struct LDKTransaction tx);
-   void (*free)(void *this_arg);
-} LDKBroadcasterInterface;
-
-/**
- * A trait which should be implemented to provide feerate information on a number of time
- * horizons.
- *
- * Note that all of the functions implemented here *must* be reentrant-safe (obviously - they're
- * called from inside the library in response to chain events, P2P events, or timer events).
- */
-typedef struct LDKFeeEstimator {
-   void *this_arg;
-   /**
-    * Gets estimated satoshis of fee required per 1000 Weight-Units.
-    *
-    * Must be no smaller than 253 (ie 1 satoshi-per-byte rounded up to ensure later round-downs
-    * don't put us below 1 satoshi-per-byte).
-    *
-    * This translates to:
-    *  * satoshis-per-byte * 250
-    *  * ceil(satoshis-per-kbyte / 4)
-    */
-   uint32_t (*get_est_sat_per_1000_weight)(const void *this_arg, enum LDKConfirmationTarget confirmation_target);
-   void (*free)(void *this_arg);
-} LDKFeeEstimator;
 
 /**
  * `Persist` defines behavior for persisting channel monitors: this could mean
@@ -2052,20 +2185,6 @@ typedef struct LDKCVecTempl_C2TupleTempl_usize__Transaction {
 
 typedef struct LDKCVecTempl_C2TupleTempl_usize__Transaction LDKCVec_C2Tuple_usizeTransactionZZ;
 
-
-
-/**
- * An error in decoding a message or struct.
- */
-typedef struct MUST_USE_STRUCT LDKDecodeError {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeDecodeError *inner;
-   bool is_owned;
-} LDKDecodeError;
-
 typedef union LDKCResultPtr_ChannelMonitorUpdate__DecodeError {
    struct LDKChannelMonitorUpdate *result;
    struct LDKDecodeError *err;
@@ -2110,6 +2229,18 @@ typedef struct LDKCVecTempl_C2TupleTempl_ThirtyTwoBytes__CVecTempl_C2TupleTempl_
 
 typedef struct LDKCVecTempl_C2TupleTempl_ThirtyTwoBytes__CVecTempl_C2TupleTempl_u32__TxOut LDKCVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ;
 
+typedef union LDKCResultPtr_C2TupleTempl_ThirtyTwoBytes__ChannelMonitor_____DecodeError {
+   struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelMonitor *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_C2TupleTempl_ThirtyTwoBytes__ChannelMonitor_____DecodeError;
+
+typedef struct LDKCResultTempl_C2TupleTempl_ThirtyTwoBytes__ChannelMonitor_____DecodeError {
+   union LDKCResultPtr_C2TupleTempl_ThirtyTwoBytes__ChannelMonitor_____DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_C2TupleTempl_ThirtyTwoBytes__ChannelMonitor_____DecodeError;
+
+typedef struct LDKCResultTempl_C2TupleTempl_ThirtyTwoBytes__ChannelMonitor_____DecodeError LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ;
+
 typedef union LDKCResultPtr_SpendableOutputDescriptor__DecodeError {
    struct LDKSpendableOutputDescriptor *result;
    struct LDKDecodeError *err;
@@ -2121,62 +2252,6 @@ typedef struct LDKCResultTempl_SpendableOutputDescriptor__DecodeError {
 } LDKCResultTempl_SpendableOutputDescriptor__DecodeError;
 
 typedef struct LDKCResultTempl_SpendableOutputDescriptor__DecodeError LDKCResult_SpendableOutputDescriptorDecodeErrorZ;
-
-typedef struct LDKSecretKey {
-   uint8_t bytes[32];
-} LDKSecretKey;
-
-typedef union LDKCResultPtr_ChannelKeys__DecodeError {
-   struct LDKChannelKeys *result;
-   struct LDKDecodeError *err;
-} LDKCResultPtr_ChannelKeys__DecodeError;
-
-typedef struct LDKCResultTempl_ChannelKeys__DecodeError {
-   union LDKCResultPtr_ChannelKeys__DecodeError contents;
-   bool result_ok;
-} LDKCResultTempl_ChannelKeys__DecodeError;
-
-typedef struct LDKCResultTempl_ChannelKeys__DecodeError LDKCResult_ChanKeySignerDecodeErrorZ;
-
-/**
- * A trait to describe an object which can get user secrets and key material.
- */
-typedef struct LDKKeysInterface {
-   void *this_arg;
-   /**
-    * Get node secret key (aka node_id or network_key)
-    */
-   struct LDKSecretKey (*get_node_secret)(const void *this_arg);
-   /**
-    * Get destination redeemScript to encumber static protocol exit points.
-    */
-   LDKCVec_u8Z (*get_destination_script)(const void *this_arg);
-   /**
-    * Get shutdown_pubkey to use as PublicKey at channel closure
-    */
-   struct LDKPublicKey (*get_shutdown_pubkey)(const void *this_arg);
-   /**
-    * Get a new set of ChannelKeys for per-channel secrets. These MUST be unique even if you
-    * restarted with some stale data!
-    */
-   struct LDKChannelKeys (*get_channel_keys)(const void *this_arg, bool inbound, uint64_t channel_value_satoshis);
-   /**
-    * Gets a unique, cryptographically-secure, random 32 byte value. This is used for encrypting
-    * onion packets and for temporary channel IDs. There is no requirement that these be
-    * persisted anywhere, though they must be unique across restarts.
-    */
-   struct LDKThirtyTwoBytes (*get_secure_random_bytes)(const void *this_arg);
-   /**
-    * Reads a `ChanKeySigner` for this `KeysInterface` from the given input stream.
-    * This is only called during deserialization of other objects which contain
-    * `ChannelKeys`-implementing objects (ie `ChannelMonitor`s and `ChannelManager`s).
-    * The bytes are exactly those which `<Self::ChanKeySigner as Writeable>::write()` writes, and
-    * contain no versioning scheme. You may wish to include your own version prefix and ensure
-    * you've read all of the provided bytes to ensure no corruption occurred.
-    */
-   LDKCResult_ChanKeySignerDecodeErrorZ (*read_chan_signer)(const void *this_arg, struct LDKu8slice reader);
-   void (*free)(void *this_arg);
-} LDKKeysInterface;
 
 
 
@@ -2226,55 +2301,6 @@ typedef struct MUST_USE_STRUCT LDKKeysManager {
    LDKnativeKeysManager *inner;
    bool is_owned;
 } LDKKeysManager;
-
-
-
-/**
- * Manager which keeps track of a number of channels and sends messages to the appropriate
- * channel, also tracking HTLC preimages and forwarding onion packets appropriately.
- *
- * Implements ChannelMessageHandler, handling the multi-channel parts and passing things through
- * to individual Channels.
- *
- * Implements Writeable to write out all channel state to disk. Implies peer_disconnected() for
- * all peers during write/read (though does not modify this instance, only the instance being
- * serialized). This will result in any channels which have not yet exchanged funding_created (ie
- * called funding_transaction_generated for outbound channels).
- *
- * Note that you can be a bit lazier about writing out ChannelManager than you can be with
- * ChannelMonitors. With ChannelMonitors you MUST write each monitor update out to disk before
- * returning from chain::Watch::watch_/update_channel, with ChannelManagers, writing updates
- * happens out-of-band (and will prevent any other ChannelManager operations from occurring during
- * the serialization process). If the deserialized version is out-of-date compared to the
- * ChannelMonitors passed by reference to read(), those channels will be force-closed based on the
- * ChannelMonitor state and no funds will be lost (mod on-chain transaction fees).
- *
- * Note that the deserializer is only implemented for (Sha256dHash, ChannelManager), which
- * tells you the last block hash which was block_connect()ed. You MUST rescan any blocks along
- * the \"reorg path\" (ie call block_disconnected() until you get to a common block and then call
- * block_connected() to step towards your best block) upon deserialization before using the
- * object!
- *
- * Note that ChannelManager is responsible for tracking liveness of its channels and generating
- * ChannelUpdate messages informing peers that the channel is temporarily disabled. To avoid
- * spam due to quick disconnection/reconnection, updates are not sent until the channel has been
- * offline for a full minute. In order to track this, you must call
- * timer_chan_freshness_every_min roughly once per minute, though it doesn't have to be perfect.
- *
- * Rather than using a plain ChannelManager, it is preferable to use either a SimpleArcChannelManager
- * a SimpleRefChannelManager, for conciseness. See their documentation for more details, but
- * essentially you should default to using a SimpleRefChannelManager, and use a
- * SimpleArcChannelManager when you require a ChannelManager with a static lifetime, such as when
- * you're using lightning-net-tokio.
- */
-typedef struct MUST_USE_STRUCT LDKChannelManager {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeChannelManager *inner;
-   bool is_owned;
-} LDKChannelManager;
 
 
 
@@ -2631,6 +2657,18 @@ typedef struct LDKCVecTempl_ChannelMonitor {
 } LDKCVecTempl_ChannelMonitor;
 
 typedef struct LDKCVecTempl_ChannelMonitor LDKCVec_ChannelMonitorZ;
+
+typedef union LDKCResultPtr_C2TupleTempl_ThirtyTwoBytes__ChannelManager_____DecodeError {
+   struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelManager *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_C2TupleTempl_ThirtyTwoBytes__ChannelManager_____DecodeError;
+
+typedef struct LDKCResultTempl_C2TupleTempl_ThirtyTwoBytes__ChannelManager_____DecodeError {
+   union LDKCResultPtr_C2TupleTempl_ThirtyTwoBytes__ChannelManager_____DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_C2TupleTempl_ThirtyTwoBytes__ChannelManager_____DecodeError;
+
+typedef struct LDKCResultTempl_C2TupleTempl_ThirtyTwoBytes__ChannelManager_____DecodeError LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ;
 
 
 
@@ -3576,6 +3614,14 @@ extern const void (*C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ_free)(LDKC2Tuple_TxidCV
 
 extern const void (*CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ_free)(LDKCVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ);
 
+extern const void (*C2Tuple_BlockHashChannelMonitorZ_free)(LDKC2Tuple_BlockHashChannelMonitorZ);
+
+extern const void (*CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_free)(LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ);
+
+extern const LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ (*CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_ok)(LDKC2Tuple_BlockHashChannelMonitorZ);
+
+extern const LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ (*CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_err)(struct LDKDecodeError);
+
 extern const void (*C2Tuple_u64u64Z_free)(LDKC2Tuple_u64u64Z);
 
 extern const void (*CResult_SpendableOutputDescriptorDecodeErrorZ_free)(LDKCResult_SpendableOutputDescriptorDecodeErrorZ);
@@ -3631,6 +3677,14 @@ extern const LDKCResult_NonePaymentSendFailureZ (*CResult_NonePaymentSendFailure
 extern const void (*CVec_NetAddressZ_free)(LDKCVec_NetAddressZ);
 
 extern const void (*CVec_ChannelMonitorZ_free)(LDKCVec_ChannelMonitorZ);
+
+extern const void (*C2Tuple_BlockHashChannelManagerZ_free)(LDKC2Tuple_BlockHashChannelManagerZ);
+
+extern const void (*CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_free)(LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ);
+
+extern const LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ (*CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_ok)(LDKC2Tuple_BlockHashChannelManagerZ);
+
+extern const LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ (*CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_err)(struct LDKDecodeError);
 
 extern const void (*CVec_u64Z_free)(LDKCVec_u64Z);
 
@@ -3842,6 +3896,8 @@ LDKC2Tuple_u32TxOutZ C2Tuple_u32TxOutZ_new(uint32_t a, struct LDKTxOut b);
 
 LDKC2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ_new(struct LDKThirtyTwoBytes a, LDKCVec_C2Tuple_u32TxOutZZ b);
 
+LDKC2Tuple_BlockHashChannelMonitorZ C2Tuple_BlockHashChannelMonitorZ_new(struct LDKThirtyTwoBytes a, struct LDKChannelMonitor b);
+
 LDKC2Tuple_u64u64Z C2Tuple_u64u64Z_new(uint64_t a, uint64_t b);
 
 LDKC2Tuple_SignatureCVec_SignatureZZ C2Tuple_SignatureCVec_SignatureZZ_new(struct LDKSignature a, LDKCVec_SignatureZ b);
@@ -3855,6 +3911,8 @@ LDKCResult_CVec_SignatureZNoneZ CResult_CVec_SignatureZNoneZ_err(void);
 LDKCResult_NoneAPIErrorZ CResult_NoneAPIErrorZ_ok(void);
 
 LDKCResult_NonePaymentSendFailureZ CResult_NonePaymentSendFailureZ_ok(void);
+
+LDKC2Tuple_BlockHashChannelManagerZ C2Tuple_BlockHashChannelManagerZ_new(struct LDKThirtyTwoBytes a, struct LDKChannelManager b);
 
 LDKC3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ_new(struct LDKChannelAnnouncement a, struct LDKChannelUpdate b, struct LDKChannelUpdate c);
 
@@ -4512,6 +4570,8 @@ void ChannelMonitor_block_disconnected(struct LDKChannelMonitor *this_arg, const
  */
 void Persist_free(struct LDKPersist this_ptr);
 
+LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ C2Tuple_BlockHashChannelMonitorZ_read(struct LDKu8slice ser, const struct LDKKeysInterface *arg);
+
 void OutPoint_free(struct LDKOutPoint this_ptr);
 
 struct LDKOutPoint OutPoint_clone(const struct LDKOutPoint *orig);
@@ -5162,6 +5222,8 @@ void ChannelManagerReadArgs_set_default_config(struct LDKChannelManagerReadArgs 
  * populate a HashMap directly from C.
  */
 MUST_USE_RES struct LDKChannelManagerReadArgs ChannelManagerReadArgs_new(struct LDKKeysInterface keys_manager, struct LDKFeeEstimator fee_estimator, struct LDKWatch chain_monitor, struct LDKBroadcasterInterface tx_broadcaster, struct LDKLogger logger, struct LDKUserConfig default_config, LDKCVec_ChannelMonitorZ channel_monitors);
+
+LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ C2Tuple_BlockHashChannelManagerZ_read(struct LDKu8slice ser, struct LDKChannelManagerReadArgs arg);
 
 void DecodeError_free(struct LDKDecodeError this_ptr);
 

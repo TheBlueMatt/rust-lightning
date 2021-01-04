@@ -97,6 +97,25 @@ pub type CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ = crate::c_types::CVecTempl<
 #[no_mangle]
 pub static CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ_free: extern "C" fn(CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ) = crate::c_types::CVecTempl_free::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::c_types::CVecTempl<crate::c_types::C2TupleTempl<u32, crate::c_types::TxOut>>>>;
 
+pub type C2Tuple_BlockHashChannelMonitorZ = crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>;
+#[no_mangle]
+pub static C2Tuple_BlockHashChannelMonitorZ_free: extern "C" fn(C2Tuple_BlockHashChannelMonitorZ) = crate::c_types::C2TupleTempl_free::<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>;
+#[no_mangle]
+pub extern "C" fn C2Tuple_BlockHashChannelMonitorZ_new(a: crate::c_types::ThirtyTwoBytes, b: crate::chain::channelmonitor::ChannelMonitor) -> C2Tuple_BlockHashChannelMonitorZ {
+	C2Tuple_BlockHashChannelMonitorZ { a, b, }
+}
+
+pub type CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ = crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>;
+#[no_mangle]
+pub static CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_free: extern "C" fn(CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>;
+#[no_mangle]
+pub static CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_ok: extern "C" fn (C2Tuple_BlockHashChannelMonitorZ) -> CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ =
+	crate::c_types::CResultTempl::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>::ok;
+
+#[no_mangle]
+pub static CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ =
+	crate::c_types::CResultTempl::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>::err;
+
 pub type C2Tuple_u64u64Z = crate::c_types::C2TupleTempl<u64, u64>;
 #[no_mangle]
 pub static C2Tuple_u64u64Z_free: extern "C" fn(C2Tuple_u64u64Z) = crate::c_types::C2TupleTempl_free::<u64, u64>;
@@ -232,6 +251,25 @@ pub static CVec_NetAddressZ_free: extern "C" fn(CVec_NetAddressZ) = crate::c_typ
 pub type CVec_ChannelMonitorZ = crate::c_types::CVecTempl<crate::chain::channelmonitor::ChannelMonitor>;
 #[no_mangle]
 pub static CVec_ChannelMonitorZ_free: extern "C" fn(CVec_ChannelMonitorZ) = crate::c_types::CVecTempl_free::<crate::chain::channelmonitor::ChannelMonitor>;
+
+pub type C2Tuple_BlockHashChannelManagerZ = crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>;
+#[no_mangle]
+pub static C2Tuple_BlockHashChannelManagerZ_free: extern "C" fn(C2Tuple_BlockHashChannelManagerZ) = crate::c_types::C2TupleTempl_free::<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>;
+#[no_mangle]
+pub extern "C" fn C2Tuple_BlockHashChannelManagerZ_new(a: crate::c_types::ThirtyTwoBytes, b: crate::ln::channelmanager::ChannelManager) -> C2Tuple_BlockHashChannelManagerZ {
+	C2Tuple_BlockHashChannelManagerZ { a, b, }
+}
+
+pub type CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ = crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>;
+#[no_mangle]
+pub static CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_free: extern "C" fn(CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>;
+#[no_mangle]
+pub static CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_ok: extern "C" fn (C2Tuple_BlockHashChannelManagerZ) -> CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ =
+	crate::c_types::CResultTempl::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>::ok;
+
+#[no_mangle]
+pub static CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ =
+	crate::c_types::CResultTempl::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>::err;
 
 pub type CVec_u64Z = crate::c_types::CVecTempl<u64>;
 #[no_mangle]
