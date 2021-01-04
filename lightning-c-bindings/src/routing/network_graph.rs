@@ -203,13 +203,13 @@ use lightning::ln::msgs::RoutingMessageHandler as RoutingMessageHandlerTraitImpo
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_node_announcement(this_arg: *const c_void, msg: &crate::ln::msgs::NodeAnnouncement) -> crate::c_types::derived::CResult_boolLightningErrorZ {
 	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_node_announcement(unsafe { &*msg.inner });
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { o }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { o }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_channel_announcement(this_arg: *const c_void, msg: &crate::ln::msgs::ChannelAnnouncement) -> crate::c_types::derived::CResult_boolLightningErrorZ {
 	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_channel_announcement(unsafe { &*msg.inner });
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { o }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { o }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_htlc_fail_channel_update(this_arg: *const c_void, update: &crate::ln::msgs::HTLCFailChannelUpdate) {
@@ -218,7 +218,7 @@ extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_htlc_fail_channel_
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_channel_update(this_arg: *const c_void, msg: &crate::ln::msgs::ChannelUpdate) -> crate::c_types::derived::CResult_boolLightningErrorZ {
 	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_channel_update(unsafe { &*msg.inner });
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { o }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { o }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 #[must_use]
@@ -240,25 +240,25 @@ extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_sync_routing_table(this_a
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_reply_channel_range(this_arg: *const c_void, mut their_node_id: crate::c_types::PublicKey, mut msg: crate::ln::msgs::ReplyChannelRange) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
 	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_reply_channel_range(&their_node_id.into_rust(), *unsafe { Box::from_raw(msg.take_inner()) });
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_reply_short_channel_ids_end(this_arg: *const c_void, mut their_node_id: crate::c_types::PublicKey, mut msg: crate::ln::msgs::ReplyShortChannelIdsEnd) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
 	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_reply_short_channel_ids_end(&their_node_id.into_rust(), *unsafe { Box::from_raw(msg.take_inner()) });
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_query_channel_range(this_arg: *const c_void, mut _their_node_id: crate::c_types::PublicKey, mut _msg: crate::ln::msgs::QueryChannelRange) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
 	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_query_channel_range(&_their_node_id.into_rust(), *unsafe { Box::from_raw(_msg.take_inner()) });
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 #[must_use]
 extern "C" fn NetGraphMsgHandler_RoutingMessageHandler_handle_query_short_channel_ids(this_arg: *const c_void, mut _their_node_id: crate::c_types::PublicKey, mut _msg: crate::ln::msgs::QueryShortChannelIds) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
 	let mut ret = unsafe { &mut *(this_arg as *mut nativeNetGraphMsgHandler) }.handle_query_short_channel_ids(&_their_node_id.into_rust(), *unsafe { Box::from_raw(_msg.take_inner()) });
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 use lightning::util::events::MessageSendEventsProvider as nativeMessageSendEventsProviderTrait;
@@ -649,7 +649,7 @@ pub extern "C" fn RoutingFees_new(mut base_msat_arg: u32, mut proportional_milli
 #[no_mangle]
 pub extern "C" fn RoutingFees_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_RoutingFeesDecodeErrorZ {
 	let res = crate::c_types::deserialize_obj(ser);
-	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::RoutingFees { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::RoutingFees { inner: Box::into_raw(Box::new(o)), is_owned: true } }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_res
 }
 #[no_mangle]
@@ -798,7 +798,7 @@ pub(crate) extern "C" fn NodeAnnouncementInfo_write_void(obj: *const c_void) -> 
 #[no_mangle]
 pub extern "C" fn NodeAnnouncementInfo_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_NodeAnnouncementInfoDecodeErrorZ {
 	let res = crate::c_types::deserialize_obj(ser);
-	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::NodeAnnouncementInfo { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::NodeAnnouncementInfo { inner: Box::into_raw(Box::new(o)), is_owned: true } }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_res
 }
 
@@ -902,7 +902,7 @@ pub(crate) extern "C" fn NodeInfo_write_void(obj: *const c_void) -> crate::c_typ
 #[no_mangle]
 pub extern "C" fn NodeInfo_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_NodeInfoDecodeErrorZ {
 	let res = crate::c_types::deserialize_obj(ser);
-	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::NodeInfo { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::NodeInfo { inner: Box::into_raw(Box::new(o)), is_owned: true } }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_res
 }
 #[no_mangle]
@@ -916,7 +916,7 @@ pub(crate) extern "C" fn NetworkGraph_write_void(obj: *const c_void) -> crate::c
 #[no_mangle]
 pub extern "C" fn NetworkGraph_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_NetworkGraphDecodeErrorZ {
 	let res = crate::c_types::deserialize_obj(ser);
-	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::NetworkGraph { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::NetworkGraph { inner: Box::into_raw(Box::new(o)), is_owned: true } }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_res
 }
 /// Creates a new, empty, network graph.
@@ -937,7 +937,7 @@ pub extern "C" fn NetworkGraph_new(mut genesis_hash: crate::c_types::ThirtyTwoBy
 #[no_mangle]
 pub extern "C" fn NetworkGraph_update_node_from_announcement(this_arg: &mut NetworkGraph, msg: &crate::ln::msgs::NodeAnnouncement) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
 	let mut ret = unsafe { &mut (*(this_arg.inner as *mut nativeNetworkGraph)) }.update_node_from_announcement(unsafe { &*msg.inner }, &bitcoin::secp256k1::Secp256k1::new());
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 
@@ -949,7 +949,7 @@ pub extern "C" fn NetworkGraph_update_node_from_announcement(this_arg: &mut Netw
 #[no_mangle]
 pub extern "C" fn NetworkGraph_update_node_from_unsigned_announcement(this_arg: &mut NetworkGraph, msg: &crate::ln::msgs::UnsignedNodeAnnouncement) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
 	let mut ret = unsafe { &mut (*(this_arg.inner as *mut nativeNetworkGraph)) }.update_node_from_unsigned_announcement(unsafe { &*msg.inner });
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 
@@ -966,7 +966,7 @@ pub extern "C" fn NetworkGraph_update_node_from_unsigned_announcement(this_arg: 
 pub extern "C" fn NetworkGraph_update_channel_from_announcement(this_arg: &mut NetworkGraph, msg: &crate::ln::msgs::ChannelAnnouncement, chain_access: *mut crate::chain::Access) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
 	let mut local_chain_access = if chain_access == std::ptr::null_mut() { None } else { Some( { unsafe { *Box::from_raw(chain_access) } }) };
 	let mut ret = unsafe { &mut (*(this_arg.inner as *mut nativeNetworkGraph)) }.update_channel_from_announcement(unsafe { &*msg.inner }, &local_chain_access, &bitcoin::secp256k1::Secp256k1::new());
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 
@@ -981,7 +981,7 @@ pub extern "C" fn NetworkGraph_update_channel_from_announcement(this_arg: &mut N
 pub extern "C" fn NetworkGraph_update_channel_from_unsigned_announcement(this_arg: &mut NetworkGraph, msg: &crate::ln::msgs::UnsignedChannelAnnouncement, chain_access: *mut crate::chain::Access) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
 	let mut local_chain_access = if chain_access == std::ptr::null_mut() { None } else { Some( { unsafe { *Box::from_raw(chain_access) } }) };
 	let mut ret = unsafe { &mut (*(this_arg.inner as *mut nativeNetworkGraph)) }.update_channel_from_unsigned_announcement(unsafe { &*msg.inner }, &local_chain_access);
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 
@@ -1004,7 +1004,7 @@ pub extern "C" fn NetworkGraph_close_channel_from_update(this_arg: &mut NetworkG
 #[no_mangle]
 pub extern "C" fn NetworkGraph_update_channel(this_arg: &mut NetworkGraph, msg: &crate::ln::msgs::ChannelUpdate) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
 	let mut ret = unsafe { &mut (*(this_arg.inner as *mut nativeNetworkGraph)) }.update_channel(unsafe { &*msg.inner }, &bitcoin::secp256k1::Secp256k1::new());
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 
@@ -1015,7 +1015,7 @@ pub extern "C" fn NetworkGraph_update_channel(this_arg: &mut NetworkGraph, msg: 
 #[no_mangle]
 pub extern "C" fn NetworkGraph_update_channel_unsigned(this_arg: &mut NetworkGraph, msg: &crate::ln::msgs::UnsignedChannelUpdate) -> crate::c_types::derived::CResult_NoneLightningErrorZ {
 	let mut ret = unsafe { &mut (*(this_arg.inner as *mut nativeNetworkGraph)) }.update_channel_unsigned(unsafe { &*msg.inner });
-	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::LightningError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret
 }
 
