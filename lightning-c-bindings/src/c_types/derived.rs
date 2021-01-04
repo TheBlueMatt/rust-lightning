@@ -105,6 +105,17 @@ pub extern "C" fn C2Tuple_u64u64Z_new(a: u64, b: u64) -> C2Tuple_u64u64Z {
 	C2Tuple_u64u64Z { a, b, }
 }
 
+pub type CResult_SpendableOutputDescriptorDecodeErrorZ = crate::c_types::CResultTempl<crate::chain::keysinterface::SpendableOutputDescriptor, crate::ln::msgs::DecodeError>;
+#[no_mangle]
+pub static CResult_SpendableOutputDescriptorDecodeErrorZ_free: extern "C" fn(CResult_SpendableOutputDescriptorDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::chain::keysinterface::SpendableOutputDescriptor, crate::ln::msgs::DecodeError>;
+#[no_mangle]
+pub static CResult_SpendableOutputDescriptorDecodeErrorZ_ok: extern "C" fn (crate::chain::keysinterface::SpendableOutputDescriptor) -> CResult_SpendableOutputDescriptorDecodeErrorZ =
+	crate::c_types::CResultTempl::<crate::chain::keysinterface::SpendableOutputDescriptor, crate::ln::msgs::DecodeError>::ok;
+
+#[no_mangle]
+pub static CResult_SpendableOutputDescriptorDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_SpendableOutputDescriptorDecodeErrorZ =
+	crate::c_types::CResultTempl::<crate::chain::keysinterface::SpendableOutputDescriptor, crate::ln::msgs::DecodeError>::err;
+
 pub type CVec_SignatureZ = crate::c_types::CVecTempl<crate::c_types::Signature>;
 #[no_mangle]
 pub static CVec_SignatureZ_free: extern "C" fn(CVec_SignatureZ) = crate::c_types::CVecTempl_free::<crate::c_types::Signature>;

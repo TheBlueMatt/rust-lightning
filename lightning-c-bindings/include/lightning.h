@@ -2110,6 +2110,18 @@ typedef struct LDKCVecTempl_C2TupleTempl_ThirtyTwoBytes__CVecTempl_C2TupleTempl_
 
 typedef struct LDKCVecTempl_C2TupleTempl_ThirtyTwoBytes__CVecTempl_C2TupleTempl_u32__TxOut LDKCVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ;
 
+typedef union LDKCResultPtr_SpendableOutputDescriptor__DecodeError {
+   struct LDKSpendableOutputDescriptor *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_SpendableOutputDescriptor__DecodeError;
+
+typedef struct LDKCResultTempl_SpendableOutputDescriptor__DecodeError {
+   union LDKCResultPtr_SpendableOutputDescriptor__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_SpendableOutputDescriptor__DecodeError;
+
+typedef struct LDKCResultTempl_SpendableOutputDescriptor__DecodeError LDKCResult_SpendableOutputDescriptorDecodeErrorZ;
+
 typedef struct LDKSecretKey {
    uint8_t bytes[32];
 } LDKSecretKey;
@@ -3566,6 +3578,12 @@ extern const void (*CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ_free)(LDKCVec_C2T
 
 extern const void (*C2Tuple_u64u64Z_free)(LDKC2Tuple_u64u64Z);
 
+extern const void (*CResult_SpendableOutputDescriptorDecodeErrorZ_free)(LDKCResult_SpendableOutputDescriptorDecodeErrorZ);
+
+extern const LDKCResult_SpendableOutputDescriptorDecodeErrorZ (*CResult_SpendableOutputDescriptorDecodeErrorZ_ok)(struct LDKSpendableOutputDescriptor);
+
+extern const LDKCResult_SpendableOutputDescriptorDecodeErrorZ (*CResult_SpendableOutputDescriptorDecodeErrorZ_err)(struct LDKDecodeError);
+
 extern const void (*CVec_SignatureZ_free)(LDKCVec_SignatureZ);
 
 extern const void (*C2Tuple_SignatureCVec_SignatureZZ_free)(LDKC2Tuple_SignatureCVec_SignatureZZ);
@@ -3849,6 +3867,8 @@ LDKCResult_TrustedCommitmentTransactionNoneZ CResult_TrustedCommitmentTransactio
 void Event_free(struct LDKEvent this_ptr);
 
 struct LDKEvent Event_clone(const struct LDKEvent *orig);
+
+LDKCVec_u8Z Event_write(const struct LDKEvent *obj);
 
 void MessageSendEvent_free(struct LDKMessageSendEvent this_ptr);
 
@@ -4530,6 +4550,10 @@ struct LDKOutPoint OutPoint_read(struct LDKu8slice ser);
 void SpendableOutputDescriptor_free(struct LDKSpendableOutputDescriptor this_ptr);
 
 struct LDKSpendableOutputDescriptor SpendableOutputDescriptor_clone(const struct LDKSpendableOutputDescriptor *orig);
+
+LDKCVec_u8Z SpendableOutputDescriptor_write(const struct LDKSpendableOutputDescriptor *obj);
+
+LDKCResult_SpendableOutputDescriptorDecodeErrorZ SpendableOutputDescriptor_read(struct LDKu8slice ser);
 
 struct LDKChannelKeys ChannelKeys_clone(const struct LDKChannelKeys *orig);
 
@@ -6065,6 +6089,8 @@ MUST_USE_RES struct LDKAnnouncementSignatures AnnouncementSignatures_new(struct 
 void NetAddress_free(struct LDKNetAddress this_ptr);
 
 struct LDKNetAddress NetAddress_clone(const struct LDKNetAddress *orig);
+
+LDKCVec_u8Z NetAddress_write(const struct LDKNetAddress *obj);
 
 void UnsignedNodeAnnouncement_free(struct LDKUnsignedNodeAnnouncement this_ptr);
 

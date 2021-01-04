@@ -113,7 +113,7 @@ pub extern "C" fn ChannelMonitorUpdate_set_update_id(this_ptr: &mut ChannelMonit
 pub static CLOSED_CHANNEL_UPDATE_ID: u64 = lightning::chain::channelmonitor::CLOSED_CHANNEL_UPDATE_ID;
 #[no_mangle]
 pub extern "C" fn ChannelMonitorUpdate_write(obj: *const ChannelMonitorUpdate) -> crate::c_types::derived::CVec_u8Z {
-	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]
 pub(crate) extern "C" fn ChannelMonitorUpdate_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
