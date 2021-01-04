@@ -112,7 +112,7 @@ pub extern "C" fn ChannelMonitorUpdate_set_update_id(this_ptr: &mut ChannelMonit
 #[no_mangle]
 pub static CLOSED_CHANNEL_UPDATE_ID: u64 = lightning::chain::channelmonitor::CLOSED_CHANNEL_UPDATE_ID;
 #[no_mangle]
-pub extern "C" fn ChannelMonitorUpdate_write(obj: *const ChannelMonitorUpdate) -> crate::c_types::derived::CVec_u8Z {
+pub extern "C" fn ChannelMonitorUpdate_write(obj: &ChannelMonitorUpdate) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]
@@ -379,7 +379,7 @@ pub extern "C" fn HTLCUpdate_clone(orig: &HTLCUpdate) -> HTLCUpdate {
 	HTLCUpdate { inner: Box::into_raw(Box::new(unsafe { &*orig.inner }.clone())), is_owned: true }
 }
 #[no_mangle]
-pub extern "C" fn HTLCUpdate_write(obj: *const HTLCUpdate) -> crate::c_types::derived::CVec_u8Z {
+pub extern "C" fn HTLCUpdate_write(obj: &HTLCUpdate) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
 }
 #[no_mangle]
@@ -448,7 +448,7 @@ impl ChannelMonitor {
 	}
 }
 #[no_mangle]
-pub extern "C" fn ChannelMonitor_write(obj: *const ChannelMonitor) -> crate::c_types::derived::CVec_u8Z {
+pub extern "C" fn ChannelMonitor_write(obj: &ChannelMonitor) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]

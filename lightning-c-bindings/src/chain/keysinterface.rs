@@ -225,7 +225,7 @@ pub extern "C" fn SpendableOutputDescriptor_clone(orig: &SpendableOutputDescript
 	orig.clone()
 }
 #[no_mangle]
-pub extern "C" fn SpendableOutputDescriptor_write(obj: *const SpendableOutputDescriptor) -> crate::c_types::derived::CVec_u8Z {
+pub extern "C" fn SpendableOutputDescriptor_write(obj: &SpendableOutputDescriptor) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(&unsafe { &*obj }.to_native())
 }
 #[no_mangle]
@@ -783,7 +783,7 @@ impl From<nativeInMemoryChannelKeys> for crate::chain::keysinterface::ChannelKey
 	}
 }
 #[no_mangle]
-pub extern "C" fn InMemoryChannelKeys_as_ChannelKeys(this_arg: *const InMemoryChannelKeys) -> crate::chain::keysinterface::ChannelKeys {
+pub extern "C" fn InMemoryChannelKeys_as_ChannelKeys(this_arg: &InMemoryChannelKeys) -> crate::chain::keysinterface::ChannelKeys {
 	crate::chain::keysinterface::ChannelKeys {
 		this_arg: unsafe { (*this_arg).inner as *mut c_void },
 		free: None,
@@ -882,7 +882,7 @@ extern "C" fn InMemoryChannelKeys_ChannelKeys_ready_channel(this_arg: *mut c_voi
 }
 
 #[no_mangle]
-pub extern "C" fn InMemoryChannelKeys_write(obj: *const InMemoryChannelKeys) -> crate::c_types::derived::CVec_u8Z {
+pub extern "C" fn InMemoryChannelKeys_write(obj: &InMemoryChannelKeys) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]
@@ -988,7 +988,7 @@ impl From<nativeKeysManager> for crate::chain::keysinterface::KeysInterface {
 	}
 }
 #[no_mangle]
-pub extern "C" fn KeysManager_as_KeysInterface(this_arg: *const KeysManager) -> crate::chain::keysinterface::KeysInterface {
+pub extern "C" fn KeysManager_as_KeysInterface(this_arg: &KeysManager) -> crate::chain::keysinterface::KeysInterface {
 	crate::chain::keysinterface::KeysInterface {
 		this_arg: unsafe { (*this_arg).inner as *mut c_void },
 		free: None,
