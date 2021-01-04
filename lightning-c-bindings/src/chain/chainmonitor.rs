@@ -64,7 +64,7 @@ extern "C" fn ChainMonitor_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChainMonitor {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChainMonitor {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChainMonitor {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -140,13 +140,13 @@ pub extern "C" fn ChainMonitor_as_Watch(this_arg: *const ChainMonitor) -> crate:
 use lightning::chain::Watch as WatchTraitImport;
 #[must_use]
 extern "C" fn ChainMonitor_Watch_watch_channel(this_arg: *const c_void, mut funding_outpoint: crate::chain::transaction::OutPoint, mut monitor: crate::chain::channelmonitor::ChannelMonitor) -> crate::c_types::derived::CResult_NoneChannelMonitorUpdateErrZ {
-	let mut ret = unsafe { &mut *(this_arg as *mut nativeChainMonitor) }.watch_channel(*unsafe { Box::from_raw(funding_outpoint.take_ptr()) }, *unsafe { Box::from_raw(monitor.take_ptr()) });
+	let mut ret = unsafe { &mut *(this_arg as *mut nativeChainMonitor) }.watch_channel(*unsafe { Box::from_raw(funding_outpoint.take_inner()) }, *unsafe { Box::from_raw(monitor.take_inner()) });
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::chain::channelmonitor::ChannelMonitorUpdateErr::native_into(e) }) };
 	local_ret
 }
 #[must_use]
 extern "C" fn ChainMonitor_Watch_update_channel(this_arg: *const c_void, mut funding_txo: crate::chain::transaction::OutPoint, mut update: crate::chain::channelmonitor::ChannelMonitorUpdate) -> crate::c_types::derived::CResult_NoneChannelMonitorUpdateErrZ {
-	let mut ret = unsafe { &mut *(this_arg as *mut nativeChainMonitor) }.update_channel(*unsafe { Box::from_raw(funding_txo.take_ptr()) }, *unsafe { Box::from_raw(update.take_ptr()) });
+	let mut ret = unsafe { &mut *(this_arg as *mut nativeChainMonitor) }.update_channel(*unsafe { Box::from_raw(funding_txo.take_inner()) }, *unsafe { Box::from_raw(update.take_inner()) });
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { 0u8 /*o*/ }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::chain::channelmonitor::ChannelMonitorUpdateErr::native_into(e) }) };
 	local_ret
 }

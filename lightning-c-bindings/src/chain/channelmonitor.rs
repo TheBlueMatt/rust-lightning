@@ -49,7 +49,7 @@ extern "C" fn ChannelMonitorUpdate_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelMonitorUpdate {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelMonitorUpdate {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelMonitorUpdate {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -259,7 +259,7 @@ extern "C" fn MonitorUpdateError_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl MonitorUpdateError {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeMonitorUpdateError {
+	pub(crate) fn take_inner(mut self) -> *mut nativeMonitorUpdateError {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -297,7 +297,7 @@ extern "C" fn MonitorEvent_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl MonitorEvent {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeMonitorEvent {
+	pub(crate) fn take_inner(mut self) -> *mut nativeMonitorEvent {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -356,7 +356,7 @@ extern "C" fn HTLCUpdate_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl HTLCUpdate {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeHTLCUpdate {
+	pub(crate) fn take_inner(mut self) -> *mut nativeHTLCUpdate {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
@@ -442,7 +442,7 @@ extern "C" fn ChannelMonitor_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl ChannelMonitor {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeChannelMonitor {
+	pub(crate) fn take_inner(mut self) -> *mut nativeChannelMonitor {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();

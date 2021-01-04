@@ -38,7 +38,7 @@ extern "C" fn OutPoint_free_void(this_ptr: *mut c_void) {
 #[allow(unused)]
 /// When moving out of the pointer, we have to ensure we aren't a reference, this makes that easy
 impl OutPoint {
-	pub(crate) fn take_ptr(mut self) -> *mut nativeOutPoint {
+	pub(crate) fn take_inner(mut self) -> *mut nativeOutPoint {
 		assert!(self.is_owned);
 		let ret = self.inner;
 		self.inner = std::ptr::null_mut();
