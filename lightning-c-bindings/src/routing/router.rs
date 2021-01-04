@@ -223,7 +223,7 @@ pub extern "C" fn Route_new(mut paths_arg: crate::c_types::derived::CVec_CVec_Ro
 }
 #[no_mangle]
 pub extern "C" fn Route_write(obj: *const Route) -> crate::c_types::derived::CVec_u8Z {
-	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]
 pub(crate) extern "C" fn Route_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {

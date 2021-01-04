@@ -1998,6 +1998,20 @@ public:
 	const LDKCResult_NodeAnnouncementInfoDecodeErrorZ* operator &() const { return &self; }
 	const LDKCResult_NodeAnnouncementInfoDecodeErrorZ* operator ->() const { return &self; }
 };
+class CResult_SpendableOutputDescriptorDecodeErrorZ {
+private:
+	LDKCResult_SpendableOutputDescriptorDecodeErrorZ self;
+public:
+	CResult_SpendableOutputDescriptorDecodeErrorZ(const CResult_SpendableOutputDescriptorDecodeErrorZ&) = delete;
+	~CResult_SpendableOutputDescriptorDecodeErrorZ() { CResult_SpendableOutputDescriptorDecodeErrorZ_free(self); }
+	CResult_SpendableOutputDescriptorDecodeErrorZ(CResult_SpendableOutputDescriptorDecodeErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_SpendableOutputDescriptorDecodeErrorZ)); }
+	CResult_SpendableOutputDescriptorDecodeErrorZ(LDKCResult_SpendableOutputDescriptorDecodeErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_SpendableOutputDescriptorDecodeErrorZ)); }
+	operator LDKCResult_SpendableOutputDescriptorDecodeErrorZ() { LDKCResult_SpendableOutputDescriptorDecodeErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_SpendableOutputDescriptorDecodeErrorZ)); return res; }
+	LDKCResult_SpendableOutputDescriptorDecodeErrorZ* operator &() { return &self; }
+	LDKCResult_SpendableOutputDescriptorDecodeErrorZ* operator ->() { return &self; }
+	const LDKCResult_SpendableOutputDescriptorDecodeErrorZ* operator &() const { return &self; }
+	const LDKCResult_SpendableOutputDescriptorDecodeErrorZ* operator ->() const { return &self; }
+};
 class CVec_UpdateFailMalformedHTLCZ {
 private:
 	LDKCVec_UpdateFailMalformedHTLCZ self;

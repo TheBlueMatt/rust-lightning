@@ -224,6 +224,16 @@ pub extern "C" fn SpendableOutputDescriptor_free(this_ptr: SpendableOutputDescri
 pub extern "C" fn SpendableOutputDescriptor_clone(orig: &SpendableOutputDescriptor) -> SpendableOutputDescriptor {
 	orig.clone()
 }
+#[no_mangle]
+pub extern "C" fn SpendableOutputDescriptor_write(obj: *const SpendableOutputDescriptor) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(&unsafe { &*obj }.to_native())
+}
+#[no_mangle]
+pub extern "C" fn SpendableOutputDescriptor_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_SpendableOutputDescriptorDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::chain::keysinterface::SpendableOutputDescriptor::native_into(o) }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	local_res
+}
 /// Set of lightning keys needed to operate a channel as described in BOLT 3.
 ///
 /// Signing services could be implemented on a hardware wallet. In this case,
@@ -873,7 +883,7 @@ extern "C" fn InMemoryChannelKeys_ChannelKeys_ready_channel(this_arg: *mut c_voi
 
 #[no_mangle]
 pub extern "C" fn InMemoryChannelKeys_write(obj: *const InMemoryChannelKeys) -> crate::c_types::derived::CVec_u8Z {
-	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]
 pub(crate) extern "C" fn InMemoryChannelKeys_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {

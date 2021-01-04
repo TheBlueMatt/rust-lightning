@@ -654,7 +654,7 @@ pub extern "C" fn RoutingFees_read(ser: crate::c_types::u8slice) -> crate::c_typ
 }
 #[no_mangle]
 pub extern "C" fn RoutingFees_write(obj: *const RoutingFees) -> crate::c_types::derived::CVec_u8Z {
-	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]
 pub(crate) extern "C" fn RoutingFees_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
@@ -789,7 +789,7 @@ pub extern "C" fn NodeAnnouncementInfo_new(mut features_arg: crate::ln::features
 }
 #[no_mangle]
 pub extern "C" fn NodeAnnouncementInfo_write(obj: *const NodeAnnouncementInfo) -> crate::c_types::derived::CVec_u8Z {
-	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]
 pub(crate) extern "C" fn NodeAnnouncementInfo_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
@@ -893,7 +893,7 @@ pub extern "C" fn NodeInfo_new(mut channels_arg: crate::c_types::derived::CVec_u
 }
 #[no_mangle]
 pub extern "C" fn NodeInfo_write(obj: *const NodeInfo) -> crate::c_types::derived::CVec_u8Z {
-	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]
 pub(crate) extern "C" fn NodeInfo_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
@@ -907,7 +907,7 @@ pub extern "C" fn NodeInfo_read(ser: crate::c_types::u8slice) -> crate::c_types:
 }
 #[no_mangle]
 pub extern "C" fn NetworkGraph_write(obj: *const NetworkGraph) -> crate::c_types::derived::CVec_u8Z {
-	crate::c_types::serialize_obj(unsafe { &(*(*obj).inner) })
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]
 pub(crate) extern "C" fn NetworkGraph_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
