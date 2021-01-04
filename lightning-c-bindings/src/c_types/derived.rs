@@ -22,45 +22,186 @@ pub type CVec_C2Tuple_usizeTransactionZZ = crate::c_types::CVecTempl<crate::c_ty
 #[no_mangle]
 pub static CVec_C2Tuple_usizeTransactionZZ_free: extern "C" fn(CVec_C2Tuple_usizeTransactionZZ) = crate::c_types::CVecTempl_free::<crate::c_types::C2TupleTempl<usize, crate::c_types::Transaction>>;
 
-pub type CResult_NoneChannelMonitorUpdateErrZ = crate::c_types::CResultTempl<u8, crate::chain::channelmonitor::ChannelMonitorUpdateErr>;
-#[no_mangle]
-pub static CResult_NoneChannelMonitorUpdateErrZ_free: extern "C" fn(CResult_NoneChannelMonitorUpdateErrZ) = crate::c_types::CResultTempl_free::<u8, crate::chain::channelmonitor::ChannelMonitorUpdateErr>;
+#[repr(C)]
+pub union CResult_NoneChannelMonitorUpdateErrZPtr {
+	/// Note that this value is always NULL, as there are no contents in the OK variant
+	pub result: *mut std::ffi::c_void,
+	pub err: *mut crate::chain::channelmonitor::ChannelMonitorUpdateErr,
+}
+#[repr(C)]
+pub struct CResult_NoneChannelMonitorUpdateErrZ {
+	pub contents: CResult_NoneChannelMonitorUpdateErrZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
 pub extern "C" fn CResult_NoneChannelMonitorUpdateErrZ_ok() -> CResult_NoneChannelMonitorUpdateErrZ {
-	crate::c_types::CResultTempl::ok(0)
+	CResult_NoneChannelMonitorUpdateErrZ {
+		contents: CResult_NoneChannelMonitorUpdateErrZPtr {
+			result: std::ptr::null_mut(),
+		},
+		result_ok: true,
+	}
 }
-
 #[no_mangle]
-pub static CResult_NoneChannelMonitorUpdateErrZ_err: extern "C" fn (crate::chain::channelmonitor::ChannelMonitorUpdateErr) -> CResult_NoneChannelMonitorUpdateErrZ =
-	crate::c_types::CResultTempl::<u8, crate::chain::channelmonitor::ChannelMonitorUpdateErr>::err;
-
+pub extern "C" fn CResult_NoneChannelMonitorUpdateErrZ_err(e: crate::chain::channelmonitor::ChannelMonitorUpdateErr) -> CResult_NoneChannelMonitorUpdateErrZ {
+	CResult_NoneChannelMonitorUpdateErrZ {
+		contents: CResult_NoneChannelMonitorUpdateErrZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_NoneChannelMonitorUpdateErrZ_free(_res: CResult_NoneChannelMonitorUpdateErrZ) { }
+impl Drop for CResult_NoneChannelMonitorUpdateErrZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<u8, crate::chain::channelmonitor::ChannelMonitorUpdateErr>> for CResult_NoneChannelMonitorUpdateErrZ {
+	fn from(mut o: crate::c_types::CResultTempl<u8, crate::chain::channelmonitor::ChannelMonitorUpdateErr>) -> Self {
+		let contents = if o.result_ok {
+			let _ = unsafe { Box::from_raw(o.contents.result) };
+			o.contents.result = std::ptr::null_mut();
+			CResult_NoneChannelMonitorUpdateErrZPtr { result: std::ptr::null_mut() }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NoneChannelMonitorUpdateErrZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type CVec_MonitorEventZ = crate::c_types::CVecTempl<crate::chain::channelmonitor::MonitorEvent>;
 #[no_mangle]
 pub static CVec_MonitorEventZ_free: extern "C" fn(CVec_MonitorEventZ) = crate::c_types::CVecTempl_free::<crate::chain::channelmonitor::MonitorEvent>;
 
-pub type CResult_ChannelMonitorUpdateDecodeErrorZ = crate::c_types::CResultTempl<crate::chain::channelmonitor::ChannelMonitorUpdate, crate::ln::msgs::DecodeError>;
+#[repr(C)]
+pub union CResult_ChannelMonitorUpdateDecodeErrorZPtr {
+	pub result: *mut crate::chain::channelmonitor::ChannelMonitorUpdate,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_ChannelMonitorUpdateDecodeErrorZ {
+	pub contents: CResult_ChannelMonitorUpdateDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_ChannelMonitorUpdateDecodeErrorZ_free: extern "C" fn(CResult_ChannelMonitorUpdateDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::chain::channelmonitor::ChannelMonitorUpdate, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ChannelMonitorUpdateDecodeErrorZ_ok(o: crate::chain::channelmonitor::ChannelMonitorUpdate) -> CResult_ChannelMonitorUpdateDecodeErrorZ {
+	CResult_ChannelMonitorUpdateDecodeErrorZ {
+		contents: CResult_ChannelMonitorUpdateDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_ChannelMonitorUpdateDecodeErrorZ_ok: extern "C" fn (crate::chain::channelmonitor::ChannelMonitorUpdate) -> CResult_ChannelMonitorUpdateDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::chain::channelmonitor::ChannelMonitorUpdate, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_ChannelMonitorUpdateDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_ChannelMonitorUpdateDecodeErrorZ {
+	CResult_ChannelMonitorUpdateDecodeErrorZ {
+		contents: CResult_ChannelMonitorUpdateDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_ChannelMonitorUpdateDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_ChannelMonitorUpdateDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::chain::channelmonitor::ChannelMonitorUpdate, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_NoneMonitorUpdateErrorZ = crate::c_types::CResultTempl<u8, crate::chain::channelmonitor::MonitorUpdateError>;
-#[no_mangle]
-pub static CResult_NoneMonitorUpdateErrorZ_free: extern "C" fn(CResult_NoneMonitorUpdateErrorZ) = crate::c_types::CResultTempl_free::<u8, crate::chain::channelmonitor::MonitorUpdateError>;
+pub extern "C" fn CResult_ChannelMonitorUpdateDecodeErrorZ_free(_res: CResult_ChannelMonitorUpdateDecodeErrorZ) { }
+impl Drop for CResult_ChannelMonitorUpdateDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::chain::channelmonitor::ChannelMonitorUpdate, crate::ln::msgs::DecodeError>> for CResult_ChannelMonitorUpdateDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::chain::channelmonitor::ChannelMonitorUpdate, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_ChannelMonitorUpdateDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_ChannelMonitorUpdateDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_NoneMonitorUpdateErrorZPtr {
+	/// Note that this value is always NULL, as there are no contents in the OK variant
+	pub result: *mut std::ffi::c_void,
+	pub err: *mut crate::chain::channelmonitor::MonitorUpdateError,
+}
+#[repr(C)]
+pub struct CResult_NoneMonitorUpdateErrorZ {
+	pub contents: CResult_NoneMonitorUpdateErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
 pub extern "C" fn CResult_NoneMonitorUpdateErrorZ_ok() -> CResult_NoneMonitorUpdateErrorZ {
-	crate::c_types::CResultTempl::ok(0)
+	CResult_NoneMonitorUpdateErrorZ {
+		contents: CResult_NoneMonitorUpdateErrorZPtr {
+			result: std::ptr::null_mut(),
+		},
+		result_ok: true,
+	}
 }
-
 #[no_mangle]
-pub static CResult_NoneMonitorUpdateErrorZ_err: extern "C" fn (crate::chain::channelmonitor::MonitorUpdateError) -> CResult_NoneMonitorUpdateErrorZ =
-	crate::c_types::CResultTempl::<u8, crate::chain::channelmonitor::MonitorUpdateError>::err;
-
+pub extern "C" fn CResult_NoneMonitorUpdateErrorZ_err(e: crate::chain::channelmonitor::MonitorUpdateError) -> CResult_NoneMonitorUpdateErrorZ {
+	CResult_NoneMonitorUpdateErrorZ {
+		contents: CResult_NoneMonitorUpdateErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_NoneMonitorUpdateErrorZ_free(_res: CResult_NoneMonitorUpdateErrorZ) { }
+impl Drop for CResult_NoneMonitorUpdateErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<u8, crate::chain::channelmonitor::MonitorUpdateError>> for CResult_NoneMonitorUpdateErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<u8, crate::chain::channelmonitor::MonitorUpdateError>) -> Self {
+		let contents = if o.result_ok {
+			let _ = unsafe { Box::from_raw(o.contents.result) };
+			o.contents.result = std::ptr::null_mut();
+			CResult_NoneMonitorUpdateErrorZPtr { result: std::ptr::null_mut() }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NoneMonitorUpdateErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type C2Tuple_OutPointScriptZ = crate::c_types::C2TupleTempl<crate::chain::transaction::OutPoint, crate::c_types::derived::CVec_u8Z>;
 #[no_mangle]
 pub static C2Tuple_OutPointScriptZ_free: extern "C" fn(C2Tuple_OutPointScriptZ) = crate::c_types::C2TupleTempl_free::<crate::chain::transaction::OutPoint, crate::c_types::derived::CVec_u8Z>;
@@ -105,17 +246,66 @@ pub extern "C" fn C2Tuple_BlockHashChannelMonitorZ_new(a: crate::c_types::Thirty
 	C2Tuple_BlockHashChannelMonitorZ { a, b, }
 }
 
-pub type CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ = crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>;
+#[repr(C)]
+pub union CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZPtr {
+	pub result: *mut crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
+	pub contents: CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_free: extern "C" fn(CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_ok(o: crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>) -> CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
+	CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
+		contents: CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_ok: extern "C" fn (C2Tuple_BlockHashChannelMonitorZ) -> CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
+	CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
+		contents: CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>::err;
-
+pub extern "C" fn CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_free(_res: CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ) { }
+impl Drop for CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>> for CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type C2Tuple_u64u64Z = crate::c_types::C2TupleTempl<u64, u64>;
 #[no_mangle]
 pub static C2Tuple_u64u64Z_free: extern "C" fn(C2Tuple_u64u64Z) = crate::c_types::C2TupleTempl_free::<u64, u64>;
@@ -124,17 +314,66 @@ pub extern "C" fn C2Tuple_u64u64Z_new(a: u64, b: u64) -> C2Tuple_u64u64Z {
 	C2Tuple_u64u64Z { a, b, }
 }
 
-pub type CResult_SpendableOutputDescriptorDecodeErrorZ = crate::c_types::CResultTempl<crate::chain::keysinterface::SpendableOutputDescriptor, crate::ln::msgs::DecodeError>;
+#[repr(C)]
+pub union CResult_SpendableOutputDescriptorDecodeErrorZPtr {
+	pub result: *mut crate::chain::keysinterface::SpendableOutputDescriptor,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_SpendableOutputDescriptorDecodeErrorZ {
+	pub contents: CResult_SpendableOutputDescriptorDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_SpendableOutputDescriptorDecodeErrorZ_free: extern "C" fn(CResult_SpendableOutputDescriptorDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::chain::keysinterface::SpendableOutputDescriptor, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_SpendableOutputDescriptorDecodeErrorZ_ok(o: crate::chain::keysinterface::SpendableOutputDescriptor) -> CResult_SpendableOutputDescriptorDecodeErrorZ {
+	CResult_SpendableOutputDescriptorDecodeErrorZ {
+		contents: CResult_SpendableOutputDescriptorDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_SpendableOutputDescriptorDecodeErrorZ_ok: extern "C" fn (crate::chain::keysinterface::SpendableOutputDescriptor) -> CResult_SpendableOutputDescriptorDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::chain::keysinterface::SpendableOutputDescriptor, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_SpendableOutputDescriptorDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_SpendableOutputDescriptorDecodeErrorZ {
+	CResult_SpendableOutputDescriptorDecodeErrorZ {
+		contents: CResult_SpendableOutputDescriptorDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_SpendableOutputDescriptorDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_SpendableOutputDescriptorDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::chain::keysinterface::SpendableOutputDescriptor, crate::ln::msgs::DecodeError>::err;
-
+pub extern "C" fn CResult_SpendableOutputDescriptorDecodeErrorZ_free(_res: CResult_SpendableOutputDescriptorDecodeErrorZ) { }
+impl Drop for CResult_SpendableOutputDescriptorDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::chain::keysinterface::SpendableOutputDescriptor, crate::ln::msgs::DecodeError>> for CResult_SpendableOutputDescriptorDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::chain::keysinterface::SpendableOutputDescriptor, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_SpendableOutputDescriptorDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_SpendableOutputDescriptorDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type CVec_SignatureZ = crate::c_types::CVecTempl<crate::c_types::Signature>;
 #[no_mangle]
 pub static CVec_SignatureZ_free: extern "C" fn(CVec_SignatureZ) = crate::c_types::CVecTempl_free::<crate::c_types::Signature>;
@@ -147,103 +386,480 @@ pub extern "C" fn C2Tuple_SignatureCVec_SignatureZZ_new(a: crate::c_types::Signa
 	C2Tuple_SignatureCVec_SignatureZZ { a, b, }
 }
 
-pub type CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ = crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::CVecTempl<crate::c_types::Signature>>, u8>;
+#[repr(C)]
+pub union CResult_C2Tuple_SignatureCVec_SignatureZZNoneZPtr {
+	pub result: *mut crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::CVecTempl<crate::c_types::Signature>>,
+	/// Note that this value is always NULL, as there are no contents in the Err variant
+	pub err: *mut std::ffi::c_void,
+}
+#[repr(C)]
+pub struct CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
+	pub contents: CResult_C2Tuple_SignatureCVec_SignatureZZNoneZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ_free: extern "C" fn(CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ) = crate::c_types::CResultTempl_free::<crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::CVecTempl<crate::c_types::Signature>>, u8>;
-#[no_mangle]
-pub static CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ_ok: extern "C" fn (C2Tuple_SignatureCVec_SignatureZZ) -> CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ =
-	crate::c_types::CResultTempl::<crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::CVecTempl<crate::c_types::Signature>>, u8>::ok;
-
+pub extern "C" fn CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ_ok(o: crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::CVecTempl<crate::c_types::Signature>>) -> CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
+	CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
+		contents: CResult_C2Tuple_SignatureCVec_SignatureZZNoneZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
 pub extern "C" fn CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ_err() -> CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
-	crate::c_types::CResultTempl::err(0)
+	CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
+		contents: CResult_C2Tuple_SignatureCVec_SignatureZZNoneZPtr {
+			err: std::ptr::null_mut(),
+		},
+		result_ok: false,
+	}
 }
-
-pub type CResult_SignatureNoneZ = crate::c_types::CResultTempl<crate::c_types::Signature, u8>;
 #[no_mangle]
-pub static CResult_SignatureNoneZ_free: extern "C" fn(CResult_SignatureNoneZ) = crate::c_types::CResultTempl_free::<crate::c_types::Signature, u8>;
+pub extern "C" fn CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ_free(_res: CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ) { }
+impl Drop for CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::CVecTempl<crate::c_types::Signature>>, u8>> for CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::CVecTempl<crate::c_types::Signature>>, u8>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_C2Tuple_SignatureCVec_SignatureZZNoneZPtr { result }
+		} else {
+			let _ = unsafe { Box::from_raw(o.contents.err) };
+			o.contents.err = std::ptr::null_mut();
+			CResult_C2Tuple_SignatureCVec_SignatureZZNoneZPtr { err: std::ptr::null_mut() }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_SignatureNoneZPtr {
+	pub result: *mut crate::c_types::Signature,
+	/// Note that this value is always NULL, as there are no contents in the Err variant
+	pub err: *mut std::ffi::c_void,
+}
+#[repr(C)]
+pub struct CResult_SignatureNoneZ {
+	pub contents: CResult_SignatureNoneZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_SignatureNoneZ_ok: extern "C" fn (crate::c_types::Signature) -> CResult_SignatureNoneZ =
-	crate::c_types::CResultTempl::<crate::c_types::Signature, u8>::ok;
-
+pub extern "C" fn CResult_SignatureNoneZ_ok(o: crate::c_types::Signature) -> CResult_SignatureNoneZ {
+	CResult_SignatureNoneZ {
+		contents: CResult_SignatureNoneZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
 pub extern "C" fn CResult_SignatureNoneZ_err() -> CResult_SignatureNoneZ {
-	crate::c_types::CResultTempl::err(0)
+	CResult_SignatureNoneZ {
+		contents: CResult_SignatureNoneZPtr {
+			err: std::ptr::null_mut(),
+		},
+		result_ok: false,
+	}
 }
-
-pub type CResult_CVec_SignatureZNoneZ = crate::c_types::CResultTempl<crate::c_types::CVecTempl<crate::c_types::Signature>, u8>;
 #[no_mangle]
-pub static CResult_CVec_SignatureZNoneZ_free: extern "C" fn(CResult_CVec_SignatureZNoneZ) = crate::c_types::CResultTempl_free::<crate::c_types::CVecTempl<crate::c_types::Signature>, u8>;
+pub extern "C" fn CResult_SignatureNoneZ_free(_res: CResult_SignatureNoneZ) { }
+impl Drop for CResult_SignatureNoneZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::c_types::Signature, u8>> for CResult_SignatureNoneZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::Signature, u8>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_SignatureNoneZPtr { result }
+		} else {
+			let _ = unsafe { Box::from_raw(o.contents.err) };
+			o.contents.err = std::ptr::null_mut();
+			CResult_SignatureNoneZPtr { err: std::ptr::null_mut() }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_CVec_SignatureZNoneZPtr {
+	pub result: *mut crate::c_types::CVecTempl<crate::c_types::Signature>,
+	/// Note that this value is always NULL, as there are no contents in the Err variant
+	pub err: *mut std::ffi::c_void,
+}
+#[repr(C)]
+pub struct CResult_CVec_SignatureZNoneZ {
+	pub contents: CResult_CVec_SignatureZNoneZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_CVec_SignatureZNoneZ_ok: extern "C" fn (CVec_SignatureZ) -> CResult_CVec_SignatureZNoneZ =
-	crate::c_types::CResultTempl::<crate::c_types::CVecTempl<crate::c_types::Signature>, u8>::ok;
-
+pub extern "C" fn CResult_CVec_SignatureZNoneZ_ok(o: crate::c_types::CVecTempl<crate::c_types::Signature>) -> CResult_CVec_SignatureZNoneZ {
+	CResult_CVec_SignatureZNoneZ {
+		contents: CResult_CVec_SignatureZNoneZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
 pub extern "C" fn CResult_CVec_SignatureZNoneZ_err() -> CResult_CVec_SignatureZNoneZ {
-	crate::c_types::CResultTempl::err(0)
+	CResult_CVec_SignatureZNoneZ {
+		contents: CResult_CVec_SignatureZNoneZPtr {
+			err: std::ptr::null_mut(),
+		},
+		result_ok: false,
+	}
 }
-
-pub type CResult_ChanKeySignerDecodeErrorZ = crate::c_types::CResultTempl<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>;
 #[no_mangle]
-pub static CResult_ChanKeySignerDecodeErrorZ_free: extern "C" fn(CResult_ChanKeySignerDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_CVec_SignatureZNoneZ_free(_res: CResult_CVec_SignatureZNoneZ) { }
+impl Drop for CResult_CVec_SignatureZNoneZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::c_types::CVecTempl<crate::c_types::Signature>, u8>> for CResult_CVec_SignatureZNoneZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::CVecTempl<crate::c_types::Signature>, u8>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_CVec_SignatureZNoneZPtr { result }
+		} else {
+			let _ = unsafe { Box::from_raw(o.contents.err) };
+			o.contents.err = std::ptr::null_mut();
+			CResult_CVec_SignatureZNoneZPtr { err: std::ptr::null_mut() }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_ChanKeySignerDecodeErrorZPtr {
+	pub result: *mut crate::chain::keysinterface::ChannelKeys,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_ChanKeySignerDecodeErrorZ {
+	pub contents: CResult_ChanKeySignerDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_ChanKeySignerDecodeErrorZ_ok: extern "C" fn (crate::chain::keysinterface::ChannelKeys) -> CResult_ChanKeySignerDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_ChanKeySignerDecodeErrorZ_ok(o: crate::chain::keysinterface::ChannelKeys) -> CResult_ChanKeySignerDecodeErrorZ {
+	CResult_ChanKeySignerDecodeErrorZ {
+		contents: CResult_ChanKeySignerDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_ChanKeySignerDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_ChanKeySignerDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_InMemoryChannelKeysDecodeErrorZ = crate::c_types::CResultTempl<crate::chain::keysinterface::InMemoryChannelKeys, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ChanKeySignerDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_ChanKeySignerDecodeErrorZ {
+	CResult_ChanKeySignerDecodeErrorZ {
+		contents: CResult_ChanKeySignerDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_InMemoryChannelKeysDecodeErrorZ_free: extern "C" fn(CResult_InMemoryChannelKeysDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::chain::keysinterface::InMemoryChannelKeys, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ChanKeySignerDecodeErrorZ_free(_res: CResult_ChanKeySignerDecodeErrorZ) { }
+impl Drop for CResult_ChanKeySignerDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>> for CResult_ChanKeySignerDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_ChanKeySignerDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_ChanKeySignerDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_InMemoryChannelKeysDecodeErrorZPtr {
+	pub result: *mut crate::chain::keysinterface::InMemoryChannelKeys,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_InMemoryChannelKeysDecodeErrorZ {
+	pub contents: CResult_InMemoryChannelKeysDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_InMemoryChannelKeysDecodeErrorZ_ok: extern "C" fn (crate::chain::keysinterface::InMemoryChannelKeys) -> CResult_InMemoryChannelKeysDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::chain::keysinterface::InMemoryChannelKeys, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_InMemoryChannelKeysDecodeErrorZ_ok(o: crate::chain::keysinterface::InMemoryChannelKeys) -> CResult_InMemoryChannelKeysDecodeErrorZ {
+	CResult_InMemoryChannelKeysDecodeErrorZ {
+		contents: CResult_InMemoryChannelKeysDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_InMemoryChannelKeysDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_InMemoryChannelKeysDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::chain::keysinterface::InMemoryChannelKeys, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_TxOutAccessErrorZ = crate::c_types::CResultTempl<crate::c_types::TxOut, crate::chain::AccessError>;
+pub extern "C" fn CResult_InMemoryChannelKeysDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_InMemoryChannelKeysDecodeErrorZ {
+	CResult_InMemoryChannelKeysDecodeErrorZ {
+		contents: CResult_InMemoryChannelKeysDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_TxOutAccessErrorZ_free: extern "C" fn(CResult_TxOutAccessErrorZ) = crate::c_types::CResultTempl_free::<crate::c_types::TxOut, crate::chain::AccessError>;
+pub extern "C" fn CResult_InMemoryChannelKeysDecodeErrorZ_free(_res: CResult_InMemoryChannelKeysDecodeErrorZ) { }
+impl Drop for CResult_InMemoryChannelKeysDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::chain::keysinterface::InMemoryChannelKeys, crate::ln::msgs::DecodeError>> for CResult_InMemoryChannelKeysDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::chain::keysinterface::InMemoryChannelKeys, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_InMemoryChannelKeysDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_InMemoryChannelKeysDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_TxOutAccessErrorZPtr {
+	pub result: *mut crate::c_types::TxOut,
+	pub err: *mut crate::chain::AccessError,
+}
+#[repr(C)]
+pub struct CResult_TxOutAccessErrorZ {
+	pub contents: CResult_TxOutAccessErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_TxOutAccessErrorZ_ok: extern "C" fn (crate::c_types::TxOut) -> CResult_TxOutAccessErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::TxOut, crate::chain::AccessError>::ok;
-
+pub extern "C" fn CResult_TxOutAccessErrorZ_ok(o: crate::c_types::TxOut) -> CResult_TxOutAccessErrorZ {
+	CResult_TxOutAccessErrorZ {
+		contents: CResult_TxOutAccessErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_TxOutAccessErrorZ_err: extern "C" fn (crate::chain::AccessError) -> CResult_TxOutAccessErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::TxOut, crate::chain::AccessError>::err;
-
-pub type CResult_NoneAPIErrorZ = crate::c_types::CResultTempl<u8, crate::util::errors::APIError>;
+pub extern "C" fn CResult_TxOutAccessErrorZ_err(e: crate::chain::AccessError) -> CResult_TxOutAccessErrorZ {
+	CResult_TxOutAccessErrorZ {
+		contents: CResult_TxOutAccessErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_NoneAPIErrorZ_free: extern "C" fn(CResult_NoneAPIErrorZ) = crate::c_types::CResultTempl_free::<u8, crate::util::errors::APIError>;
+pub extern "C" fn CResult_TxOutAccessErrorZ_free(_res: CResult_TxOutAccessErrorZ) { }
+impl Drop for CResult_TxOutAccessErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::c_types::TxOut, crate::chain::AccessError>> for CResult_TxOutAccessErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::TxOut, crate::chain::AccessError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_TxOutAccessErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_TxOutAccessErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_NoneAPIErrorZPtr {
+	/// Note that this value is always NULL, as there are no contents in the OK variant
+	pub result: *mut std::ffi::c_void,
+	pub err: *mut crate::util::errors::APIError,
+}
+#[repr(C)]
+pub struct CResult_NoneAPIErrorZ {
+	pub contents: CResult_NoneAPIErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
 pub extern "C" fn CResult_NoneAPIErrorZ_ok() -> CResult_NoneAPIErrorZ {
-	crate::c_types::CResultTempl::ok(0)
+	CResult_NoneAPIErrorZ {
+		contents: CResult_NoneAPIErrorZPtr {
+			result: std::ptr::null_mut(),
+		},
+		result_ok: true,
+	}
 }
-
 #[no_mangle]
-pub static CResult_NoneAPIErrorZ_err: extern "C" fn (crate::util::errors::APIError) -> CResult_NoneAPIErrorZ =
-	crate::c_types::CResultTempl::<u8, crate::util::errors::APIError>::err;
-
+pub extern "C" fn CResult_NoneAPIErrorZ_err(e: crate::util::errors::APIError) -> CResult_NoneAPIErrorZ {
+	CResult_NoneAPIErrorZ {
+		contents: CResult_NoneAPIErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_NoneAPIErrorZ_free(_res: CResult_NoneAPIErrorZ) { }
+impl Drop for CResult_NoneAPIErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<u8, crate::util::errors::APIError>> for CResult_NoneAPIErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<u8, crate::util::errors::APIError>) -> Self {
+		let contents = if o.result_ok {
+			let _ = unsafe { Box::from_raw(o.contents.result) };
+			o.contents.result = std::ptr::null_mut();
+			CResult_NoneAPIErrorZPtr { result: std::ptr::null_mut() }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NoneAPIErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type CVec_ChannelDetailsZ = crate::c_types::CVecTempl<crate::ln::channelmanager::ChannelDetails>;
 #[no_mangle]
 pub static CVec_ChannelDetailsZ_free: extern "C" fn(CVec_ChannelDetailsZ) = crate::c_types::CVecTempl_free::<crate::ln::channelmanager::ChannelDetails>;
 
-pub type CResult_NonePaymentSendFailureZ = crate::c_types::CResultTempl<u8, crate::ln::channelmanager::PaymentSendFailure>;
-#[no_mangle]
-pub static CResult_NonePaymentSendFailureZ_free: extern "C" fn(CResult_NonePaymentSendFailureZ) = crate::c_types::CResultTempl_free::<u8, crate::ln::channelmanager::PaymentSendFailure>;
+#[repr(C)]
+pub union CResult_NonePaymentSendFailureZPtr {
+	/// Note that this value is always NULL, as there are no contents in the OK variant
+	pub result: *mut std::ffi::c_void,
+	pub err: *mut crate::ln::channelmanager::PaymentSendFailure,
+}
+#[repr(C)]
+pub struct CResult_NonePaymentSendFailureZ {
+	pub contents: CResult_NonePaymentSendFailureZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
 pub extern "C" fn CResult_NonePaymentSendFailureZ_ok() -> CResult_NonePaymentSendFailureZ {
-	crate::c_types::CResultTempl::ok(0)
+	CResult_NonePaymentSendFailureZ {
+		contents: CResult_NonePaymentSendFailureZPtr {
+			result: std::ptr::null_mut(),
+		},
+		result_ok: true,
+	}
 }
-
 #[no_mangle]
-pub static CResult_NonePaymentSendFailureZ_err: extern "C" fn (crate::ln::channelmanager::PaymentSendFailure) -> CResult_NonePaymentSendFailureZ =
-	crate::c_types::CResultTempl::<u8, crate::ln::channelmanager::PaymentSendFailure>::err;
-
+pub extern "C" fn CResult_NonePaymentSendFailureZ_err(e: crate::ln::channelmanager::PaymentSendFailure) -> CResult_NonePaymentSendFailureZ {
+	CResult_NonePaymentSendFailureZ {
+		contents: CResult_NonePaymentSendFailureZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_NonePaymentSendFailureZ_free(_res: CResult_NonePaymentSendFailureZ) { }
+impl Drop for CResult_NonePaymentSendFailureZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<u8, crate::ln::channelmanager::PaymentSendFailure>> for CResult_NonePaymentSendFailureZ {
+	fn from(mut o: crate::c_types::CResultTempl<u8, crate::ln::channelmanager::PaymentSendFailure>) -> Self {
+		let contents = if o.result_ok {
+			let _ = unsafe { Box::from_raw(o.contents.result) };
+			o.contents.result = std::ptr::null_mut();
+			CResult_NonePaymentSendFailureZPtr { result: std::ptr::null_mut() }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NonePaymentSendFailureZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type CVec_NetAddressZ = crate::c_types::CVecTempl<crate::ln::msgs::NetAddress>;
 #[no_mangle]
 pub static CVec_NetAddressZ_free: extern "C" fn(CVec_NetAddressZ) = crate::c_types::CVecTempl_free::<crate::ln::msgs::NetAddress>;
@@ -260,39 +876,186 @@ pub extern "C" fn C2Tuple_BlockHashChannelManagerZ_new(a: crate::c_types::Thirty
 	C2Tuple_BlockHashChannelManagerZ { a, b, }
 }
 
-pub type CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ = crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>;
+#[repr(C)]
+pub union CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZPtr {
+	pub result: *mut crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
+	pub contents: CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_free: extern "C" fn(CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_ok(o: crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>) -> CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
+	CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
+		contents: CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_ok: extern "C" fn (C2Tuple_BlockHashChannelManagerZ) -> CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
+	CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
+		contents: CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_NetAddressu8Z = crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>;
+pub extern "C" fn CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_free(_res: CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ) { }
+impl Drop for CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>> for CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_NetAddressu8ZPtr {
+	pub result: *mut crate::ln::msgs::NetAddress,
+	pub err: *mut u8,
+}
+#[repr(C)]
+pub struct CResult_NetAddressu8Z {
+	pub contents: CResult_NetAddressu8ZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_NetAddressu8Z_free: extern "C" fn(CResult_NetAddressu8Z) = crate::c_types::CResultTempl_free::<crate::ln::msgs::NetAddress, u8>;
+pub extern "C" fn CResult_NetAddressu8Z_ok(o: crate::ln::msgs::NetAddress) -> CResult_NetAddressu8Z {
+	CResult_NetAddressu8Z {
+		contents: CResult_NetAddressu8ZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_NetAddressu8Z_ok: extern "C" fn (crate::ln::msgs::NetAddress) -> CResult_NetAddressu8Z =
-	crate::c_types::CResultTempl::<crate::ln::msgs::NetAddress, u8>::ok;
-
+pub extern "C" fn CResult_NetAddressu8Z_err(e: u8) -> CResult_NetAddressu8Z {
+	CResult_NetAddressu8Z {
+		contents: CResult_NetAddressu8ZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_NetAddressu8Z_err: extern "C" fn (u8) -> CResult_NetAddressu8Z =
-	crate::c_types::CResultTempl::<crate::ln::msgs::NetAddress, u8>::err;
-
-pub type CResult_CResult_NetAddressu8ZDecodeErrorZ = crate::c_types::CResultTempl<crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_NetAddressu8Z_free(_res: CResult_NetAddressu8Z) { }
+impl Drop for CResult_NetAddressu8Z {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>> for CResult_NetAddressu8Z {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_NetAddressu8ZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NetAddressu8ZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_CResult_NetAddressu8ZDecodeErrorZPtr {
+	pub result: *mut crate::c_types::derived::CResult_NetAddressu8Z,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_CResult_NetAddressu8ZDecodeErrorZ {
+	pub contents: CResult_CResult_NetAddressu8ZDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_CResult_NetAddressu8ZDecodeErrorZ_free: extern "C" fn(CResult_CResult_NetAddressu8ZDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_CResult_NetAddressu8ZDecodeErrorZ_ok(o: crate::c_types::derived::CResult_NetAddressu8Z) -> CResult_CResult_NetAddressu8ZDecodeErrorZ {
+	CResult_CResult_NetAddressu8ZDecodeErrorZ {
+		contents: CResult_CResult_NetAddressu8ZDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_CResult_NetAddressu8ZDecodeErrorZ_ok: extern "C" fn (CResult_NetAddressu8Z) -> CResult_CResult_NetAddressu8ZDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_CResult_NetAddressu8ZDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_CResult_NetAddressu8ZDecodeErrorZ {
+	CResult_CResult_NetAddressu8ZDecodeErrorZ {
+		contents: CResult_CResult_NetAddressu8ZDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_CResult_NetAddressu8ZDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_CResult_NetAddressu8ZDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::CResultTempl<crate::ln::msgs::NetAddress, u8>, crate::ln::msgs::DecodeError>::err;
-
+pub extern "C" fn CResult_CResult_NetAddressu8ZDecodeErrorZ_free(_res: CResult_CResult_NetAddressu8ZDecodeErrorZ) { }
+impl Drop for CResult_CResult_NetAddressu8ZDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::c_types::derived::CResult_NetAddressu8Z, crate::ln::msgs::DecodeError>> for CResult_CResult_NetAddressu8ZDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::derived::CResult_NetAddressu8Z, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_CResult_NetAddressu8ZDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_CResult_NetAddressu8ZDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type CVec_u64Z = crate::c_types::CVecTempl<u64>;
 #[no_mangle]
 pub static CVec_u64Z_free: extern "C" fn(CVec_u64Z) = crate::c_types::CVecTempl_free::<u64>;
@@ -313,17 +1076,66 @@ pub type CVec_UpdateFailMalformedHTLCZ = crate::c_types::CVecTempl<crate::ln::ms
 #[no_mangle]
 pub static CVec_UpdateFailMalformedHTLCZ_free: extern "C" fn(CVec_UpdateFailMalformedHTLCZ) = crate::c_types::CVecTempl_free::<crate::ln::msgs::UpdateFailMalformedHTLC>;
 
-pub type CResult_boolLightningErrorZ = crate::c_types::CResultTempl<bool, crate::ln::msgs::LightningError>;
+#[repr(C)]
+pub union CResult_boolLightningErrorZPtr {
+	pub result: *mut bool,
+	pub err: *mut crate::ln::msgs::LightningError,
+}
+#[repr(C)]
+pub struct CResult_boolLightningErrorZ {
+	pub contents: CResult_boolLightningErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_boolLightningErrorZ_free: extern "C" fn(CResult_boolLightningErrorZ) = crate::c_types::CResultTempl_free::<bool, crate::ln::msgs::LightningError>;
+pub extern "C" fn CResult_boolLightningErrorZ_ok(o: bool) -> CResult_boolLightningErrorZ {
+	CResult_boolLightningErrorZ {
+		contents: CResult_boolLightningErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_boolLightningErrorZ_ok: extern "C" fn (bool) -> CResult_boolLightningErrorZ =
-	crate::c_types::CResultTempl::<bool, crate::ln::msgs::LightningError>::ok;
-
+pub extern "C" fn CResult_boolLightningErrorZ_err(e: crate::ln::msgs::LightningError) -> CResult_boolLightningErrorZ {
+	CResult_boolLightningErrorZ {
+		contents: CResult_boolLightningErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_boolLightningErrorZ_err: extern "C" fn (crate::ln::msgs::LightningError) -> CResult_boolLightningErrorZ =
-	crate::c_types::CResultTempl::<bool, crate::ln::msgs::LightningError>::err;
-
+pub extern "C" fn CResult_boolLightningErrorZ_free(_res: CResult_boolLightningErrorZ) { }
+impl Drop for CResult_boolLightningErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<bool, crate::ln::msgs::LightningError>> for CResult_boolLightningErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<bool, crate::ln::msgs::LightningError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_boolLightningErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_boolLightningErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ = crate::c_types::C3TupleTempl<crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate>;
 #[no_mangle]
 pub static C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ_free: extern "C" fn(C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ) = crate::c_types::C3TupleTempl_free::<crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate>;
@@ -340,161 +1152,844 @@ pub type CVec_NodeAnnouncementZ = crate::c_types::CVecTempl<crate::ln::msgs::Nod
 #[no_mangle]
 pub static CVec_NodeAnnouncementZ_free: extern "C" fn(CVec_NodeAnnouncementZ) = crate::c_types::CVecTempl_free::<crate::ln::msgs::NodeAnnouncement>;
 
-pub type CResult_NoneLightningErrorZ = crate::c_types::CResultTempl<u8, crate::ln::msgs::LightningError>;
-#[no_mangle]
-pub static CResult_NoneLightningErrorZ_free: extern "C" fn(CResult_NoneLightningErrorZ) = crate::c_types::CResultTempl_free::<u8, crate::ln::msgs::LightningError>;
+#[repr(C)]
+pub union CResult_NoneLightningErrorZPtr {
+	/// Note that this value is always NULL, as there are no contents in the OK variant
+	pub result: *mut std::ffi::c_void,
+	pub err: *mut crate::ln::msgs::LightningError,
+}
+#[repr(C)]
+pub struct CResult_NoneLightningErrorZ {
+	pub contents: CResult_NoneLightningErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
 pub extern "C" fn CResult_NoneLightningErrorZ_ok() -> CResult_NoneLightningErrorZ {
-	crate::c_types::CResultTempl::ok(0)
+	CResult_NoneLightningErrorZ {
+		contents: CResult_NoneLightningErrorZPtr {
+			result: std::ptr::null_mut(),
+		},
+		result_ok: true,
+	}
 }
-
 #[no_mangle]
-pub static CResult_NoneLightningErrorZ_err: extern "C" fn (crate::ln::msgs::LightningError) -> CResult_NoneLightningErrorZ =
-	crate::c_types::CResultTempl::<u8, crate::ln::msgs::LightningError>::err;
-
-pub type CResult_ChannelReestablishDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::ChannelReestablish, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_NoneLightningErrorZ_err(e: crate::ln::msgs::LightningError) -> CResult_NoneLightningErrorZ {
+	CResult_NoneLightningErrorZ {
+		contents: CResult_NoneLightningErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_ChannelReestablishDecodeErrorZ_free: extern "C" fn(CResult_ChannelReestablishDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::ChannelReestablish, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_NoneLightningErrorZ_free(_res: CResult_NoneLightningErrorZ) { }
+impl Drop for CResult_NoneLightningErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<u8, crate::ln::msgs::LightningError>> for CResult_NoneLightningErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<u8, crate::ln::msgs::LightningError>) -> Self {
+		let contents = if o.result_ok {
+			let _ = unsafe { Box::from_raw(o.contents.result) };
+			o.contents.result = std::ptr::null_mut();
+			CResult_NoneLightningErrorZPtr { result: std::ptr::null_mut() }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NoneLightningErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_ChannelReestablishDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::ChannelReestablish,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_ChannelReestablishDecodeErrorZ {
+	pub contents: CResult_ChannelReestablishDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_ChannelReestablishDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::ChannelReestablish) -> CResult_ChannelReestablishDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::ChannelReestablish, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_ChannelReestablishDecodeErrorZ_ok(o: crate::ln::msgs::ChannelReestablish) -> CResult_ChannelReestablishDecodeErrorZ {
+	CResult_ChannelReestablishDecodeErrorZ {
+		contents: CResult_ChannelReestablishDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_ChannelReestablishDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_ChannelReestablishDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::ChannelReestablish, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_InitDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::Init, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ChannelReestablishDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_ChannelReestablishDecodeErrorZ {
+	CResult_ChannelReestablishDecodeErrorZ {
+		contents: CResult_ChannelReestablishDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_InitDecodeErrorZ_free: extern "C" fn(CResult_InitDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::Init, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ChannelReestablishDecodeErrorZ_free(_res: CResult_ChannelReestablishDecodeErrorZ) { }
+impl Drop for CResult_ChannelReestablishDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::ChannelReestablish, crate::ln::msgs::DecodeError>> for CResult_ChannelReestablishDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::ChannelReestablish, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_ChannelReestablishDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_ChannelReestablishDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_InitDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::Init,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_InitDecodeErrorZ {
+	pub contents: CResult_InitDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_InitDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::Init) -> CResult_InitDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::Init, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_InitDecodeErrorZ_ok(o: crate::ln::msgs::Init) -> CResult_InitDecodeErrorZ {
+	CResult_InitDecodeErrorZ {
+		contents: CResult_InitDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_InitDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_InitDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::Init, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_PingDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::Ping, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_InitDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_InitDecodeErrorZ {
+	CResult_InitDecodeErrorZ {
+		contents: CResult_InitDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_PingDecodeErrorZ_free: extern "C" fn(CResult_PingDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::Ping, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_InitDecodeErrorZ_free(_res: CResult_InitDecodeErrorZ) { }
+impl Drop for CResult_InitDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::Init, crate::ln::msgs::DecodeError>> for CResult_InitDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::Init, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_InitDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_InitDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_PingDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::Ping,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_PingDecodeErrorZ {
+	pub contents: CResult_PingDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_PingDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::Ping) -> CResult_PingDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::Ping, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_PingDecodeErrorZ_ok(o: crate::ln::msgs::Ping) -> CResult_PingDecodeErrorZ {
+	CResult_PingDecodeErrorZ {
+		contents: CResult_PingDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_PingDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_PingDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::Ping, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_PongDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::Pong, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_PingDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_PingDecodeErrorZ {
+	CResult_PingDecodeErrorZ {
+		contents: CResult_PingDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_PongDecodeErrorZ_free: extern "C" fn(CResult_PongDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::Pong, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_PingDecodeErrorZ_free(_res: CResult_PingDecodeErrorZ) { }
+impl Drop for CResult_PingDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::Ping, crate::ln::msgs::DecodeError>> for CResult_PingDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::Ping, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_PingDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_PingDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_PongDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::Pong,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_PongDecodeErrorZ {
+	pub contents: CResult_PongDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_PongDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::Pong) -> CResult_PongDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::Pong, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_PongDecodeErrorZ_ok(o: crate::ln::msgs::Pong) -> CResult_PongDecodeErrorZ {
+	CResult_PongDecodeErrorZ {
+		contents: CResult_PongDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_PongDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_PongDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::Pong, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_UnsignedChannelAnnouncementDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::UnsignedChannelAnnouncement, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_PongDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_PongDecodeErrorZ {
+	CResult_PongDecodeErrorZ {
+		contents: CResult_PongDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_UnsignedChannelAnnouncementDecodeErrorZ_free: extern "C" fn(CResult_UnsignedChannelAnnouncementDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::UnsignedChannelAnnouncement, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_PongDecodeErrorZ_free(_res: CResult_PongDecodeErrorZ) { }
+impl Drop for CResult_PongDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::Pong, crate::ln::msgs::DecodeError>> for CResult_PongDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::Pong, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_PongDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_PongDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_UnsignedChannelAnnouncementDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::UnsignedChannelAnnouncement,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_UnsignedChannelAnnouncementDecodeErrorZ {
+	pub contents: CResult_UnsignedChannelAnnouncementDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_UnsignedChannelAnnouncementDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::UnsignedChannelAnnouncement) -> CResult_UnsignedChannelAnnouncementDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::UnsignedChannelAnnouncement, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_UnsignedChannelAnnouncementDecodeErrorZ_ok(o: crate::ln::msgs::UnsignedChannelAnnouncement) -> CResult_UnsignedChannelAnnouncementDecodeErrorZ {
+	CResult_UnsignedChannelAnnouncementDecodeErrorZ {
+		contents: CResult_UnsignedChannelAnnouncementDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_UnsignedChannelAnnouncementDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_UnsignedChannelAnnouncementDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::UnsignedChannelAnnouncement, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_UnsignedChannelUpdateDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::UnsignedChannelUpdate, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_UnsignedChannelAnnouncementDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_UnsignedChannelAnnouncementDecodeErrorZ {
+	CResult_UnsignedChannelAnnouncementDecodeErrorZ {
+		contents: CResult_UnsignedChannelAnnouncementDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_UnsignedChannelUpdateDecodeErrorZ_free: extern "C" fn(CResult_UnsignedChannelUpdateDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::UnsignedChannelUpdate, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_UnsignedChannelAnnouncementDecodeErrorZ_free(_res: CResult_UnsignedChannelAnnouncementDecodeErrorZ) { }
+impl Drop for CResult_UnsignedChannelAnnouncementDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::UnsignedChannelAnnouncement, crate::ln::msgs::DecodeError>> for CResult_UnsignedChannelAnnouncementDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::UnsignedChannelAnnouncement, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_UnsignedChannelAnnouncementDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_UnsignedChannelAnnouncementDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_UnsignedChannelUpdateDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::UnsignedChannelUpdate,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_UnsignedChannelUpdateDecodeErrorZ {
+	pub contents: CResult_UnsignedChannelUpdateDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_UnsignedChannelUpdateDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::UnsignedChannelUpdate) -> CResult_UnsignedChannelUpdateDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::UnsignedChannelUpdate, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_UnsignedChannelUpdateDecodeErrorZ_ok(o: crate::ln::msgs::UnsignedChannelUpdate) -> CResult_UnsignedChannelUpdateDecodeErrorZ {
+	CResult_UnsignedChannelUpdateDecodeErrorZ {
+		contents: CResult_UnsignedChannelUpdateDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_UnsignedChannelUpdateDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_UnsignedChannelUpdateDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::UnsignedChannelUpdate, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_ErrorMessageDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::ErrorMessage, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_UnsignedChannelUpdateDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_UnsignedChannelUpdateDecodeErrorZ {
+	CResult_UnsignedChannelUpdateDecodeErrorZ {
+		contents: CResult_UnsignedChannelUpdateDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_ErrorMessageDecodeErrorZ_free: extern "C" fn(CResult_ErrorMessageDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::ErrorMessage, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_UnsignedChannelUpdateDecodeErrorZ_free(_res: CResult_UnsignedChannelUpdateDecodeErrorZ) { }
+impl Drop for CResult_UnsignedChannelUpdateDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::UnsignedChannelUpdate, crate::ln::msgs::DecodeError>> for CResult_UnsignedChannelUpdateDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::UnsignedChannelUpdate, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_UnsignedChannelUpdateDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_UnsignedChannelUpdateDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_ErrorMessageDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::ErrorMessage,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_ErrorMessageDecodeErrorZ {
+	pub contents: CResult_ErrorMessageDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_ErrorMessageDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::ErrorMessage) -> CResult_ErrorMessageDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::ErrorMessage, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_ErrorMessageDecodeErrorZ_ok(o: crate::ln::msgs::ErrorMessage) -> CResult_ErrorMessageDecodeErrorZ {
+	CResult_ErrorMessageDecodeErrorZ {
+		contents: CResult_ErrorMessageDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_ErrorMessageDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_ErrorMessageDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::ErrorMessage, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_UnsignedNodeAnnouncementDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::UnsignedNodeAnnouncement, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ErrorMessageDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_ErrorMessageDecodeErrorZ {
+	CResult_ErrorMessageDecodeErrorZ {
+		contents: CResult_ErrorMessageDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_UnsignedNodeAnnouncementDecodeErrorZ_free: extern "C" fn(CResult_UnsignedNodeAnnouncementDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::UnsignedNodeAnnouncement, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ErrorMessageDecodeErrorZ_free(_res: CResult_ErrorMessageDecodeErrorZ) { }
+impl Drop for CResult_ErrorMessageDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::ErrorMessage, crate::ln::msgs::DecodeError>> for CResult_ErrorMessageDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::ErrorMessage, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_ErrorMessageDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_ErrorMessageDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_UnsignedNodeAnnouncementDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::UnsignedNodeAnnouncement,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_UnsignedNodeAnnouncementDecodeErrorZ {
+	pub contents: CResult_UnsignedNodeAnnouncementDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_UnsignedNodeAnnouncementDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::UnsignedNodeAnnouncement) -> CResult_UnsignedNodeAnnouncementDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::UnsignedNodeAnnouncement, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_UnsignedNodeAnnouncementDecodeErrorZ_ok(o: crate::ln::msgs::UnsignedNodeAnnouncement) -> CResult_UnsignedNodeAnnouncementDecodeErrorZ {
+	CResult_UnsignedNodeAnnouncementDecodeErrorZ {
+		contents: CResult_UnsignedNodeAnnouncementDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_UnsignedNodeAnnouncementDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_UnsignedNodeAnnouncementDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::UnsignedNodeAnnouncement, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_QueryShortChannelIdsDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::QueryShortChannelIds, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_UnsignedNodeAnnouncementDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_UnsignedNodeAnnouncementDecodeErrorZ {
+	CResult_UnsignedNodeAnnouncementDecodeErrorZ {
+		contents: CResult_UnsignedNodeAnnouncementDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_QueryShortChannelIdsDecodeErrorZ_free: extern "C" fn(CResult_QueryShortChannelIdsDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::QueryShortChannelIds, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_UnsignedNodeAnnouncementDecodeErrorZ_free(_res: CResult_UnsignedNodeAnnouncementDecodeErrorZ) { }
+impl Drop for CResult_UnsignedNodeAnnouncementDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::UnsignedNodeAnnouncement, crate::ln::msgs::DecodeError>> for CResult_UnsignedNodeAnnouncementDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::UnsignedNodeAnnouncement, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_UnsignedNodeAnnouncementDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_UnsignedNodeAnnouncementDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_QueryShortChannelIdsDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::QueryShortChannelIds,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_QueryShortChannelIdsDecodeErrorZ {
+	pub contents: CResult_QueryShortChannelIdsDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_QueryShortChannelIdsDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::QueryShortChannelIds) -> CResult_QueryShortChannelIdsDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::QueryShortChannelIds, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_QueryShortChannelIdsDecodeErrorZ_ok(o: crate::ln::msgs::QueryShortChannelIds) -> CResult_QueryShortChannelIdsDecodeErrorZ {
+	CResult_QueryShortChannelIdsDecodeErrorZ {
+		contents: CResult_QueryShortChannelIdsDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_QueryShortChannelIdsDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_QueryShortChannelIdsDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::QueryShortChannelIds, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_ReplyShortChannelIdsEndDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::ReplyShortChannelIdsEnd, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_QueryShortChannelIdsDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_QueryShortChannelIdsDecodeErrorZ {
+	CResult_QueryShortChannelIdsDecodeErrorZ {
+		contents: CResult_QueryShortChannelIdsDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_ReplyShortChannelIdsEndDecodeErrorZ_free: extern "C" fn(CResult_ReplyShortChannelIdsEndDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::ReplyShortChannelIdsEnd, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_QueryShortChannelIdsDecodeErrorZ_free(_res: CResult_QueryShortChannelIdsDecodeErrorZ) { }
+impl Drop for CResult_QueryShortChannelIdsDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::QueryShortChannelIds, crate::ln::msgs::DecodeError>> for CResult_QueryShortChannelIdsDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::QueryShortChannelIds, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_QueryShortChannelIdsDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_QueryShortChannelIdsDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_ReplyShortChannelIdsEndDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::ReplyShortChannelIdsEnd,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_ReplyShortChannelIdsEndDecodeErrorZ {
+	pub contents: CResult_ReplyShortChannelIdsEndDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_ReplyShortChannelIdsEndDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::ReplyShortChannelIdsEnd) -> CResult_ReplyShortChannelIdsEndDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::ReplyShortChannelIdsEnd, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_ReplyShortChannelIdsEndDecodeErrorZ_ok(o: crate::ln::msgs::ReplyShortChannelIdsEnd) -> CResult_ReplyShortChannelIdsEndDecodeErrorZ {
+	CResult_ReplyShortChannelIdsEndDecodeErrorZ {
+		contents: CResult_ReplyShortChannelIdsEndDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_ReplyShortChannelIdsEndDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_ReplyShortChannelIdsEndDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::ReplyShortChannelIdsEnd, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_QueryChannelRangeDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::QueryChannelRange, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ReplyShortChannelIdsEndDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_ReplyShortChannelIdsEndDecodeErrorZ {
+	CResult_ReplyShortChannelIdsEndDecodeErrorZ {
+		contents: CResult_ReplyShortChannelIdsEndDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_QueryChannelRangeDecodeErrorZ_free: extern "C" fn(CResult_QueryChannelRangeDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::QueryChannelRange, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ReplyShortChannelIdsEndDecodeErrorZ_free(_res: CResult_ReplyShortChannelIdsEndDecodeErrorZ) { }
+impl Drop for CResult_ReplyShortChannelIdsEndDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::ReplyShortChannelIdsEnd, crate::ln::msgs::DecodeError>> for CResult_ReplyShortChannelIdsEndDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::ReplyShortChannelIdsEnd, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_ReplyShortChannelIdsEndDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_ReplyShortChannelIdsEndDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_QueryChannelRangeDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::QueryChannelRange,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_QueryChannelRangeDecodeErrorZ {
+	pub contents: CResult_QueryChannelRangeDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_QueryChannelRangeDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::QueryChannelRange) -> CResult_QueryChannelRangeDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::QueryChannelRange, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_QueryChannelRangeDecodeErrorZ_ok(o: crate::ln::msgs::QueryChannelRange) -> CResult_QueryChannelRangeDecodeErrorZ {
+	CResult_QueryChannelRangeDecodeErrorZ {
+		contents: CResult_QueryChannelRangeDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_QueryChannelRangeDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_QueryChannelRangeDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::QueryChannelRange, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_ReplyChannelRangeDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::ReplyChannelRange, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_QueryChannelRangeDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_QueryChannelRangeDecodeErrorZ {
+	CResult_QueryChannelRangeDecodeErrorZ {
+		contents: CResult_QueryChannelRangeDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_ReplyChannelRangeDecodeErrorZ_free: extern "C" fn(CResult_ReplyChannelRangeDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::ReplyChannelRange, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_QueryChannelRangeDecodeErrorZ_free(_res: CResult_QueryChannelRangeDecodeErrorZ) { }
+impl Drop for CResult_QueryChannelRangeDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::QueryChannelRange, crate::ln::msgs::DecodeError>> for CResult_QueryChannelRangeDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::QueryChannelRange, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_QueryChannelRangeDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_QueryChannelRangeDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_ReplyChannelRangeDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::ReplyChannelRange,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_ReplyChannelRangeDecodeErrorZ {
+	pub contents: CResult_ReplyChannelRangeDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_ReplyChannelRangeDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::ReplyChannelRange) -> CResult_ReplyChannelRangeDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::ReplyChannelRange, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_ReplyChannelRangeDecodeErrorZ_ok(o: crate::ln::msgs::ReplyChannelRange) -> CResult_ReplyChannelRangeDecodeErrorZ {
+	CResult_ReplyChannelRangeDecodeErrorZ {
+		contents: CResult_ReplyChannelRangeDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_ReplyChannelRangeDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_ReplyChannelRangeDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::ReplyChannelRange, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_GossipTimestampFilterDecodeErrorZ = crate::c_types::CResultTempl<crate::ln::msgs::GossipTimestampFilter, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ReplyChannelRangeDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_ReplyChannelRangeDecodeErrorZ {
+	CResult_ReplyChannelRangeDecodeErrorZ {
+		contents: CResult_ReplyChannelRangeDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_GossipTimestampFilterDecodeErrorZ_free: extern "C" fn(CResult_GossipTimestampFilterDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::msgs::GossipTimestampFilter, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_ReplyChannelRangeDecodeErrorZ_free(_res: CResult_ReplyChannelRangeDecodeErrorZ) { }
+impl Drop for CResult_ReplyChannelRangeDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::ReplyChannelRange, crate::ln::msgs::DecodeError>> for CResult_ReplyChannelRangeDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::ReplyChannelRange, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_ReplyChannelRangeDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_ReplyChannelRangeDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_GossipTimestampFilterDecodeErrorZPtr {
+	pub result: *mut crate::ln::msgs::GossipTimestampFilter,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_GossipTimestampFilterDecodeErrorZ {
+	pub contents: CResult_GossipTimestampFilterDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_GossipTimestampFilterDecodeErrorZ_ok: extern "C" fn (crate::ln::msgs::GossipTimestampFilter) -> CResult_GossipTimestampFilterDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::GossipTimestampFilter, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_GossipTimestampFilterDecodeErrorZ_ok(o: crate::ln::msgs::GossipTimestampFilter) -> CResult_GossipTimestampFilterDecodeErrorZ {
+	CResult_GossipTimestampFilterDecodeErrorZ {
+		contents: CResult_GossipTimestampFilterDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_GossipTimestampFilterDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_GossipTimestampFilterDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::msgs::GossipTimestampFilter, crate::ln::msgs::DecodeError>::err;
-
+pub extern "C" fn CResult_GossipTimestampFilterDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_GossipTimestampFilterDecodeErrorZ {
+	CResult_GossipTimestampFilterDecodeErrorZ {
+		contents: CResult_GossipTimestampFilterDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_GossipTimestampFilterDecodeErrorZ_free(_res: CResult_GossipTimestampFilterDecodeErrorZ) { }
+impl Drop for CResult_GossipTimestampFilterDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::msgs::GossipTimestampFilter, crate::ln::msgs::DecodeError>> for CResult_GossipTimestampFilterDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::msgs::GossipTimestampFilter, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_GossipTimestampFilterDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_GossipTimestampFilterDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type CVec_PublicKeyZ = crate::c_types::CVecTempl<crate::c_types::PublicKey>;
 #[no_mangle]
 pub static CVec_PublicKeyZ_free: extern "C" fn(CVec_PublicKeyZ) = crate::c_types::CVecTempl_free::<crate::c_types::PublicKey>;
@@ -503,85 +1998,422 @@ pub type CVec_u8Z = crate::c_types::CVecTempl<u8>;
 #[no_mangle]
 pub static CVec_u8Z_free: extern "C" fn(CVec_u8Z) = crate::c_types::CVecTempl_free::<u8>;
 
-pub type CResult_CVec_u8ZPeerHandleErrorZ = crate::c_types::CResultTempl<crate::c_types::CVecTempl<u8>, crate::ln::peer_handler::PeerHandleError>;
+#[repr(C)]
+pub union CResult_CVec_u8ZPeerHandleErrorZPtr {
+	pub result: *mut crate::c_types::CVecTempl<u8>,
+	pub err: *mut crate::ln::peer_handler::PeerHandleError,
+}
+#[repr(C)]
+pub struct CResult_CVec_u8ZPeerHandleErrorZ {
+	pub contents: CResult_CVec_u8ZPeerHandleErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_CVec_u8ZPeerHandleErrorZ_free: extern "C" fn(CResult_CVec_u8ZPeerHandleErrorZ) = crate::c_types::CResultTempl_free::<crate::c_types::CVecTempl<u8>, crate::ln::peer_handler::PeerHandleError>;
+pub extern "C" fn CResult_CVec_u8ZPeerHandleErrorZ_ok(o: crate::c_types::CVecTempl<u8>) -> CResult_CVec_u8ZPeerHandleErrorZ {
+	CResult_CVec_u8ZPeerHandleErrorZ {
+		contents: CResult_CVec_u8ZPeerHandleErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_CVec_u8ZPeerHandleErrorZ_ok: extern "C" fn (CVec_u8Z) -> CResult_CVec_u8ZPeerHandleErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::CVecTempl<u8>, crate::ln::peer_handler::PeerHandleError>::ok;
-
+pub extern "C" fn CResult_CVec_u8ZPeerHandleErrorZ_err(e: crate::ln::peer_handler::PeerHandleError) -> CResult_CVec_u8ZPeerHandleErrorZ {
+	CResult_CVec_u8ZPeerHandleErrorZ {
+		contents: CResult_CVec_u8ZPeerHandleErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_CVec_u8ZPeerHandleErrorZ_err: extern "C" fn (crate::ln::peer_handler::PeerHandleError) -> CResult_CVec_u8ZPeerHandleErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::CVecTempl<u8>, crate::ln::peer_handler::PeerHandleError>::err;
-
-pub type CResult_NonePeerHandleErrorZ = crate::c_types::CResultTempl<u8, crate::ln::peer_handler::PeerHandleError>;
-#[no_mangle]
-pub static CResult_NonePeerHandleErrorZ_free: extern "C" fn(CResult_NonePeerHandleErrorZ) = crate::c_types::CResultTempl_free::<u8, crate::ln::peer_handler::PeerHandleError>;
+pub extern "C" fn CResult_CVec_u8ZPeerHandleErrorZ_free(_res: CResult_CVec_u8ZPeerHandleErrorZ) { }
+impl Drop for CResult_CVec_u8ZPeerHandleErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::c_types::CVecTempl<u8>, crate::ln::peer_handler::PeerHandleError>> for CResult_CVec_u8ZPeerHandleErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::CVecTempl<u8>, crate::ln::peer_handler::PeerHandleError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_CVec_u8ZPeerHandleErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_CVec_u8ZPeerHandleErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_NonePeerHandleErrorZPtr {
+	/// Note that this value is always NULL, as there are no contents in the OK variant
+	pub result: *mut std::ffi::c_void,
+	pub err: *mut crate::ln::peer_handler::PeerHandleError,
+}
+#[repr(C)]
+pub struct CResult_NonePeerHandleErrorZ {
+	pub contents: CResult_NonePeerHandleErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
 pub extern "C" fn CResult_NonePeerHandleErrorZ_ok() -> CResult_NonePeerHandleErrorZ {
-	crate::c_types::CResultTempl::ok(0)
+	CResult_NonePeerHandleErrorZ {
+		contents: CResult_NonePeerHandleErrorZPtr {
+			result: std::ptr::null_mut(),
+		},
+		result_ok: true,
+	}
 }
-
 #[no_mangle]
-pub static CResult_NonePeerHandleErrorZ_err: extern "C" fn (crate::ln::peer_handler::PeerHandleError) -> CResult_NonePeerHandleErrorZ =
-	crate::c_types::CResultTempl::<u8, crate::ln::peer_handler::PeerHandleError>::err;
-
-pub type CResult_boolPeerHandleErrorZ = crate::c_types::CResultTempl<bool, crate::ln::peer_handler::PeerHandleError>;
+pub extern "C" fn CResult_NonePeerHandleErrorZ_err(e: crate::ln::peer_handler::PeerHandleError) -> CResult_NonePeerHandleErrorZ {
+	CResult_NonePeerHandleErrorZ {
+		contents: CResult_NonePeerHandleErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_boolPeerHandleErrorZ_free: extern "C" fn(CResult_boolPeerHandleErrorZ) = crate::c_types::CResultTempl_free::<bool, crate::ln::peer_handler::PeerHandleError>;
+pub extern "C" fn CResult_NonePeerHandleErrorZ_free(_res: CResult_NonePeerHandleErrorZ) { }
+impl Drop for CResult_NonePeerHandleErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<u8, crate::ln::peer_handler::PeerHandleError>> for CResult_NonePeerHandleErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<u8, crate::ln::peer_handler::PeerHandleError>) -> Self {
+		let contents = if o.result_ok {
+			let _ = unsafe { Box::from_raw(o.contents.result) };
+			o.contents.result = std::ptr::null_mut();
+			CResult_NonePeerHandleErrorZPtr { result: std::ptr::null_mut() }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NonePeerHandleErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_boolPeerHandleErrorZPtr {
+	pub result: *mut bool,
+	pub err: *mut crate::ln::peer_handler::PeerHandleError,
+}
+#[repr(C)]
+pub struct CResult_boolPeerHandleErrorZ {
+	pub contents: CResult_boolPeerHandleErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_boolPeerHandleErrorZ_ok: extern "C" fn (bool) -> CResult_boolPeerHandleErrorZ =
-	crate::c_types::CResultTempl::<bool, crate::ln::peer_handler::PeerHandleError>::ok;
-
+pub extern "C" fn CResult_boolPeerHandleErrorZ_ok(o: bool) -> CResult_boolPeerHandleErrorZ {
+	CResult_boolPeerHandleErrorZ {
+		contents: CResult_boolPeerHandleErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_boolPeerHandleErrorZ_err: extern "C" fn (crate::ln::peer_handler::PeerHandleError) -> CResult_boolPeerHandleErrorZ =
-	crate::c_types::CResultTempl::<bool, crate::ln::peer_handler::PeerHandleError>::err;
-
-pub type CResult_SecretKeySecpErrorZ = crate::c_types::CResultTempl<crate::c_types::SecretKey, crate::c_types::Secp256k1Error>;
+pub extern "C" fn CResult_boolPeerHandleErrorZ_err(e: crate::ln::peer_handler::PeerHandleError) -> CResult_boolPeerHandleErrorZ {
+	CResult_boolPeerHandleErrorZ {
+		contents: CResult_boolPeerHandleErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_SecretKeySecpErrorZ_free: extern "C" fn(CResult_SecretKeySecpErrorZ) = crate::c_types::CResultTempl_free::<crate::c_types::SecretKey, crate::c_types::Secp256k1Error>;
+pub extern "C" fn CResult_boolPeerHandleErrorZ_free(_res: CResult_boolPeerHandleErrorZ) { }
+impl Drop for CResult_boolPeerHandleErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<bool, crate::ln::peer_handler::PeerHandleError>> for CResult_boolPeerHandleErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<bool, crate::ln::peer_handler::PeerHandleError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_boolPeerHandleErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_boolPeerHandleErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_SecretKeySecpErrorZPtr {
+	pub result: *mut crate::c_types::SecretKey,
+	pub err: *mut crate::c_types::Secp256k1Error,
+}
+#[repr(C)]
+pub struct CResult_SecretKeySecpErrorZ {
+	pub contents: CResult_SecretKeySecpErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_SecretKeySecpErrorZ_ok: extern "C" fn (crate::c_types::SecretKey) -> CResult_SecretKeySecpErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::SecretKey, crate::c_types::Secp256k1Error>::ok;
-
+pub extern "C" fn CResult_SecretKeySecpErrorZ_ok(o: crate::c_types::SecretKey) -> CResult_SecretKeySecpErrorZ {
+	CResult_SecretKeySecpErrorZ {
+		contents: CResult_SecretKeySecpErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_SecretKeySecpErrorZ_err: extern "C" fn (crate::c_types::Secp256k1Error) -> CResult_SecretKeySecpErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::SecretKey, crate::c_types::Secp256k1Error>::err;
-
-pub type CResult_PublicKeySecpErrorZ = crate::c_types::CResultTempl<crate::c_types::PublicKey, crate::c_types::Secp256k1Error>;
+pub extern "C" fn CResult_SecretKeySecpErrorZ_err(e: crate::c_types::Secp256k1Error) -> CResult_SecretKeySecpErrorZ {
+	CResult_SecretKeySecpErrorZ {
+		contents: CResult_SecretKeySecpErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_PublicKeySecpErrorZ_free: extern "C" fn(CResult_PublicKeySecpErrorZ) = crate::c_types::CResultTempl_free::<crate::c_types::PublicKey, crate::c_types::Secp256k1Error>;
+pub extern "C" fn CResult_SecretKeySecpErrorZ_free(_res: CResult_SecretKeySecpErrorZ) { }
+impl Drop for CResult_SecretKeySecpErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::c_types::SecretKey, crate::c_types::Secp256k1Error>> for CResult_SecretKeySecpErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::SecretKey, crate::c_types::Secp256k1Error>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_SecretKeySecpErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_SecretKeySecpErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_PublicKeySecpErrorZPtr {
+	pub result: *mut crate::c_types::PublicKey,
+	pub err: *mut crate::c_types::Secp256k1Error,
+}
+#[repr(C)]
+pub struct CResult_PublicKeySecpErrorZ {
+	pub contents: CResult_PublicKeySecpErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_PublicKeySecpErrorZ_ok: extern "C" fn (crate::c_types::PublicKey) -> CResult_PublicKeySecpErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::PublicKey, crate::c_types::Secp256k1Error>::ok;
-
+pub extern "C" fn CResult_PublicKeySecpErrorZ_ok(o: crate::c_types::PublicKey) -> CResult_PublicKeySecpErrorZ {
+	CResult_PublicKeySecpErrorZ {
+		contents: CResult_PublicKeySecpErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_PublicKeySecpErrorZ_err: extern "C" fn (crate::c_types::Secp256k1Error) -> CResult_PublicKeySecpErrorZ =
-	crate::c_types::CResultTempl::<crate::c_types::PublicKey, crate::c_types::Secp256k1Error>::err;
-
-pub type CResult_TxCreationKeysSecpErrorZ = crate::c_types::CResultTempl<crate::ln::chan_utils::TxCreationKeys, crate::c_types::Secp256k1Error>;
+pub extern "C" fn CResult_PublicKeySecpErrorZ_err(e: crate::c_types::Secp256k1Error) -> CResult_PublicKeySecpErrorZ {
+	CResult_PublicKeySecpErrorZ {
+		contents: CResult_PublicKeySecpErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_TxCreationKeysSecpErrorZ_free: extern "C" fn(CResult_TxCreationKeysSecpErrorZ) = crate::c_types::CResultTempl_free::<crate::ln::chan_utils::TxCreationKeys, crate::c_types::Secp256k1Error>;
+pub extern "C" fn CResult_PublicKeySecpErrorZ_free(_res: CResult_PublicKeySecpErrorZ) { }
+impl Drop for CResult_PublicKeySecpErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::c_types::PublicKey, crate::c_types::Secp256k1Error>> for CResult_PublicKeySecpErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::PublicKey, crate::c_types::Secp256k1Error>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_PublicKeySecpErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_PublicKeySecpErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_TxCreationKeysSecpErrorZPtr {
+	pub result: *mut crate::ln::chan_utils::TxCreationKeys,
+	pub err: *mut crate::c_types::Secp256k1Error,
+}
+#[repr(C)]
+pub struct CResult_TxCreationKeysSecpErrorZ {
+	pub contents: CResult_TxCreationKeysSecpErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_TxCreationKeysSecpErrorZ_ok: extern "C" fn (crate::ln::chan_utils::TxCreationKeys) -> CResult_TxCreationKeysSecpErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::chan_utils::TxCreationKeys, crate::c_types::Secp256k1Error>::ok;
-
+pub extern "C" fn CResult_TxCreationKeysSecpErrorZ_ok(o: crate::ln::chan_utils::TxCreationKeys) -> CResult_TxCreationKeysSecpErrorZ {
+	CResult_TxCreationKeysSecpErrorZ {
+		contents: CResult_TxCreationKeysSecpErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_TxCreationKeysSecpErrorZ_err: extern "C" fn (crate::c_types::Secp256k1Error) -> CResult_TxCreationKeysSecpErrorZ =
-	crate::c_types::CResultTempl::<crate::ln::chan_utils::TxCreationKeys, crate::c_types::Secp256k1Error>::err;
-
-pub type CResult_TrustedCommitmentTransactionNoneZ = crate::c_types::CResultTempl<crate::ln::chan_utils::TrustedCommitmentTransaction, u8>;
+pub extern "C" fn CResult_TxCreationKeysSecpErrorZ_err(e: crate::c_types::Secp256k1Error) -> CResult_TxCreationKeysSecpErrorZ {
+	CResult_TxCreationKeysSecpErrorZ {
+		contents: CResult_TxCreationKeysSecpErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_TrustedCommitmentTransactionNoneZ_free: extern "C" fn(CResult_TrustedCommitmentTransactionNoneZ) = crate::c_types::CResultTempl_free::<crate::ln::chan_utils::TrustedCommitmentTransaction, u8>;
+pub extern "C" fn CResult_TxCreationKeysSecpErrorZ_free(_res: CResult_TxCreationKeysSecpErrorZ) { }
+impl Drop for CResult_TxCreationKeysSecpErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::chan_utils::TxCreationKeys, crate::c_types::Secp256k1Error>> for CResult_TxCreationKeysSecpErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::chan_utils::TxCreationKeys, crate::c_types::Secp256k1Error>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_TxCreationKeysSecpErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_TxCreationKeysSecpErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_TrustedCommitmentTransactionNoneZPtr {
+	pub result: *mut crate::ln::chan_utils::TrustedCommitmentTransaction,
+	/// Note that this value is always NULL, as there are no contents in the Err variant
+	pub err: *mut std::ffi::c_void,
+}
+#[repr(C)]
+pub struct CResult_TrustedCommitmentTransactionNoneZ {
+	pub contents: CResult_TrustedCommitmentTransactionNoneZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_TrustedCommitmentTransactionNoneZ_ok: extern "C" fn (crate::ln::chan_utils::TrustedCommitmentTransaction) -> CResult_TrustedCommitmentTransactionNoneZ =
-	crate::c_types::CResultTempl::<crate::ln::chan_utils::TrustedCommitmentTransaction, u8>::ok;
-
+pub extern "C" fn CResult_TrustedCommitmentTransactionNoneZ_ok(o: crate::ln::chan_utils::TrustedCommitmentTransaction) -> CResult_TrustedCommitmentTransactionNoneZ {
+	CResult_TrustedCommitmentTransactionNoneZ {
+		contents: CResult_TrustedCommitmentTransactionNoneZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
 pub extern "C" fn CResult_TrustedCommitmentTransactionNoneZ_err() -> CResult_TrustedCommitmentTransactionNoneZ {
-	crate::c_types::CResultTempl::err(0)
+	CResult_TrustedCommitmentTransactionNoneZ {
+		contents: CResult_TrustedCommitmentTransactionNoneZPtr {
+			err: std::ptr::null_mut(),
+		},
+		result_ok: false,
+	}
 }
-
+#[no_mangle]
+pub extern "C" fn CResult_TrustedCommitmentTransactionNoneZ_free(_res: CResult_TrustedCommitmentTransactionNoneZ) { }
+impl Drop for CResult_TrustedCommitmentTransactionNoneZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::chan_utils::TrustedCommitmentTransaction, u8>> for CResult_TrustedCommitmentTransactionNoneZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::chan_utils::TrustedCommitmentTransaction, u8>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_TrustedCommitmentTransactionNoneZPtr { result }
+		} else {
+			let _ = unsafe { Box::from_raw(o.contents.err) };
+			o.contents.err = std::ptr::null_mut();
+			CResult_TrustedCommitmentTransactionNoneZPtr { err: std::ptr::null_mut() }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type CVec_RouteHopZ = crate::c_types::CVecTempl<crate::routing::router::RouteHop>;
 #[no_mangle]
 pub static CVec_RouteHopZ_free: extern "C" fn(CVec_RouteHopZ) = crate::c_types::CVecTempl_free::<crate::routing::router::RouteHop>;
@@ -590,73 +2422,367 @@ pub type CVec_CVec_RouteHopZZ = crate::c_types::CVecTempl<crate::c_types::CVecTe
 #[no_mangle]
 pub static CVec_CVec_RouteHopZZ_free: extern "C" fn(CVec_CVec_RouteHopZZ) = crate::c_types::CVecTempl_free::<crate::c_types::CVecTempl<crate::routing::router::RouteHop>>;
 
-pub type CResult_RouteDecodeErrorZ = crate::c_types::CResultTempl<crate::routing::router::Route, crate::ln::msgs::DecodeError>;
+#[repr(C)]
+pub union CResult_RouteDecodeErrorZPtr {
+	pub result: *mut crate::routing::router::Route,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_RouteDecodeErrorZ {
+	pub contents: CResult_RouteDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_RouteDecodeErrorZ_free: extern "C" fn(CResult_RouteDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::routing::router::Route, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_RouteDecodeErrorZ_ok(o: crate::routing::router::Route) -> CResult_RouteDecodeErrorZ {
+	CResult_RouteDecodeErrorZ {
+		contents: CResult_RouteDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_RouteDecodeErrorZ_ok: extern "C" fn (crate::routing::router::Route) -> CResult_RouteDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::router::Route, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_RouteDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_RouteDecodeErrorZ {
+	CResult_RouteDecodeErrorZ {
+		contents: CResult_RouteDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_RouteDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_RouteDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::router::Route, crate::ln::msgs::DecodeError>::err;
-
+pub extern "C" fn CResult_RouteDecodeErrorZ_free(_res: CResult_RouteDecodeErrorZ) { }
+impl Drop for CResult_RouteDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::routing::router::Route, crate::ln::msgs::DecodeError>> for CResult_RouteDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::routing::router::Route, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_RouteDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_RouteDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
 pub type CVec_RouteHintZ = crate::c_types::CVecTempl<crate::routing::router::RouteHint>;
 #[no_mangle]
 pub static CVec_RouteHintZ_free: extern "C" fn(CVec_RouteHintZ) = crate::c_types::CVecTempl_free::<crate::routing::router::RouteHint>;
 
-pub type CResult_RouteLightningErrorZ = crate::c_types::CResultTempl<crate::routing::router::Route, crate::ln::msgs::LightningError>;
+#[repr(C)]
+pub union CResult_RouteLightningErrorZPtr {
+	pub result: *mut crate::routing::router::Route,
+	pub err: *mut crate::ln::msgs::LightningError,
+}
+#[repr(C)]
+pub struct CResult_RouteLightningErrorZ {
+	pub contents: CResult_RouteLightningErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_RouteLightningErrorZ_free: extern "C" fn(CResult_RouteLightningErrorZ) = crate::c_types::CResultTempl_free::<crate::routing::router::Route, crate::ln::msgs::LightningError>;
+pub extern "C" fn CResult_RouteLightningErrorZ_ok(o: crate::routing::router::Route) -> CResult_RouteLightningErrorZ {
+	CResult_RouteLightningErrorZ {
+		contents: CResult_RouteLightningErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_RouteLightningErrorZ_ok: extern "C" fn (crate::routing::router::Route) -> CResult_RouteLightningErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::router::Route, crate::ln::msgs::LightningError>::ok;
-
+pub extern "C" fn CResult_RouteLightningErrorZ_err(e: crate::ln::msgs::LightningError) -> CResult_RouteLightningErrorZ {
+	CResult_RouteLightningErrorZ {
+		contents: CResult_RouteLightningErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_RouteLightningErrorZ_err: extern "C" fn (crate::ln::msgs::LightningError) -> CResult_RouteLightningErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::router::Route, crate::ln::msgs::LightningError>::err;
-
-pub type CResult_RoutingFeesDecodeErrorZ = crate::c_types::CResultTempl<crate::routing::network_graph::RoutingFees, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_RouteLightningErrorZ_free(_res: CResult_RouteLightningErrorZ) { }
+impl Drop for CResult_RouteLightningErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::routing::router::Route, crate::ln::msgs::LightningError>> for CResult_RouteLightningErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::routing::router::Route, crate::ln::msgs::LightningError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_RouteLightningErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_RouteLightningErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_RoutingFeesDecodeErrorZPtr {
+	pub result: *mut crate::routing::network_graph::RoutingFees,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_RoutingFeesDecodeErrorZ {
+	pub contents: CResult_RoutingFeesDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_RoutingFeesDecodeErrorZ_free: extern "C" fn(CResult_RoutingFeesDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::routing::network_graph::RoutingFees, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_RoutingFeesDecodeErrorZ_ok(o: crate::routing::network_graph::RoutingFees) -> CResult_RoutingFeesDecodeErrorZ {
+	CResult_RoutingFeesDecodeErrorZ {
+		contents: CResult_RoutingFeesDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_RoutingFeesDecodeErrorZ_ok: extern "C" fn (crate::routing::network_graph::RoutingFees) -> CResult_RoutingFeesDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::network_graph::RoutingFees, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_RoutingFeesDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_RoutingFeesDecodeErrorZ {
+	CResult_RoutingFeesDecodeErrorZ {
+		contents: CResult_RoutingFeesDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_RoutingFeesDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_RoutingFeesDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::network_graph::RoutingFees, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_NodeAnnouncementInfoDecodeErrorZ = crate::c_types::CResultTempl<crate::routing::network_graph::NodeAnnouncementInfo, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_RoutingFeesDecodeErrorZ_free(_res: CResult_RoutingFeesDecodeErrorZ) { }
+impl Drop for CResult_RoutingFeesDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::routing::network_graph::RoutingFees, crate::ln::msgs::DecodeError>> for CResult_RoutingFeesDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::routing::network_graph::RoutingFees, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_RoutingFeesDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_RoutingFeesDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_NodeAnnouncementInfoDecodeErrorZPtr {
+	pub result: *mut crate::routing::network_graph::NodeAnnouncementInfo,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_NodeAnnouncementInfoDecodeErrorZ {
+	pub contents: CResult_NodeAnnouncementInfoDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_NodeAnnouncementInfoDecodeErrorZ_free: extern "C" fn(CResult_NodeAnnouncementInfoDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::routing::network_graph::NodeAnnouncementInfo, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_NodeAnnouncementInfoDecodeErrorZ_ok(o: crate::routing::network_graph::NodeAnnouncementInfo) -> CResult_NodeAnnouncementInfoDecodeErrorZ {
+	CResult_NodeAnnouncementInfoDecodeErrorZ {
+		contents: CResult_NodeAnnouncementInfoDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_NodeAnnouncementInfoDecodeErrorZ_ok: extern "C" fn (crate::routing::network_graph::NodeAnnouncementInfo) -> CResult_NodeAnnouncementInfoDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::network_graph::NodeAnnouncementInfo, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_NodeAnnouncementInfoDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_NodeAnnouncementInfoDecodeErrorZ {
+	CResult_NodeAnnouncementInfoDecodeErrorZ {
+		contents: CResult_NodeAnnouncementInfoDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_NodeAnnouncementInfoDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_NodeAnnouncementInfoDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::network_graph::NodeAnnouncementInfo, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_NodeInfoDecodeErrorZ = crate::c_types::CResultTempl<crate::routing::network_graph::NodeInfo, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_NodeAnnouncementInfoDecodeErrorZ_free(_res: CResult_NodeAnnouncementInfoDecodeErrorZ) { }
+impl Drop for CResult_NodeAnnouncementInfoDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::routing::network_graph::NodeAnnouncementInfo, crate::ln::msgs::DecodeError>> for CResult_NodeAnnouncementInfoDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::routing::network_graph::NodeAnnouncementInfo, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_NodeAnnouncementInfoDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NodeAnnouncementInfoDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_NodeInfoDecodeErrorZPtr {
+	pub result: *mut crate::routing::network_graph::NodeInfo,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_NodeInfoDecodeErrorZ {
+	pub contents: CResult_NodeInfoDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_NodeInfoDecodeErrorZ_free: extern "C" fn(CResult_NodeInfoDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::routing::network_graph::NodeInfo, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_NodeInfoDecodeErrorZ_ok(o: crate::routing::network_graph::NodeInfo) -> CResult_NodeInfoDecodeErrorZ {
+	CResult_NodeInfoDecodeErrorZ {
+		contents: CResult_NodeInfoDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_NodeInfoDecodeErrorZ_ok: extern "C" fn (crate::routing::network_graph::NodeInfo) -> CResult_NodeInfoDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::network_graph::NodeInfo, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_NodeInfoDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_NodeInfoDecodeErrorZ {
+	CResult_NodeInfoDecodeErrorZ {
+		contents: CResult_NodeInfoDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_NodeInfoDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_NodeInfoDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::network_graph::NodeInfo, crate::ln::msgs::DecodeError>::err;
-
-pub type CResult_NetworkGraphDecodeErrorZ = crate::c_types::CResultTempl<crate::routing::network_graph::NetworkGraph, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_NodeInfoDecodeErrorZ_free(_res: CResult_NodeInfoDecodeErrorZ) { }
+impl Drop for CResult_NodeInfoDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::routing::network_graph::NodeInfo, crate::ln::msgs::DecodeError>> for CResult_NodeInfoDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::routing::network_graph::NodeInfo, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_NodeInfoDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NodeInfoDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_NetworkGraphDecodeErrorZPtr {
+	pub result: *mut crate::routing::network_graph::NetworkGraph,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_NetworkGraphDecodeErrorZ {
+	pub contents: CResult_NetworkGraphDecodeErrorZPtr,
+	pub result_ok: bool,
+}
 #[no_mangle]
-pub static CResult_NetworkGraphDecodeErrorZ_free: extern "C" fn(CResult_NetworkGraphDecodeErrorZ) = crate::c_types::CResultTempl_free::<crate::routing::network_graph::NetworkGraph, crate::ln::msgs::DecodeError>;
+pub extern "C" fn CResult_NetworkGraphDecodeErrorZ_ok(o: crate::routing::network_graph::NetworkGraph) -> CResult_NetworkGraphDecodeErrorZ {
+	CResult_NetworkGraphDecodeErrorZ {
+		contents: CResult_NetworkGraphDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
 #[no_mangle]
-pub static CResult_NetworkGraphDecodeErrorZ_ok: extern "C" fn (crate::routing::network_graph::NetworkGraph) -> CResult_NetworkGraphDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::network_graph::NetworkGraph, crate::ln::msgs::DecodeError>::ok;
-
+pub extern "C" fn CResult_NetworkGraphDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_NetworkGraphDecodeErrorZ {
+	CResult_NetworkGraphDecodeErrorZ {
+		contents: CResult_NetworkGraphDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
 #[no_mangle]
-pub static CResult_NetworkGraphDecodeErrorZ_err: extern "C" fn (crate::ln::msgs::DecodeError) -> CResult_NetworkGraphDecodeErrorZ =
-	crate::c_types::CResultTempl::<crate::routing::network_graph::NetworkGraph, crate::ln::msgs::DecodeError>::err;
-
+pub extern "C" fn CResult_NetworkGraphDecodeErrorZ_free(_res: CResult_NetworkGraphDecodeErrorZ) { }
+impl Drop for CResult_NetworkGraphDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::routing::network_graph::NetworkGraph, crate::ln::msgs::DecodeError>> for CResult_NetworkGraphDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::routing::network_graph::NetworkGraph, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_NetworkGraphDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NetworkGraphDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
