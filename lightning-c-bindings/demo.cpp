@@ -605,6 +605,14 @@ int main() {
 
 	PeersConnection conn(cm1, cm2, net1, net2);
 
+	while (true) {
+		// Wait for the channels to be considered up
+		LDK::CVec_ChannelDetailsZ outbound_channels = ChannelManager_list_usable_channels(&cm1);
+		if (outbound_channels->datalen == 1) {
+			break;
+		}
+	}
+
 	// Actually close the channel
 	close_res = ChannelManager_close_channel(&cm1, &chan_id);
 	assert(close_res->result_ok);
