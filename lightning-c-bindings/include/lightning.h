@@ -533,7 +533,7 @@ typedef struct LDKChannelKeys {
     * Note that this takes a pointer to this object, not the this_ptr like other methods do
     * This function pointer may be NULL if pubkeys is filled in when this object is created and never needs updating.
     */
-   void (*set_pubkeys)(const struct LDKChannelKeys*);
+   void (*set_pubkeys)(const struct LDKChannelKeys*NONNULL_PTR );
    /**
     * Gets arbitrary identifiers describing the set of keys which are provided back to you in
     * some SpendableOutputDescriptor types. These should be sufficient to identify this
@@ -545,14 +545,14 @@ typedef struct LDKChannelKeys {
     *
     * Note that if signing fails or is rejected, the channel will be force-closed.
     */
-   LDKCResult_C2Tuple_SignatureCVec_SignatureZZNoneZ (*sign_counterparty_commitment)(const void *this_arg, const struct LDKCommitmentTransaction *commitment_tx);
+   LDKCResult_C2Tuple_SignatureCVec_SignatureZZNoneZ (*sign_counterparty_commitment)(const void *this_arg, const struct LDKCommitmentTransaction *NONNULL_PTR commitment_tx);
    /**
     * Create a signature for a holder's commitment transaction. This will only ever be called with
     * the same commitment_tx (or a copy thereof), though there are currently no guarantees
     * that it will not be called multiple times.
     * An external signer implementation should check that the commitment has not been revoked.
     */
-   LDKCResult_SignatureNoneZ (*sign_holder_commitment)(const void *this_arg, const struct LDKHolderCommitmentTransaction *commitment_tx);
+   LDKCResult_SignatureNoneZ (*sign_holder_commitment)(const void *this_arg, const struct LDKHolderCommitmentTransaction *NONNULL_PTR commitment_tx);
    /**
     * Create a signature for each HTLC transaction spending a holder's commitment transaction.
     *
@@ -565,7 +565,7 @@ typedef struct LDKChannelKeys {
     * Either an Err should be returned, or a Vec with one entry for each HTLC which exists in
     * commitment_tx.
     */
-   LDKCResult_CVec_SignatureZNoneZ (*sign_holder_commitment_htlc_transactions)(const void *this_arg, const struct LDKHolderCommitmentTransaction *commitment_tx);
+   LDKCResult_CVec_SignatureZNoneZ (*sign_holder_commitment_htlc_transactions)(const void *this_arg, const struct LDKHolderCommitmentTransaction *NONNULL_PTR commitment_tx);
    /**
     * Create a signature for the given input in a transaction spending an HTLC or commitment
     * transaction output when our counterparty broadcasts an old state.
@@ -586,7 +586,7 @@ typedef struct LDKChannelKeys {
     * changing the format of the witness script (which is committed to in the BIP 143
     * signatures).
     */
-   LDKCResult_SignatureNoneZ (*sign_justice_transaction)(const void *this_arg, struct LDKTransaction justice_tx, uintptr_t input, uint64_t amount, const uint8_t (*per_commitment_key)[32], const struct LDKHTLCOutputInCommitment *htlc);
+   LDKCResult_SignatureNoneZ (*sign_justice_transaction)(const void *this_arg, struct LDKTransaction justice_tx, uintptr_t input, uint64_t amount, const uint8_t (*per_commitment_key)[32], const struct LDKHTLCOutputInCommitment *NONNULL_PTR htlc);
    /**
     * Create a signature for a claiming transaction for a HTLC output on a counterparty's commitment
     * transaction, either offered or received.
@@ -606,7 +606,7 @@ typedef struct LDKChannelKeys {
     * channel state keys, which are then included in the witness script and committed to in the
     * BIP 143 signature.
     */
-   LDKCResult_SignatureNoneZ (*sign_counterparty_htlc_transaction)(const void *this_arg, struct LDKTransaction htlc_tx, uintptr_t input, uint64_t amount, struct LDKPublicKey per_commitment_point, const struct LDKHTLCOutputInCommitment *htlc);
+   LDKCResult_SignatureNoneZ (*sign_counterparty_htlc_transaction)(const void *this_arg, struct LDKTransaction htlc_tx, uintptr_t input, uint64_t amount, struct LDKPublicKey per_commitment_point, const struct LDKHTLCOutputInCommitment *NONNULL_PTR htlc);
    /**
     * Create a signature for a (proposed) closing transaction.
     *
@@ -622,7 +622,7 @@ typedef struct LDKChannelKeys {
     * our counterparty may (though likely will not) close the channel on us for violating the
     * protocol.
     */
-   LDKCResult_SignatureNoneZ (*sign_channel_announcement)(const void *this_arg, const struct LDKUnsignedChannelAnnouncement *msg);
+   LDKCResult_SignatureNoneZ (*sign_channel_announcement)(const void *this_arg, const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR msg);
    /**
     * Set the counterparty static channel data, including basepoints,
     * counterparty_selected/holder_selected_contest_delay and funding outpoint.
@@ -635,7 +635,7 @@ typedef struct LDKChannelKeys {
     *
     * Will be called before any signatures are applied.
     */
-   void (*ready_channel)(void *this_arg, const struct LDKChannelTransactionParameters *channel_parameters);
+   void (*ready_channel)(void *this_arg, const struct LDKChannelTransactionParameters *NONNULL_PTR channel_parameters);
    void *(*clone)(const void *this_arg);
    LDKCVec_u8Z (*write)(const void *this_arg);
    void (*free)(void *this_arg);
@@ -2089,7 +2089,7 @@ typedef struct LDKFilter {
     * Registers interest in spends of a transaction output identified by `outpoint` having
     * `script_pubkey` as the spending condition.
     */
-   void (*register_output)(const void *this_arg, const struct LDKOutPoint *outpoint, struct LDKu8slice script_pubkey);
+   void (*register_output)(const void *this_arg, const struct LDKOutPoint *NONNULL_PTR outpoint, struct LDKu8slice script_pubkey);
    void (*free)(void *this_arg);
 } LDKFilter;
 
@@ -2121,7 +2121,7 @@ typedef struct LDKPersist {
     * [`ChannelMonitor::serialize_for_disk`]: struct.ChannelMonitor.html#method.serialize_for_disk
     * [`ChannelMonitorUpdateErr`]: enum.ChannelMonitorUpdateErr.html
     */
-   LDKCResult_NoneChannelMonitorUpdateErrZ (*persist_new_channel)(const void *this_arg, struct LDKOutPoint id, const struct LDKChannelMonitor *data);
+   LDKCResult_NoneChannelMonitorUpdateErrZ (*persist_new_channel)(const void *this_arg, struct LDKOutPoint id, const struct LDKChannelMonitor *NONNULL_PTR data);
    /**
     * Update one channel's data. The provided `ChannelMonitor` has already
     * applied the given update.
@@ -2151,7 +2151,7 @@ typedef struct LDKPersist {
     * [`ChannelMonitorUpdate::write`]: struct.ChannelMonitorUpdate.html#method.write
     * [`ChannelMonitorUpdateErr`]: enum.ChannelMonitorUpdateErr.html
     */
-   LDKCResult_NoneChannelMonitorUpdateErrZ (*update_persisted_channel)(const void *this_arg, struct LDKOutPoint id, const struct LDKChannelMonitorUpdate *update, const struct LDKChannelMonitor *data);
+   LDKCResult_NoneChannelMonitorUpdateErrZ (*update_persisted_channel)(const void *this_arg, struct LDKOutPoint id, const struct LDKChannelMonitorUpdate *NONNULL_PTR update, const struct LDKChannelMonitor *NONNULL_PTR data);
    void (*free)(void *this_arg);
 } LDKPersist;
 
@@ -2544,63 +2544,63 @@ typedef struct LDKChannelMessageHandler {
    /**
     * Handle an incoming open_channel message from the given peer.
     */
-   void (*handle_open_channel)(const void *this_arg, struct LDKPublicKey their_node_id, struct LDKInitFeatures their_features, const struct LDKOpenChannel *msg);
+   void (*handle_open_channel)(const void *this_arg, struct LDKPublicKey their_node_id, struct LDKInitFeatures their_features, const struct LDKOpenChannel *NONNULL_PTR msg);
    /**
     * Handle an incoming accept_channel message from the given peer.
     */
-   void (*handle_accept_channel)(const void *this_arg, struct LDKPublicKey their_node_id, struct LDKInitFeatures their_features, const struct LDKAcceptChannel *msg);
+   void (*handle_accept_channel)(const void *this_arg, struct LDKPublicKey their_node_id, struct LDKInitFeatures their_features, const struct LDKAcceptChannel *NONNULL_PTR msg);
    /**
     * Handle an incoming funding_created message from the given peer.
     */
-   void (*handle_funding_created)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKFundingCreated *msg);
+   void (*handle_funding_created)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKFundingCreated *NONNULL_PTR msg);
    /**
     * Handle an incoming funding_signed message from the given peer.
     */
-   void (*handle_funding_signed)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKFundingSigned *msg);
+   void (*handle_funding_signed)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKFundingSigned *NONNULL_PTR msg);
    /**
     * Handle an incoming funding_locked message from the given peer.
     */
-   void (*handle_funding_locked)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKFundingLocked *msg);
+   void (*handle_funding_locked)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKFundingLocked *NONNULL_PTR msg);
    /**
     * Handle an incoming shutdown message from the given peer.
     */
-   void (*handle_shutdown)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKShutdown *msg);
+   void (*handle_shutdown)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKShutdown *NONNULL_PTR msg);
    /**
     * Handle an incoming closing_signed message from the given peer.
     */
-   void (*handle_closing_signed)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKClosingSigned *msg);
+   void (*handle_closing_signed)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKClosingSigned *NONNULL_PTR msg);
    /**
     * Handle an incoming update_add_htlc message from the given peer.
     */
-   void (*handle_update_add_htlc)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKUpdateAddHTLC *msg);
+   void (*handle_update_add_htlc)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKUpdateAddHTLC *NONNULL_PTR msg);
    /**
     * Handle an incoming update_fulfill_htlc message from the given peer.
     */
-   void (*handle_update_fulfill_htlc)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKUpdateFulfillHTLC *msg);
+   void (*handle_update_fulfill_htlc)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKUpdateFulfillHTLC *NONNULL_PTR msg);
    /**
     * Handle an incoming update_fail_htlc message from the given peer.
     */
-   void (*handle_update_fail_htlc)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKUpdateFailHTLC *msg);
+   void (*handle_update_fail_htlc)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKUpdateFailHTLC *NONNULL_PTR msg);
    /**
     * Handle an incoming update_fail_malformed_htlc message from the given peer.
     */
-   void (*handle_update_fail_malformed_htlc)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKUpdateFailMalformedHTLC *msg);
+   void (*handle_update_fail_malformed_htlc)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKUpdateFailMalformedHTLC *NONNULL_PTR msg);
    /**
     * Handle an incoming commitment_signed message from the given peer.
     */
-   void (*handle_commitment_signed)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKCommitmentSigned *msg);
+   void (*handle_commitment_signed)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKCommitmentSigned *NONNULL_PTR msg);
    /**
     * Handle an incoming revoke_and_ack message from the given peer.
     */
-   void (*handle_revoke_and_ack)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKRevokeAndACK *msg);
+   void (*handle_revoke_and_ack)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKRevokeAndACK *NONNULL_PTR msg);
    /**
     * Handle an incoming update_fee message from the given peer.
     */
-   void (*handle_update_fee)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKUpdateFee *msg);
+   void (*handle_update_fee)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKUpdateFee *NONNULL_PTR msg);
    /**
     * Handle an incoming announcement_signatures message from the given peer.
     */
-   void (*handle_announcement_signatures)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKAnnouncementSignatures *msg);
+   void (*handle_announcement_signatures)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKAnnouncementSignatures *NONNULL_PTR msg);
    /**
     * Indicates a connection to the peer failed/an existing connection was lost. If no connection
     * is believed to be possible in the future (eg they're sending us messages we don't
@@ -2611,15 +2611,15 @@ typedef struct LDKChannelMessageHandler {
    /**
     * Handle a peer reconnecting, possibly generating channel_reestablish message(s).
     */
-   void (*peer_connected)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKInit *msg);
+   void (*peer_connected)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKInit *NONNULL_PTR msg);
    /**
     * Handle an incoming channel_reestablish message from the given peer.
     */
-   void (*handle_channel_reestablish)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKChannelReestablish *msg);
+   void (*handle_channel_reestablish)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKChannelReestablish *NONNULL_PTR msg);
    /**
     * Handle an incoming error message from the given peer.
     */
-   void (*handle_error)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKErrorMessage *msg);
+   void (*handle_error)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKErrorMessage *NONNULL_PTR msg);
    struct LDKMessageSendEventsProvider MessageSendEventsProvider;
    void (*free)(void *this_arg);
 } LDKChannelMessageHandler;
@@ -2922,21 +2922,21 @@ typedef struct LDKRoutingMessageHandler {
     * Handle an incoming node_announcement message, returning true if it should be forwarded on,
     * false or returning an Err otherwise.
     */
-   LDKCResult_boolLightningErrorZ (*handle_node_announcement)(const void *this_arg, const struct LDKNodeAnnouncement *msg);
+   LDKCResult_boolLightningErrorZ (*handle_node_announcement)(const void *this_arg, const struct LDKNodeAnnouncement *NONNULL_PTR msg);
    /**
     * Handle a channel_announcement message, returning true if it should be forwarded on, false
     * or returning an Err otherwise.
     */
-   LDKCResult_boolLightningErrorZ (*handle_channel_announcement)(const void *this_arg, const struct LDKChannelAnnouncement *msg);
+   LDKCResult_boolLightningErrorZ (*handle_channel_announcement)(const void *this_arg, const struct LDKChannelAnnouncement *NONNULL_PTR msg);
    /**
     * Handle an incoming channel_update message, returning true if it should be forwarded on,
     * false or returning an Err otherwise.
     */
-   LDKCResult_boolLightningErrorZ (*handle_channel_update)(const void *this_arg, const struct LDKChannelUpdate *msg);
+   LDKCResult_boolLightningErrorZ (*handle_channel_update)(const void *this_arg, const struct LDKChannelUpdate *NONNULL_PTR msg);
    /**
     * Handle some updates to the route graph that we learned due to an outbound failed payment.
     */
-   void (*handle_htlc_fail_channel_update)(const void *this_arg, const struct LDKHTLCFailChannelUpdate *update);
+   void (*handle_htlc_fail_channel_update)(const void *this_arg, const struct LDKHTLCFailChannelUpdate *NONNULL_PTR update);
    /**
     * Gets a subset of the channel announcements and updates required to dump our routing table
     * to a remote node, starting at the short_channel_id indicated by starting_point and
@@ -2955,7 +2955,7 @@ typedef struct LDKRoutingMessageHandler {
     * perform routing table synchronization using a strategy defined by the
     * implementor.
     */
-   void (*sync_routing_table)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKInit *init);
+   void (*sync_routing_table)(const void *this_arg, struct LDKPublicKey their_node_id, const struct LDKInit *NONNULL_PTR init);
    /**
     * Handles the reply of a query we initiated to learn about channels
     * for a given range of blocks. We can expect to receive one or more
@@ -3193,7 +3193,7 @@ typedef struct LDKSocketDescriptor {
     * socket_disconnected but prior to socket_disconnected returning.
     */
    void (*disconnect_socket)(void *this_arg);
-   bool (*eq)(const void *this_arg, const struct LDKSocketDescriptor *other_arg);
+   bool (*eq)(const void *this_arg, const struct LDKSocketDescriptor *NONNULL_PTR other_arg);
    uint64_t (*hash)(const void *this_arg);
    void *(*clone)(const void *this_arg);
    void (*free)(void *this_arg);
@@ -3960,13 +3960,13 @@ LDKCResult_TrustedCommitmentTransactionNoneZ CResult_TrustedCommitmentTransactio
 
 void Event_free(struct LDKEvent this_ptr);
 
-struct LDKEvent Event_clone(const struct LDKEvent *orig);
+struct LDKEvent Event_clone(const struct LDKEvent *NONNULL_PTR orig);
 
 LDKCVec_u8Z Event_write(const struct LDKEvent *obj);
 
 void MessageSendEvent_free(struct LDKMessageSendEvent this_ptr);
 
-struct LDKMessageSendEvent MessageSendEvent_clone(const struct LDKMessageSendEvent *orig);
+struct LDKMessageSendEvent MessageSendEvent_clone(const struct LDKMessageSendEvent *NONNULL_PTR orig);
 
 /**
  * Calls the free function if one is set
@@ -3980,9 +3980,9 @@ void EventsProvider_free(struct LDKEventsProvider this_ptr);
 
 void APIError_free(struct LDKAPIError this_ptr);
 
-struct LDKAPIError APIError_clone(const struct LDKAPIError *orig);
+struct LDKAPIError APIError_clone(const struct LDKAPIError *NONNULL_PTR orig);
 
-enum LDKLevel Level_clone(const enum LDKLevel *orig);
+enum LDKLevel Level_clone(const enum LDKLevel *NONNULL_PTR orig);
 
 /**
  * Returns the most verbose logging level.
@@ -3996,7 +3996,7 @@ void Logger_free(struct LDKLogger this_ptr);
 
 void ChannelHandshakeConfig_free(struct LDKChannelHandshakeConfig this_ptr);
 
-struct LDKChannelHandshakeConfig ChannelHandshakeConfig_clone(const struct LDKChannelHandshakeConfig *orig);
+struct LDKChannelHandshakeConfig ChannelHandshakeConfig_clone(const struct LDKChannelHandshakeConfig *NONNULL_PTR orig);
 
 /**
  * Confirmations we will wait for before considering the channel locked in.
@@ -4005,7 +4005,7 @@ struct LDKChannelHandshakeConfig ChannelHandshakeConfig_clone(const struct LDKCh
  *
  * Default value: 6.
  */
-uint32_t ChannelHandshakeConfig_get_minimum_depth(const struct LDKChannelHandshakeConfig *this_ptr);
+uint32_t ChannelHandshakeConfig_get_minimum_depth(const struct LDKChannelHandshakeConfig *NONNULL_PTR this_ptr);
 
 /**
  * Confirmations we will wait for before considering the channel locked in.
@@ -4014,7 +4014,7 @@ uint32_t ChannelHandshakeConfig_get_minimum_depth(const struct LDKChannelHandsha
  *
  * Default value: 6.
  */
-void ChannelHandshakeConfig_set_minimum_depth(struct LDKChannelHandshakeConfig *this_ptr, uint32_t val);
+void ChannelHandshakeConfig_set_minimum_depth(struct LDKChannelHandshakeConfig *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * Set to the amount of time we require our counterparty to wait to claim their money.
@@ -4030,7 +4030,7 @@ void ChannelHandshakeConfig_set_minimum_depth(struct LDKChannelHandshakeConfig *
  * Default value: BREAKDOWN_TIMEOUT (currently 144), we enforce it as a minimum at channel
  * opening so you can tweak config to ask for more security, not less.
  */
-uint16_t ChannelHandshakeConfig_get_our_to_self_delay(const struct LDKChannelHandshakeConfig *this_ptr);
+uint16_t ChannelHandshakeConfig_get_our_to_self_delay(const struct LDKChannelHandshakeConfig *NONNULL_PTR this_ptr);
 
 /**
  * Set to the amount of time we require our counterparty to wait to claim their money.
@@ -4046,7 +4046,7 @@ uint16_t ChannelHandshakeConfig_get_our_to_self_delay(const struct LDKChannelHan
  * Default value: BREAKDOWN_TIMEOUT (currently 144), we enforce it as a minimum at channel
  * opening so you can tweak config to ask for more security, not less.
  */
-void ChannelHandshakeConfig_set_our_to_self_delay(struct LDKChannelHandshakeConfig *this_ptr, uint16_t val);
+void ChannelHandshakeConfig_set_our_to_self_delay(struct LDKChannelHandshakeConfig *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * Set to the smallest value HTLC we will accept to process.
@@ -4057,7 +4057,7 @@ void ChannelHandshakeConfig_set_our_to_self_delay(struct LDKChannelHandshakeConf
  * Default value: 1. If the value is less than 1, it is ignored and set to 1, as is required
  * by the protocol.
  */
-uint64_t ChannelHandshakeConfig_get_our_htlc_minimum_msat(const struct LDKChannelHandshakeConfig *this_ptr);
+uint64_t ChannelHandshakeConfig_get_our_htlc_minimum_msat(const struct LDKChannelHandshakeConfig *NONNULL_PTR this_ptr);
 
 /**
  * Set to the smallest value HTLC we will accept to process.
@@ -4068,7 +4068,7 @@ uint64_t ChannelHandshakeConfig_get_our_htlc_minimum_msat(const struct LDKChanne
  * Default value: 1. If the value is less than 1, it is ignored and set to 1, as is required
  * by the protocol.
  */
-void ChannelHandshakeConfig_set_our_htlc_minimum_msat(struct LDKChannelHandshakeConfig *this_ptr, uint64_t val);
+void ChannelHandshakeConfig_set_our_htlc_minimum_msat(struct LDKChannelHandshakeConfig *NONNULL_PTR this_ptr, uint64_t val);
 
 MUST_USE_RES struct LDKChannelHandshakeConfig ChannelHandshakeConfig_new(uint32_t minimum_depth_arg, uint16_t our_to_self_delay_arg, uint64_t our_htlc_minimum_msat_arg);
 
@@ -4076,7 +4076,7 @@ MUST_USE_RES struct LDKChannelHandshakeConfig ChannelHandshakeConfig_default(voi
 
 void ChannelHandshakeLimits_free(struct LDKChannelHandshakeLimits this_ptr);
 
-struct LDKChannelHandshakeLimits ChannelHandshakeLimits_clone(const struct LDKChannelHandshakeLimits *orig);
+struct LDKChannelHandshakeLimits ChannelHandshakeLimits_clone(const struct LDKChannelHandshakeLimits *NONNULL_PTR orig);
 
 /**
  * Minimum allowed satoshis when a channel is funded, this is supplied by the sender and so
@@ -4084,7 +4084,7 @@ struct LDKChannelHandshakeLimits ChannelHandshakeLimits_clone(const struct LDKCh
  *
  * Default value: 0.
  */
-uint64_t ChannelHandshakeLimits_get_min_funding_satoshis(const struct LDKChannelHandshakeLimits *this_ptr);
+uint64_t ChannelHandshakeLimits_get_min_funding_satoshis(const struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr);
 
 /**
  * Minimum allowed satoshis when a channel is funded, this is supplied by the sender and so
@@ -4092,7 +4092,7 @@ uint64_t ChannelHandshakeLimits_get_min_funding_satoshis(const struct LDKChannel
  *
  * Default value: 0.
  */
-void ChannelHandshakeLimits_set_min_funding_satoshis(struct LDKChannelHandshakeLimits *this_ptr, uint64_t val);
+void ChannelHandshakeLimits_set_min_funding_satoshis(struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The remote node sets a limit on the minimum size of HTLCs we can send to them. This allows
@@ -4100,7 +4100,7 @@ void ChannelHandshakeLimits_set_min_funding_satoshis(struct LDKChannelHandshakeL
  *
  * Default value: u64::max_value.
  */
-uint64_t ChannelHandshakeLimits_get_max_htlc_minimum_msat(const struct LDKChannelHandshakeLimits *this_ptr);
+uint64_t ChannelHandshakeLimits_get_max_htlc_minimum_msat(const struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr);
 
 /**
  * The remote node sets a limit on the minimum size of HTLCs we can send to them. This allows
@@ -4108,7 +4108,7 @@ uint64_t ChannelHandshakeLimits_get_max_htlc_minimum_msat(const struct LDKChanne
  *
  * Default value: u64::max_value.
  */
-void ChannelHandshakeLimits_set_max_htlc_minimum_msat(struct LDKChannelHandshakeLimits *this_ptr, uint64_t val);
+void ChannelHandshakeLimits_set_max_htlc_minimum_msat(struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The remote node sets a limit on the maximum value of pending HTLCs to them at any given
@@ -4116,7 +4116,7 @@ void ChannelHandshakeLimits_set_max_htlc_minimum_msat(struct LDKChannelHandshake
  *
  * Default value: 0.
  */
-uint64_t ChannelHandshakeLimits_get_min_max_htlc_value_in_flight_msat(const struct LDKChannelHandshakeLimits *this_ptr);
+uint64_t ChannelHandshakeLimits_get_min_max_htlc_value_in_flight_msat(const struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr);
 
 /**
  * The remote node sets a limit on the maximum value of pending HTLCs to them at any given
@@ -4124,7 +4124,7 @@ uint64_t ChannelHandshakeLimits_get_min_max_htlc_value_in_flight_msat(const stru
  *
  * Default value: 0.
  */
-void ChannelHandshakeLimits_set_min_max_htlc_value_in_flight_msat(struct LDKChannelHandshakeLimits *this_ptr, uint64_t val);
+void ChannelHandshakeLimits_set_min_max_htlc_value_in_flight_msat(struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The remote node will require we keep a certain amount in direct payment to ourselves at all
@@ -4133,7 +4133,7 @@ void ChannelHandshakeLimits_set_min_max_htlc_value_in_flight_msat(struct LDKChan
  *
  * Default value: u64::max_value.
  */
-uint64_t ChannelHandshakeLimits_get_max_channel_reserve_satoshis(const struct LDKChannelHandshakeLimits *this_ptr);
+uint64_t ChannelHandshakeLimits_get_max_channel_reserve_satoshis(const struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr);
 
 /**
  * The remote node will require we keep a certain amount in direct payment to ourselves at all
@@ -4142,7 +4142,7 @@ uint64_t ChannelHandshakeLimits_get_max_channel_reserve_satoshis(const struct LD
  *
  * Default value: u64::max_value.
  */
-void ChannelHandshakeLimits_set_max_channel_reserve_satoshis(struct LDKChannelHandshakeLimits *this_ptr, uint64_t val);
+void ChannelHandshakeLimits_set_max_channel_reserve_satoshis(struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The remote node sets a limit on the maximum number of pending HTLCs to them at any given
@@ -4150,7 +4150,7 @@ void ChannelHandshakeLimits_set_max_channel_reserve_satoshis(struct LDKChannelHa
  *
  * Default value: 0.
  */
-uint16_t ChannelHandshakeLimits_get_min_max_accepted_htlcs(const struct LDKChannelHandshakeLimits *this_ptr);
+uint16_t ChannelHandshakeLimits_get_min_max_accepted_htlcs(const struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr);
 
 /**
  * The remote node sets a limit on the maximum number of pending HTLCs to them at any given
@@ -4158,7 +4158,7 @@ uint16_t ChannelHandshakeLimits_get_min_max_accepted_htlcs(const struct LDKChann
  *
  * Default value: 0.
  */
-void ChannelHandshakeLimits_set_min_max_accepted_htlcs(struct LDKChannelHandshakeLimits *this_ptr, uint16_t val);
+void ChannelHandshakeLimits_set_min_max_accepted_htlcs(struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * Outputs below a certain value will not be added to on-chain transactions. The dust value is
@@ -4171,7 +4171,7 @@ void ChannelHandshakeLimits_set_min_max_accepted_htlcs(struct LDKChannelHandshak
  *
  * Default value: 546, the current dust limit on the Bitcoin network.
  */
-uint64_t ChannelHandshakeLimits_get_min_dust_limit_satoshis(const struct LDKChannelHandshakeLimits *this_ptr);
+uint64_t ChannelHandshakeLimits_get_min_dust_limit_satoshis(const struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr);
 
 /**
  * Outputs below a certain value will not be added to on-chain transactions. The dust value is
@@ -4184,7 +4184,7 @@ uint64_t ChannelHandshakeLimits_get_min_dust_limit_satoshis(const struct LDKChan
  *
  * Default value: 546, the current dust limit on the Bitcoin network.
  */
-void ChannelHandshakeLimits_set_min_dust_limit_satoshis(struct LDKChannelHandshakeLimits *this_ptr, uint64_t val);
+void ChannelHandshakeLimits_set_min_dust_limit_satoshis(struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * Maximum allowed threshold above which outputs will not be generated in their commitment
@@ -4193,7 +4193,7 @@ void ChannelHandshakeLimits_set_min_dust_limit_satoshis(struct LDKChannelHandsha
  *
  * Default value: u64::max_value.
  */
-uint64_t ChannelHandshakeLimits_get_max_dust_limit_satoshis(const struct LDKChannelHandshakeLimits *this_ptr);
+uint64_t ChannelHandshakeLimits_get_max_dust_limit_satoshis(const struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr);
 
 /**
  * Maximum allowed threshold above which outputs will not be generated in their commitment
@@ -4202,7 +4202,7 @@ uint64_t ChannelHandshakeLimits_get_max_dust_limit_satoshis(const struct LDKChan
  *
  * Default value: u64::max_value.
  */
-void ChannelHandshakeLimits_set_max_dust_limit_satoshis(struct LDKChannelHandshakeLimits *this_ptr, uint64_t val);
+void ChannelHandshakeLimits_set_max_dust_limit_satoshis(struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * Before a channel is usable the funding transaction will need to be confirmed by at least a
@@ -4212,7 +4212,7 @@ void ChannelHandshakeLimits_set_max_dust_limit_satoshis(struct LDKChannelHandsha
  *
  * Default value: 144, or roughly one day and only applies to outbound channels.
  */
-uint32_t ChannelHandshakeLimits_get_max_minimum_depth(const struct LDKChannelHandshakeLimits *this_ptr);
+uint32_t ChannelHandshakeLimits_get_max_minimum_depth(const struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr);
 
 /**
  * Before a channel is usable the funding transaction will need to be confirmed by at least a
@@ -4222,7 +4222,7 @@ uint32_t ChannelHandshakeLimits_get_max_minimum_depth(const struct LDKChannelHan
  *
  * Default value: 144, or roughly one day and only applies to outbound channels.
  */
-void ChannelHandshakeLimits_set_max_minimum_depth(struct LDKChannelHandshakeLimits *this_ptr, uint32_t val);
+void ChannelHandshakeLimits_set_max_minimum_depth(struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * Set to force the incoming channel to match our announced channel preference in
@@ -4231,7 +4231,7 @@ void ChannelHandshakeLimits_set_max_minimum_depth(struct LDKChannelHandshakeLimi
  * Default value: true, to make the default that no announced channels are possible (which is
  * appropriate for any nodes which are not online very reliably).
  */
-bool ChannelHandshakeLimits_get_force_announced_channel_preference(const struct LDKChannelHandshakeLimits *this_ptr);
+bool ChannelHandshakeLimits_get_force_announced_channel_preference(const struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr);
 
 /**
  * Set to force the incoming channel to match our announced channel preference in
@@ -4240,7 +4240,7 @@ bool ChannelHandshakeLimits_get_force_announced_channel_preference(const struct 
  * Default value: true, to make the default that no announced channels are possible (which is
  * appropriate for any nodes which are not online very reliably).
  */
-void ChannelHandshakeLimits_set_force_announced_channel_preference(struct LDKChannelHandshakeLimits *this_ptr, bool val);
+void ChannelHandshakeLimits_set_force_announced_channel_preference(struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr, bool val);
 
 /**
  * Set to the amount of time we're willing to wait to claim money back to us.
@@ -4251,7 +4251,7 @@ void ChannelHandshakeLimits_set_force_announced_channel_preference(struct LDKCha
  * Default value: MAX_LOCAL_BREAKDOWN_TIMEOUT (1008), which we also enforce as a maximum value
  * so you can tweak config to reduce the loss of having useless locked funds (if your peer accepts)
  */
-uint16_t ChannelHandshakeLimits_get_their_to_self_delay(const struct LDKChannelHandshakeLimits *this_ptr);
+uint16_t ChannelHandshakeLimits_get_their_to_self_delay(const struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr);
 
 /**
  * Set to the amount of time we're willing to wait to claim money back to us.
@@ -4262,7 +4262,7 @@ uint16_t ChannelHandshakeLimits_get_their_to_self_delay(const struct LDKChannelH
  * Default value: MAX_LOCAL_BREAKDOWN_TIMEOUT (1008), which we also enforce as a maximum value
  * so you can tweak config to reduce the loss of having useless locked funds (if your peer accepts)
  */
-void ChannelHandshakeLimits_set_their_to_self_delay(struct LDKChannelHandshakeLimits *this_ptr, uint16_t val);
+void ChannelHandshakeLimits_set_their_to_self_delay(struct LDKChannelHandshakeLimits *NONNULL_PTR this_ptr, uint16_t val);
 
 MUST_USE_RES struct LDKChannelHandshakeLimits ChannelHandshakeLimits_new(uint64_t min_funding_satoshis_arg, uint64_t max_htlc_minimum_msat_arg, uint64_t min_max_htlc_value_in_flight_msat_arg, uint64_t max_channel_reserve_satoshis_arg, uint16_t min_max_accepted_htlcs_arg, uint64_t min_dust_limit_satoshis_arg, uint64_t max_dust_limit_satoshis_arg, uint32_t max_minimum_depth_arg, bool force_announced_channel_preference_arg, uint16_t their_to_self_delay_arg);
 
@@ -4270,7 +4270,7 @@ MUST_USE_RES struct LDKChannelHandshakeLimits ChannelHandshakeLimits_default(voi
 
 void ChannelConfig_free(struct LDKChannelConfig this_ptr);
 
-struct LDKChannelConfig ChannelConfig_clone(const struct LDKChannelConfig *orig);
+struct LDKChannelConfig ChannelConfig_clone(const struct LDKChannelConfig *NONNULL_PTR orig);
 
 /**
  * Amount (in millionths of a satoshi) the channel will charge per transferred satoshi.
@@ -4279,7 +4279,7 @@ struct LDKChannelConfig ChannelConfig_clone(const struct LDKChannelConfig *orig)
  *
  * Default value: 0.
  */
-uint32_t ChannelConfig_get_fee_proportional_millionths(const struct LDKChannelConfig *this_ptr);
+uint32_t ChannelConfig_get_fee_proportional_millionths(const struct LDKChannelConfig *NONNULL_PTR this_ptr);
 
 /**
  * Amount (in millionths of a satoshi) the channel will charge per transferred satoshi.
@@ -4288,7 +4288,7 @@ uint32_t ChannelConfig_get_fee_proportional_millionths(const struct LDKChannelCo
  *
  * Default value: 0.
  */
-void ChannelConfig_set_fee_proportional_millionths(struct LDKChannelConfig *this_ptr, uint32_t val);
+void ChannelConfig_set_fee_proportional_millionths(struct LDKChannelConfig *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * Set to announce the channel publicly and notify all nodes that they can route via this
@@ -4303,7 +4303,7 @@ void ChannelConfig_set_fee_proportional_millionths(struct LDKChannelConfig *this
  *
  * Default value: false.
  */
-bool ChannelConfig_get_announced_channel(const struct LDKChannelConfig *this_ptr);
+bool ChannelConfig_get_announced_channel(const struct LDKChannelConfig *NONNULL_PTR this_ptr);
 
 /**
  * Set to announce the channel publicly and notify all nodes that they can route via this
@@ -4318,7 +4318,7 @@ bool ChannelConfig_get_announced_channel(const struct LDKChannelConfig *this_ptr
  *
  * Default value: false.
  */
-void ChannelConfig_set_announced_channel(struct LDKChannelConfig *this_ptr, bool val);
+void ChannelConfig_set_announced_channel(struct LDKChannelConfig *NONNULL_PTR this_ptr, bool val);
 
 /**
  * When set, we commit to an upfront shutdown_pubkey at channel open. If our counterparty
@@ -4333,7 +4333,7 @@ void ChannelConfig_set_announced_channel(struct LDKChannelConfig *this_ptr, bool
  *
  * Default value: true.
  */
-bool ChannelConfig_get_commit_upfront_shutdown_pubkey(const struct LDKChannelConfig *this_ptr);
+bool ChannelConfig_get_commit_upfront_shutdown_pubkey(const struct LDKChannelConfig *NONNULL_PTR this_ptr);
 
 /**
  * When set, we commit to an upfront shutdown_pubkey at channel open. If our counterparty
@@ -4348,7 +4348,7 @@ bool ChannelConfig_get_commit_upfront_shutdown_pubkey(const struct LDKChannelCon
  *
  * Default value: true.
  */
-void ChannelConfig_set_commit_upfront_shutdown_pubkey(struct LDKChannelConfig *this_ptr, bool val);
+void ChannelConfig_set_commit_upfront_shutdown_pubkey(struct LDKChannelConfig *NONNULL_PTR this_ptr, bool val);
 
 MUST_USE_RES struct LDKChannelConfig ChannelConfig_new(uint32_t fee_proportional_millionths_arg, bool announced_channel_arg, bool commit_upfront_shutdown_pubkey_arg);
 
@@ -4360,43 +4360,43 @@ struct LDKChannelConfig ChannelConfig_read(struct LDKu8slice ser);
 
 void UserConfig_free(struct LDKUserConfig this_ptr);
 
-struct LDKUserConfig UserConfig_clone(const struct LDKUserConfig *orig);
+struct LDKUserConfig UserConfig_clone(const struct LDKUserConfig *NONNULL_PTR orig);
 
 /**
  * Channel config that we propose to our counterparty.
  */
-struct LDKChannelHandshakeConfig UserConfig_get_own_channel_config(const struct LDKUserConfig *this_ptr);
+struct LDKChannelHandshakeConfig UserConfig_get_own_channel_config(const struct LDKUserConfig *NONNULL_PTR this_ptr);
 
 /**
  * Channel config that we propose to our counterparty.
  */
-void UserConfig_set_own_channel_config(struct LDKUserConfig *this_ptr, struct LDKChannelHandshakeConfig val);
+void UserConfig_set_own_channel_config(struct LDKUserConfig *NONNULL_PTR this_ptr, struct LDKChannelHandshakeConfig val);
 
 /**
  * Limits applied to our counterparty's proposed channel config settings.
  */
-struct LDKChannelHandshakeLimits UserConfig_get_peer_channel_config_limits(const struct LDKUserConfig *this_ptr);
+struct LDKChannelHandshakeLimits UserConfig_get_peer_channel_config_limits(const struct LDKUserConfig *NONNULL_PTR this_ptr);
 
 /**
  * Limits applied to our counterparty's proposed channel config settings.
  */
-void UserConfig_set_peer_channel_config_limits(struct LDKUserConfig *this_ptr, struct LDKChannelHandshakeLimits val);
+void UserConfig_set_peer_channel_config_limits(struct LDKUserConfig *NONNULL_PTR this_ptr, struct LDKChannelHandshakeLimits val);
 
 /**
  * Channel config which affects behavior during channel lifetime.
  */
-struct LDKChannelConfig UserConfig_get_channel_options(const struct LDKUserConfig *this_ptr);
+struct LDKChannelConfig UserConfig_get_channel_options(const struct LDKUserConfig *NONNULL_PTR this_ptr);
 
 /**
  * Channel config which affects behavior during channel lifetime.
  */
-void UserConfig_set_channel_options(struct LDKUserConfig *this_ptr, struct LDKChannelConfig val);
+void UserConfig_set_channel_options(struct LDKUserConfig *NONNULL_PTR this_ptr, struct LDKChannelConfig val);
 
 MUST_USE_RES struct LDKUserConfig UserConfig_new(struct LDKChannelHandshakeConfig own_channel_config_arg, struct LDKChannelHandshakeLimits peer_channel_config_limits_arg, struct LDKChannelConfig channel_options_arg);
 
 MUST_USE_RES struct LDKUserConfig UserConfig_default(void);
 
-enum LDKAccessError AccessError_clone(const enum LDKAccessError *orig);
+enum LDKAccessError AccessError_clone(const enum LDKAccessError *NONNULL_PTR orig);
 
 /**
  * Calls the free function if one is set
@@ -4418,7 +4418,7 @@ void Filter_free(struct LDKFilter this_ptr);
  */
 void BroadcasterInterface_free(struct LDKBroadcasterInterface this_ptr);
 
-enum LDKConfirmationTarget ConfirmationTarget_clone(const enum LDKConfirmationTarget *orig);
+enum LDKConfirmationTarget ConfirmationTarget_clone(const enum LDKConfirmationTarget *NONNULL_PTR orig);
 
 /**
  * Calls the free function if one is set
@@ -4442,7 +4442,7 @@ void ChainMonitor_free(struct LDKChainMonitor this_ptr);
  * [`chain::Watch::release_pending_monitor_events`]: ../trait.Watch.html#tymethod.release_pending_monitor_events
  * [`chain::Filter`]: ../trait.Filter.html
  */
-void ChainMonitor_block_connected(const struct LDKChainMonitor *this_arg, const uint8_t (*header)[80], LDKCVec_C2Tuple_usizeTransactionZZ txdata, uint32_t height);
+void ChainMonitor_block_connected(const struct LDKChainMonitor *NONNULL_PTR this_arg, const uint8_t (*header)[80], LDKCVec_C2Tuple_usizeTransactionZZ txdata, uint32_t height);
 
 /**
  * Dispatches to per-channel monitors, which are responsible for updating their on-chain view
@@ -4451,7 +4451,7 @@ void ChainMonitor_block_connected(const struct LDKChainMonitor *this_arg, const 
  *
  * [`ChannelMonitor::block_disconnected`]: ../channelmonitor/struct.ChannelMonitor.html#method.block_disconnected
  */
-void ChainMonitor_block_disconnected(const struct LDKChainMonitor *this_arg, const uint8_t (*header)[80], uint32_t disconnected_height);
+void ChainMonitor_block_disconnected(const struct LDKChainMonitor *NONNULL_PTR this_arg, const uint8_t (*header)[80], uint32_t disconnected_height);
 
 /**
  * Creates a new `ChainMonitor` used to watch on-chain activity pertaining to channels.
@@ -4472,7 +4472,7 @@ struct LDKEventsProvider ChainMonitor_as_EventsProvider(const struct LDKChainMon
 
 void ChannelMonitorUpdate_free(struct LDKChannelMonitorUpdate this_ptr);
 
-struct LDKChannelMonitorUpdate ChannelMonitorUpdate_clone(const struct LDKChannelMonitorUpdate *orig);
+struct LDKChannelMonitorUpdate ChannelMonitorUpdate_clone(const struct LDKChannelMonitorUpdate *NONNULL_PTR orig);
 
 /**
  * The sequence number of this update. Updates *must* be replayed in-order according to this
@@ -4489,7 +4489,7 @@ struct LDKChannelMonitorUpdate ChannelMonitorUpdate_clone(const struct LDKChanne
  *
  * [`CLOSED_CHANNEL_UPDATE_ID`]: constant.CLOSED_CHANNEL_UPDATE_ID.html
  */
-uint64_t ChannelMonitorUpdate_get_update_id(const struct LDKChannelMonitorUpdate *this_ptr);
+uint64_t ChannelMonitorUpdate_get_update_id(const struct LDKChannelMonitorUpdate *NONNULL_PTR this_ptr);
 
 /**
  * The sequence number of this update. Updates *must* be replayed in-order according to this
@@ -4506,23 +4506,23 @@ uint64_t ChannelMonitorUpdate_get_update_id(const struct LDKChannelMonitorUpdate
  *
  * [`CLOSED_CHANNEL_UPDATE_ID`]: constant.CLOSED_CHANNEL_UPDATE_ID.html
  */
-void ChannelMonitorUpdate_set_update_id(struct LDKChannelMonitorUpdate *this_ptr, uint64_t val);
+void ChannelMonitorUpdate_set_update_id(struct LDKChannelMonitorUpdate *NONNULL_PTR this_ptr, uint64_t val);
 
 LDKCVec_u8Z ChannelMonitorUpdate_write(const struct LDKChannelMonitorUpdate *obj);
 
 LDKCResult_ChannelMonitorUpdateDecodeErrorZ ChannelMonitorUpdate_read(struct LDKu8slice ser);
 
-enum LDKChannelMonitorUpdateErr ChannelMonitorUpdateErr_clone(const enum LDKChannelMonitorUpdateErr *orig);
+enum LDKChannelMonitorUpdateErr ChannelMonitorUpdateErr_clone(const enum LDKChannelMonitorUpdateErr *NONNULL_PTR orig);
 
 void MonitorUpdateError_free(struct LDKMonitorUpdateError this_ptr);
 
 void MonitorEvent_free(struct LDKMonitorEvent this_ptr);
 
-struct LDKMonitorEvent MonitorEvent_clone(const struct LDKMonitorEvent *orig);
+struct LDKMonitorEvent MonitorEvent_clone(const struct LDKMonitorEvent *NONNULL_PTR orig);
 
 void HTLCUpdate_free(struct LDKHTLCUpdate this_ptr);
 
-struct LDKHTLCUpdate HTLCUpdate_clone(const struct LDKHTLCUpdate *orig);
+struct LDKHTLCUpdate HTLCUpdate_clone(const struct LDKHTLCUpdate *NONNULL_PTR orig);
 
 LDKCVec_u8Z HTLCUpdate_write(const struct LDKHTLCUpdate *obj);
 
@@ -4538,18 +4538,18 @@ LDKCVec_u8Z ChannelMonitor_write(const struct LDKChannelMonitor *obj);
  *
  * panics if the given update is not the next update by update_id.
  */
-MUST_USE_RES LDKCResult_NoneMonitorUpdateErrorZ ChannelMonitor_update_monitor(struct LDKChannelMonitor *this_arg, const struct LDKChannelMonitorUpdate *updates, const struct LDKBroadcasterInterface *broadcaster, const struct LDKFeeEstimator *fee_estimator, const struct LDKLogger *logger);
+MUST_USE_RES LDKCResult_NoneMonitorUpdateErrorZ ChannelMonitor_update_monitor(struct LDKChannelMonitor *NONNULL_PTR this_arg, const struct LDKChannelMonitorUpdate *NONNULL_PTR updates, const struct LDKBroadcasterInterface *NONNULL_PTR broadcaster, const struct LDKFeeEstimator *NONNULL_PTR fee_estimator, const struct LDKLogger *NONNULL_PTR logger);
 
 /**
  * Gets the update_id from the latest ChannelMonitorUpdate which was applied to this
  * ChannelMonitor.
  */
-MUST_USE_RES uint64_t ChannelMonitor_get_latest_update_id(const struct LDKChannelMonitor *this_arg);
+MUST_USE_RES uint64_t ChannelMonitor_get_latest_update_id(const struct LDKChannelMonitor *NONNULL_PTR this_arg);
 
 /**
  * Gets the funding transaction outpoint of the channel this ChannelMonitor is monitoring for.
  */
-MUST_USE_RES LDKC2Tuple_OutPointScriptZ ChannelMonitor_get_funding_txo(const struct LDKChannelMonitor *this_arg);
+MUST_USE_RES LDKC2Tuple_OutPointScriptZ ChannelMonitor_get_funding_txo(const struct LDKChannelMonitor *NONNULL_PTR this_arg);
 
 /**
  * Get the list of HTLCs who's status has been updated on chain. This should be called by
@@ -4557,7 +4557,7 @@ MUST_USE_RES LDKC2Tuple_OutPointScriptZ ChannelMonitor_get_funding_txo(const str
  *
  * [`chain::Watch::release_pending_monitor_events`]: ../trait.Watch.html#tymethod.release_pending_monitor_events
  */
-MUST_USE_RES LDKCVec_MonitorEventZ ChannelMonitor_get_and_clear_pending_monitor_events(struct LDKChannelMonitor *this_arg);
+MUST_USE_RES LDKCVec_MonitorEventZ ChannelMonitor_get_and_clear_pending_monitor_events(struct LDKChannelMonitor *NONNULL_PTR this_arg);
 
 /**
  * Gets the list of pending events which were generated by previous actions, clearing the list
@@ -4567,7 +4567,7 @@ MUST_USE_RES LDKCVec_MonitorEventZ ChannelMonitor_get_and_clear_pending_monitor_
  * EventsProvider::get_and_clear_pending_events() except that it requires &mut self as we do
  * no internal locking in ChannelMonitors.
  */
-MUST_USE_RES LDKCVec_EventZ ChannelMonitor_get_and_clear_pending_events(struct LDKChannelMonitor *this_arg);
+MUST_USE_RES LDKCVec_EventZ ChannelMonitor_get_and_clear_pending_events(struct LDKChannelMonitor *NONNULL_PTR this_arg);
 
 /**
  * Used by ChannelManager deserialization to broadcast the latest holder state if its copy of
@@ -4580,7 +4580,7 @@ MUST_USE_RES LDKCVec_EventZ ChannelMonitor_get_and_clear_pending_events(struct L
  * out-of-band the other node operator to coordinate with him if option is available to you.
  * In any-case, choice is up to the user.
  */
-MUST_USE_RES LDKCVec_TransactionZ ChannelMonitor_get_latest_holder_commitment_txn(struct LDKChannelMonitor *this_arg, const struct LDKLogger *logger);
+MUST_USE_RES LDKCVec_TransactionZ ChannelMonitor_get_latest_holder_commitment_txn(struct LDKChannelMonitor *NONNULL_PTR this_arg, const struct LDKLogger *NONNULL_PTR logger);
 
 /**
  * Processes transactions in a newly connected block, which may result in any of the following:
@@ -4595,51 +4595,51 @@ MUST_USE_RES LDKCVec_TransactionZ ChannelMonitor_get_latest_holder_commitment_tx
  *
  * [`get_outputs_to_watch`]: #method.get_outputs_to_watch
  */
-MUST_USE_RES LDKCVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ ChannelMonitor_block_connected(struct LDKChannelMonitor *this_arg, const uint8_t (*header)[80], LDKCVec_C2Tuple_usizeTransactionZZ txdata, uint32_t height, struct LDKBroadcasterInterface broadcaster, struct LDKFeeEstimator fee_estimator, struct LDKLogger logger);
+MUST_USE_RES LDKCVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ ChannelMonitor_block_connected(struct LDKChannelMonitor *NONNULL_PTR this_arg, const uint8_t (*header)[80], LDKCVec_C2Tuple_usizeTransactionZZ txdata, uint32_t height, struct LDKBroadcasterInterface broadcaster, struct LDKFeeEstimator fee_estimator, struct LDKLogger logger);
 
 /**
  * Determines if the disconnected block contained any transactions of interest and updates
  * appropriately.
  */
-void ChannelMonitor_block_disconnected(struct LDKChannelMonitor *this_arg, const uint8_t (*header)[80], uint32_t height, struct LDKBroadcasterInterface broadcaster, struct LDKFeeEstimator fee_estimator, struct LDKLogger logger);
+void ChannelMonitor_block_disconnected(struct LDKChannelMonitor *NONNULL_PTR this_arg, const uint8_t (*header)[80], uint32_t height, struct LDKBroadcasterInterface broadcaster, struct LDKFeeEstimator fee_estimator, struct LDKLogger logger);
 
 /**
  * Calls the free function if one is set
  */
 void Persist_free(struct LDKPersist this_ptr);
 
-LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ C2Tuple_BlockHashChannelMonitorZ_read(struct LDKu8slice ser, const struct LDKKeysInterface *arg);
+LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ C2Tuple_BlockHashChannelMonitorZ_read(struct LDKu8slice ser, const struct LDKKeysInterface *NONNULL_PTR arg);
 
 void OutPoint_free(struct LDKOutPoint this_ptr);
 
-struct LDKOutPoint OutPoint_clone(const struct LDKOutPoint *orig);
+struct LDKOutPoint OutPoint_clone(const struct LDKOutPoint *NONNULL_PTR orig);
 
 /**
  * The referenced transaction's txid.
  */
-const uint8_t (*OutPoint_get_txid(const struct LDKOutPoint *this_ptr))[32];
+const uint8_t (*OutPoint_get_txid(const struct LDKOutPoint *NONNULL_PTR this_ptr))[32];
 
 /**
  * The referenced transaction's txid.
  */
-void OutPoint_set_txid(struct LDKOutPoint *this_ptr, struct LDKThirtyTwoBytes val);
+void OutPoint_set_txid(struct LDKOutPoint *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The index of the referenced output in its transaction's vout.
  */
-uint16_t OutPoint_get_index(const struct LDKOutPoint *this_ptr);
+uint16_t OutPoint_get_index(const struct LDKOutPoint *NONNULL_PTR this_ptr);
 
 /**
  * The index of the referenced output in its transaction's vout.
  */
-void OutPoint_set_index(struct LDKOutPoint *this_ptr, uint16_t val);
+void OutPoint_set_index(struct LDKOutPoint *NONNULL_PTR this_ptr, uint16_t val);
 
 MUST_USE_RES struct LDKOutPoint OutPoint_new(struct LDKThirtyTwoBytes txid_arg, uint16_t index_arg);
 
 /**
  * Convert an `OutPoint` to a lightning channel id.
  */
-MUST_USE_RES struct LDKThirtyTwoBytes OutPoint_to_channel_id(const struct LDKOutPoint *this_arg);
+MUST_USE_RES struct LDKThirtyTwoBytes OutPoint_to_channel_id(const struct LDKOutPoint *NONNULL_PTR this_arg);
 
 LDKCVec_u8Z OutPoint_write(const struct LDKOutPoint *obj);
 
@@ -4647,13 +4647,13 @@ struct LDKOutPoint OutPoint_read(struct LDKu8slice ser);
 
 void SpendableOutputDescriptor_free(struct LDKSpendableOutputDescriptor this_ptr);
 
-struct LDKSpendableOutputDescriptor SpendableOutputDescriptor_clone(const struct LDKSpendableOutputDescriptor *orig);
+struct LDKSpendableOutputDescriptor SpendableOutputDescriptor_clone(const struct LDKSpendableOutputDescriptor *NONNULL_PTR orig);
 
 LDKCVec_u8Z SpendableOutputDescriptor_write(const struct LDKSpendableOutputDescriptor *obj);
 
 LDKCResult_SpendableOutputDescriptorDecodeErrorZ SpendableOutputDescriptor_read(struct LDKu8slice ser);
 
-struct LDKChannelKeys ChannelKeys_clone(const struct LDKChannelKeys *orig);
+struct LDKChannelKeys ChannelKeys_clone(const struct LDKChannelKeys *NONNULL_PTR orig);
 
 /**
  * Calls the free function if one is set
@@ -4667,67 +4667,67 @@ void KeysInterface_free(struct LDKKeysInterface this_ptr);
 
 void InMemoryChannelKeys_free(struct LDKInMemoryChannelKeys this_ptr);
 
-struct LDKInMemoryChannelKeys InMemoryChannelKeys_clone(const struct LDKInMemoryChannelKeys *orig);
+struct LDKInMemoryChannelKeys InMemoryChannelKeys_clone(const struct LDKInMemoryChannelKeys *NONNULL_PTR orig);
 
 /**
  * Private key of anchor tx
  */
-const uint8_t (*InMemoryChannelKeys_get_funding_key(const struct LDKInMemoryChannelKeys *this_ptr))[32];
+const uint8_t (*InMemoryChannelKeys_get_funding_key(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr))[32];
 
 /**
  * Private key of anchor tx
  */
-void InMemoryChannelKeys_set_funding_key(struct LDKInMemoryChannelKeys *this_ptr, struct LDKSecretKey val);
+void InMemoryChannelKeys_set_funding_key(struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr, struct LDKSecretKey val);
 
 /**
  * Holder secret key for blinded revocation pubkey
  */
-const uint8_t (*InMemoryChannelKeys_get_revocation_base_key(const struct LDKInMemoryChannelKeys *this_ptr))[32];
+const uint8_t (*InMemoryChannelKeys_get_revocation_base_key(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr))[32];
 
 /**
  * Holder secret key for blinded revocation pubkey
  */
-void InMemoryChannelKeys_set_revocation_base_key(struct LDKInMemoryChannelKeys *this_ptr, struct LDKSecretKey val);
+void InMemoryChannelKeys_set_revocation_base_key(struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr, struct LDKSecretKey val);
 
 /**
  * Holder secret key used for our balance in counterparty-broadcasted commitment transactions
  */
-const uint8_t (*InMemoryChannelKeys_get_payment_key(const struct LDKInMemoryChannelKeys *this_ptr))[32];
+const uint8_t (*InMemoryChannelKeys_get_payment_key(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr))[32];
 
 /**
  * Holder secret key used for our balance in counterparty-broadcasted commitment transactions
  */
-void InMemoryChannelKeys_set_payment_key(struct LDKInMemoryChannelKeys *this_ptr, struct LDKSecretKey val);
+void InMemoryChannelKeys_set_payment_key(struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr, struct LDKSecretKey val);
 
 /**
  * Holder secret key used in HTLC tx
  */
-const uint8_t (*InMemoryChannelKeys_get_delayed_payment_base_key(const struct LDKInMemoryChannelKeys *this_ptr))[32];
+const uint8_t (*InMemoryChannelKeys_get_delayed_payment_base_key(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr))[32];
 
 /**
  * Holder secret key used in HTLC tx
  */
-void InMemoryChannelKeys_set_delayed_payment_base_key(struct LDKInMemoryChannelKeys *this_ptr, struct LDKSecretKey val);
+void InMemoryChannelKeys_set_delayed_payment_base_key(struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr, struct LDKSecretKey val);
 
 /**
  * Holder htlc secret key used in commitment tx htlc outputs
  */
-const uint8_t (*InMemoryChannelKeys_get_htlc_base_key(const struct LDKInMemoryChannelKeys *this_ptr))[32];
+const uint8_t (*InMemoryChannelKeys_get_htlc_base_key(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr))[32];
 
 /**
  * Holder htlc secret key used in commitment tx htlc outputs
  */
-void InMemoryChannelKeys_set_htlc_base_key(struct LDKInMemoryChannelKeys *this_ptr, struct LDKSecretKey val);
+void InMemoryChannelKeys_set_htlc_base_key(struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr, struct LDKSecretKey val);
 
 /**
  * Commitment seed
  */
-const uint8_t (*InMemoryChannelKeys_get_commitment_seed(const struct LDKInMemoryChannelKeys *this_ptr))[32];
+const uint8_t (*InMemoryChannelKeys_get_commitment_seed(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr))[32];
 
 /**
  * Commitment seed
  */
-void InMemoryChannelKeys_set_commitment_seed(struct LDKInMemoryChannelKeys *this_ptr, struct LDKThirtyTwoBytes val);
+void InMemoryChannelKeys_set_commitment_seed(struct LDKInMemoryChannelKeys *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * Create a new InMemoryChannelKeys
@@ -4738,7 +4738,7 @@ MUST_USE_RES struct LDKInMemoryChannelKeys InMemoryChannelKeys_new(struct LDKSec
  * Counterparty pubkeys.
  * Will panic if ready_channel wasn't called.
  */
-MUST_USE_RES struct LDKChannelPublicKeys InMemoryChannelKeys_counterparty_pubkeys(const struct LDKInMemoryChannelKeys *this_arg);
+MUST_USE_RES struct LDKChannelPublicKeys InMemoryChannelKeys_counterparty_pubkeys(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_arg);
 
 /**
  * The contest_delay value specified by our counterparty and applied on holder-broadcastable
@@ -4746,7 +4746,7 @@ MUST_USE_RES struct LDKChannelPublicKeys InMemoryChannelKeys_counterparty_pubkey
  * broadcast a transaction.
  * Will panic if ready_channel wasn't called.
  */
-MUST_USE_RES uint16_t InMemoryChannelKeys_counterparty_selected_contest_delay(const struct LDKInMemoryChannelKeys *this_arg);
+MUST_USE_RES uint16_t InMemoryChannelKeys_counterparty_selected_contest_delay(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_arg);
 
 /**
  * The contest_delay value specified by us and applied on transactions broadcastable
@@ -4754,19 +4754,19 @@ MUST_USE_RES uint16_t InMemoryChannelKeys_counterparty_selected_contest_delay(co
  * if they broadcast a transaction.
  * Will panic if ready_channel wasn't called.
  */
-MUST_USE_RES uint16_t InMemoryChannelKeys_holder_selected_contest_delay(const struct LDKInMemoryChannelKeys *this_arg);
+MUST_USE_RES uint16_t InMemoryChannelKeys_holder_selected_contest_delay(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_arg);
 
 /**
  * Whether the holder is the initiator
  * Will panic if ready_channel wasn't called.
  */
-MUST_USE_RES bool InMemoryChannelKeys_is_outbound(const struct LDKInMemoryChannelKeys *this_arg);
+MUST_USE_RES bool InMemoryChannelKeys_is_outbound(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_arg);
 
 /**
  * Funding outpoint
  * Will panic if ready_channel wasn't called.
  */
-MUST_USE_RES struct LDKOutPoint InMemoryChannelKeys_funding_outpoint(const struct LDKInMemoryChannelKeys *this_arg);
+MUST_USE_RES struct LDKOutPoint InMemoryChannelKeys_funding_outpoint(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_arg);
 
 /**
  * Obtain a ChannelTransactionParameters for this channel, to be used when verifying or
@@ -4774,7 +4774,7 @@ MUST_USE_RES struct LDKOutPoint InMemoryChannelKeys_funding_outpoint(const struc
  *
  * Will panic if ready_channel wasn't called.
  */
-MUST_USE_RES struct LDKChannelTransactionParameters InMemoryChannelKeys_get_channel_parameters(const struct LDKInMemoryChannelKeys *this_arg);
+MUST_USE_RES struct LDKChannelTransactionParameters InMemoryChannelKeys_get_channel_parameters(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_arg);
 
 struct LDKChannelKeys InMemoryChannelKeys_as_ChannelKeys(const struct LDKInMemoryChannelKeys *this_arg);
 
@@ -4814,7 +4814,7 @@ MUST_USE_RES struct LDKKeysManager KeysManager_new(const uint8_t (*seed)[32], en
  * ChannelKeys::key_derivation_params and is provided inside DynamicOuputP2WSH in case of
  * onchain output detection for which a corresponding delayed_payment_key must be derived.
  */
-MUST_USE_RES struct LDKInMemoryChannelKeys KeysManager_derive_channel_keys(const struct LDKKeysManager *this_arg, uint64_t channel_value_satoshis, uint64_t params_1, uint64_t params_2);
+MUST_USE_RES struct LDKInMemoryChannelKeys KeysManager_derive_channel_keys(const struct LDKKeysManager *NONNULL_PTR this_arg, uint64_t channel_value_satoshis, uint64_t params_1, uint64_t params_2);
 
 struct LDKKeysInterface KeysManager_as_KeysInterface(const struct LDKKeysManager *this_arg);
 
@@ -4822,7 +4822,7 @@ void ChannelManager_free(struct LDKChannelManager this_ptr);
 
 void ChannelDetails_free(struct LDKChannelDetails this_ptr);
 
-struct LDKChannelDetails ChannelDetails_clone(const struct LDKChannelDetails *orig);
+struct LDKChannelDetails ChannelDetails_clone(const struct LDKChannelDetails *NONNULL_PTR orig);
 
 /**
  * The channel's ID (prior to funding transaction generation, this is a random 32 bytes,
@@ -4830,7 +4830,7 @@ struct LDKChannelDetails ChannelDetails_clone(const struct LDKChannelDetails *or
  * Note that this means this value is *not* persistent - it can change once during the
  * lifetime of the channel.
  */
-const uint8_t (*ChannelDetails_get_channel_id(const struct LDKChannelDetails *this_ptr))[32];
+const uint8_t (*ChannelDetails_get_channel_id(const struct LDKChannelDetails *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel's ID (prior to funding transaction generation, this is a random 32 bytes,
@@ -4838,51 +4838,51 @@ const uint8_t (*ChannelDetails_get_channel_id(const struct LDKChannelDetails *th
  * Note that this means this value is *not* persistent - it can change once during the
  * lifetime of the channel.
  */
-void ChannelDetails_set_channel_id(struct LDKChannelDetails *this_ptr, struct LDKThirtyTwoBytes val);
+void ChannelDetails_set_channel_id(struct LDKChannelDetails *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The node_id of our counterparty
  */
-struct LDKPublicKey ChannelDetails_get_remote_network_id(const struct LDKChannelDetails *this_ptr);
+struct LDKPublicKey ChannelDetails_get_remote_network_id(const struct LDKChannelDetails *NONNULL_PTR this_ptr);
 
 /**
  * The node_id of our counterparty
  */
-void ChannelDetails_set_remote_network_id(struct LDKChannelDetails *this_ptr, struct LDKPublicKey val);
+void ChannelDetails_set_remote_network_id(struct LDKChannelDetails *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The Features the channel counterparty provided upon last connection.
  * Useful for routing as it is the most up-to-date copy of the counterparty's features and
  * many routing-relevant features are present in the init context.
  */
-struct LDKInitFeatures ChannelDetails_get_counterparty_features(const struct LDKChannelDetails *this_ptr);
+struct LDKInitFeatures ChannelDetails_get_counterparty_features(const struct LDKChannelDetails *NONNULL_PTR this_ptr);
 
 /**
  * The Features the channel counterparty provided upon last connection.
  * Useful for routing as it is the most up-to-date copy of the counterparty's features and
  * many routing-relevant features are present in the init context.
  */
-void ChannelDetails_set_counterparty_features(struct LDKChannelDetails *this_ptr, struct LDKInitFeatures val);
+void ChannelDetails_set_counterparty_features(struct LDKChannelDetails *NONNULL_PTR this_ptr, struct LDKInitFeatures val);
 
 /**
  * The value, in satoshis, of this channel as appears in the funding output
  */
-uint64_t ChannelDetails_get_channel_value_satoshis(const struct LDKChannelDetails *this_ptr);
+uint64_t ChannelDetails_get_channel_value_satoshis(const struct LDKChannelDetails *NONNULL_PTR this_ptr);
 
 /**
  * The value, in satoshis, of this channel as appears in the funding output
  */
-void ChannelDetails_set_channel_value_satoshis(struct LDKChannelDetails *this_ptr, uint64_t val);
+void ChannelDetails_set_channel_value_satoshis(struct LDKChannelDetails *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The user_id passed in to create_channel, or 0 if the channel was inbound.
  */
-uint64_t ChannelDetails_get_user_id(const struct LDKChannelDetails *this_ptr);
+uint64_t ChannelDetails_get_user_id(const struct LDKChannelDetails *NONNULL_PTR this_ptr);
 
 /**
  * The user_id passed in to create_channel, or 0 if the channel was inbound.
  */
-void ChannelDetails_set_user_id(struct LDKChannelDetails *this_ptr, uint64_t val);
+void ChannelDetails_set_user_id(struct LDKChannelDetails *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The available outbound capacity for sending HTLCs to the remote peer. This does not include
@@ -4890,7 +4890,7 @@ void ChannelDetails_set_user_id(struct LDKChannelDetails *this_ptr, uint64_t val
  * available for inclusion in new outbound HTLCs). This further does not include any pending
  * outgoing HTLCs which are awaiting some other resolution to be sent.
  */
-uint64_t ChannelDetails_get_outbound_capacity_msat(const struct LDKChannelDetails *this_ptr);
+uint64_t ChannelDetails_get_outbound_capacity_msat(const struct LDKChannelDetails *NONNULL_PTR this_ptr);
 
 /**
  * The available outbound capacity for sending HTLCs to the remote peer. This does not include
@@ -4898,7 +4898,7 @@ uint64_t ChannelDetails_get_outbound_capacity_msat(const struct LDKChannelDetail
  * available for inclusion in new outbound HTLCs). This further does not include any pending
  * outgoing HTLCs which are awaiting some other resolution to be sent.
  */
-void ChannelDetails_set_outbound_capacity_msat(struct LDKChannelDetails *this_ptr, uint64_t val);
+void ChannelDetails_set_outbound_capacity_msat(struct LDKChannelDetails *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The available inbound capacity for the remote peer to send HTLCs to us. This does not
@@ -4907,7 +4907,7 @@ void ChannelDetails_set_outbound_capacity_msat(struct LDKChannelDetails *this_pt
  * Note that there are some corner cases not fully handled here, so the actual available
  * inbound capacity may be slightly higher than this.
  */
-uint64_t ChannelDetails_get_inbound_capacity_msat(const struct LDKChannelDetails *this_ptr);
+uint64_t ChannelDetails_get_inbound_capacity_msat(const struct LDKChannelDetails *NONNULL_PTR this_ptr);
 
 /**
  * The available inbound capacity for the remote peer to send HTLCs to us. This does not
@@ -4916,19 +4916,19 @@ uint64_t ChannelDetails_get_inbound_capacity_msat(const struct LDKChannelDetails
  * Note that there are some corner cases not fully handled here, so the actual available
  * inbound capacity may be slightly higher than this.
  */
-void ChannelDetails_set_inbound_capacity_msat(struct LDKChannelDetails *this_ptr, uint64_t val);
+void ChannelDetails_set_inbound_capacity_msat(struct LDKChannelDetails *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * True if the channel is (a) confirmed and funding_locked messages have been exchanged, (b)
  * the peer is connected, and (c) no monitor update failure is pending resolution.
  */
-bool ChannelDetails_get_is_live(const struct LDKChannelDetails *this_ptr);
+bool ChannelDetails_get_is_live(const struct LDKChannelDetails *NONNULL_PTR this_ptr);
 
 /**
  * True if the channel is (a) confirmed and funding_locked messages have been exchanged, (b)
  * the peer is connected, and (c) no monitor update failure is pending resolution.
  */
-void ChannelDetails_set_is_live(struct LDKChannelDetails *this_ptr, bool val);
+void ChannelDetails_set_is_live(struct LDKChannelDetails *NONNULL_PTR this_ptr, bool val);
 
 void PaymentSendFailure_free(struct LDKPaymentSendFailure this_ptr);
 
@@ -4964,13 +4964,13 @@ MUST_USE_RES struct LDKChannelManager ChannelManager_new(enum LDKNetwork network
  * Raises APIError::APIMisuseError when channel_value_satoshis > 2**24 or push_msat is
  * greater than channel_value_satoshis * 1k or channel_value_satoshis is < 1000.
  */
-MUST_USE_RES LDKCResult_NoneAPIErrorZ ChannelManager_create_channel(const struct LDKChannelManager *this_arg, struct LDKPublicKey their_network_key, uint64_t channel_value_satoshis, uint64_t push_msat, uint64_t user_id, struct LDKUserConfig override_config);
+MUST_USE_RES LDKCResult_NoneAPIErrorZ ChannelManager_create_channel(const struct LDKChannelManager *NONNULL_PTR this_arg, struct LDKPublicKey their_network_key, uint64_t channel_value_satoshis, uint64_t push_msat, uint64_t user_id, struct LDKUserConfig override_config);
 
 /**
  * Gets the list of open channels, in random order. See ChannelDetail field documentation for
  * more information.
  */
-MUST_USE_RES LDKCVec_ChannelDetailsZ ChannelManager_list_channels(const struct LDKChannelManager *this_arg);
+MUST_USE_RES LDKCVec_ChannelDetailsZ ChannelManager_list_channels(const struct LDKChannelManager *NONNULL_PTR this_arg);
 
 /**
  * Gets the list of usable channels, in random order. Useful as an argument to
@@ -4979,7 +4979,7 @@ MUST_USE_RES LDKCVec_ChannelDetailsZ ChannelManager_list_channels(const struct L
  * These are guaranteed to have their is_live value set to true, see the documentation for
  * ChannelDetails::is_live for more info on exactly what the criteria are.
  */
-MUST_USE_RES LDKCVec_ChannelDetailsZ ChannelManager_list_usable_channels(const struct LDKChannelManager *this_arg);
+MUST_USE_RES LDKCVec_ChannelDetailsZ ChannelManager_list_usable_channels(const struct LDKChannelManager *NONNULL_PTR this_arg);
 
 /**
  * Begins the process of closing a channel. After this call (plus some timeout), no new HTLCs
@@ -4988,19 +4988,19 @@ MUST_USE_RES LDKCVec_ChannelDetailsZ ChannelManager_list_usable_channels(const s
  *
  * May generate a SendShutdown message event on success, which should be relayed.
  */
-MUST_USE_RES LDKCResult_NoneAPIErrorZ ChannelManager_close_channel(const struct LDKChannelManager *this_arg, const uint8_t (*channel_id)[32]);
+MUST_USE_RES LDKCResult_NoneAPIErrorZ ChannelManager_close_channel(const struct LDKChannelManager *NONNULL_PTR this_arg, const uint8_t (*channel_id)[32]);
 
 /**
  * Force closes a channel, immediately broadcasting the latest local commitment transaction to
  * the chain and rejecting new HTLCs on the given channel.
  */
-void ChannelManager_force_close_channel(const struct LDKChannelManager *this_arg, const uint8_t (*channel_id)[32]);
+void ChannelManager_force_close_channel(const struct LDKChannelManager *NONNULL_PTR this_arg, const uint8_t (*channel_id)[32]);
 
 /**
  * Force close all channels, immediately broadcasting the latest local commitment transaction
  * for each to the chain and rejecting new HTLCs on each.
  */
-void ChannelManager_force_close_all_channels(const struct LDKChannelManager *this_arg);
+void ChannelManager_force_close_all_channels(const struct LDKChannelManager *NONNULL_PTR this_arg);
 
 /**
  * Sends a payment along a given route.
@@ -5043,7 +5043,7 @@ void ChannelManager_force_close_all_channels(const struct LDKChannelManager *thi
  * bit set (either as required or as available). If multiple paths are present in the Route,
  * we assume the invoice had the basic_mpp feature set.
  */
-MUST_USE_RES LDKCResult_NonePaymentSendFailureZ ChannelManager_send_payment(const struct LDKChannelManager *this_arg, const struct LDKRoute *route, struct LDKThirtyTwoBytes payment_hash, struct LDKThirtyTwoBytes payment_secret);
+MUST_USE_RES LDKCResult_NonePaymentSendFailureZ ChannelManager_send_payment(const struct LDKChannelManager *NONNULL_PTR this_arg, const struct LDKRoute *NONNULL_PTR route, struct LDKThirtyTwoBytes payment_hash, struct LDKThirtyTwoBytes payment_secret);
 
 /**
  * Call this upon creation of a funding transaction for the given channel.
@@ -5056,7 +5056,7 @@ MUST_USE_RES LDKCResult_NonePaymentSendFailureZ ChannelManager_send_payment(cons
  * May panic if the funding_txo is duplicative with some other channel (note that this should
  * be trivially prevented by using unique funding transaction keys per-channel).
  */
-void ChannelManager_funding_transaction_generated(const struct LDKChannelManager *this_arg, const uint8_t (*temporary_channel_id)[32], struct LDKOutPoint funding_txo);
+void ChannelManager_funding_transaction_generated(const struct LDKChannelManager *NONNULL_PTR this_arg, const uint8_t (*temporary_channel_id)[32], struct LDKOutPoint funding_txo);
 
 /**
  * Generates a signed node_announcement from the given arguments and creates a
@@ -5073,7 +5073,7 @@ void ChannelManager_funding_transaction_generated(const struct LDKChannelManager
  *
  * Panics if addresses is absurdly large (more than 500).
  */
-void ChannelManager_broadcast_node_announcement(const struct LDKChannelManager *this_arg, struct LDKThreeBytes rgb, struct LDKThirtyTwoBytes alias, LDKCVec_NetAddressZ addresses);
+void ChannelManager_broadcast_node_announcement(const struct LDKChannelManager *NONNULL_PTR this_arg, struct LDKThreeBytes rgb, struct LDKThirtyTwoBytes alias, LDKCVec_NetAddressZ addresses);
 
 /**
  * Processes HTLCs which are pending waiting on random forward delay.
@@ -5081,7 +5081,7 @@ void ChannelManager_broadcast_node_announcement(const struct LDKChannelManager *
  * Should only really ever be called in response to a PendingHTLCsForwardable event.
  * Will likely generate further events.
  */
-void ChannelManager_process_pending_htlc_forwards(const struct LDKChannelManager *this_arg);
+void ChannelManager_process_pending_htlc_forwards(const struct LDKChannelManager *NONNULL_PTR this_arg);
 
 /**
  * If a peer is disconnected we mark any channels with that peer as 'disabled'.
@@ -5090,7 +5090,7 @@ void ChannelManager_process_pending_htlc_forwards(const struct LDKChannelManager
  *
  * This method handles all the details, and must be called roughly once per minute.
  */
-void ChannelManager_timer_chan_freshness_every_min(const struct LDKChannelManager *this_arg);
+void ChannelManager_timer_chan_freshness_every_min(const struct LDKChannelManager *NONNULL_PTR this_arg);
 
 /**
  * Indicates that the preimage for payment_hash is unknown or the received amount is incorrect
@@ -5099,7 +5099,7 @@ void ChannelManager_timer_chan_freshness_every_min(const struct LDKChannelManage
  * Returns false if no payment was found to fail backwards, true if the process of failing the
  * HTLC backwards has been started.
  */
-MUST_USE_RES bool ChannelManager_fail_htlc_backwards(const struct LDKChannelManager *this_arg, const uint8_t (*payment_hash)[32], struct LDKThirtyTwoBytes payment_secret);
+MUST_USE_RES bool ChannelManager_fail_htlc_backwards(const struct LDKChannelManager *NONNULL_PTR this_arg, const uint8_t (*payment_hash)[32], struct LDKThirtyTwoBytes payment_secret);
 
 /**
  * Provides a payment preimage in response to a PaymentReceived event, returning true and
@@ -5118,12 +5118,12 @@ MUST_USE_RES bool ChannelManager_fail_htlc_backwards(const struct LDKChannelMana
  *
  * May panic if called except in response to a PaymentReceived event.
  */
-MUST_USE_RES bool ChannelManager_claim_funds(const struct LDKChannelManager *this_arg, struct LDKThirtyTwoBytes payment_preimage, struct LDKThirtyTwoBytes payment_secret, uint64_t expected_amount);
+MUST_USE_RES bool ChannelManager_claim_funds(const struct LDKChannelManager *NONNULL_PTR this_arg, struct LDKThirtyTwoBytes payment_preimage, struct LDKThirtyTwoBytes payment_secret, uint64_t expected_amount);
 
 /**
  * Gets the node_id held by this ChannelManager
  */
-MUST_USE_RES struct LDKPublicKey ChannelManager_get_our_node_id(const struct LDKChannelManager *this_arg);
+MUST_USE_RES struct LDKPublicKey ChannelManager_get_our_node_id(const struct LDKChannelManager *NONNULL_PTR this_arg);
 
 /**
  * Restores a single, given channel to normal operation after a
@@ -5147,7 +5147,7 @@ MUST_USE_RES struct LDKPublicKey ChannelManager_get_our_node_id(const struct LDK
  *  4) once all remote copies are updated, you call this function with the update_id that
  *     completed, and once it is the latest the Channel will be re-enabled.
  */
-void ChannelManager_channel_monitor_updated(const struct LDKChannelManager *this_arg, const struct LDKOutPoint *funding_txo, uint64_t highest_applied_update_id);
+void ChannelManager_channel_monitor_updated(const struct LDKChannelManager *NONNULL_PTR this_arg, const struct LDKOutPoint *NONNULL_PTR funding_txo, uint64_t highest_applied_update_id);
 
 struct LDKMessageSendEventsProvider ChannelManager_as_MessageSendEventsProvider(const struct LDKChannelManager *this_arg);
 
@@ -5156,7 +5156,7 @@ struct LDKEventsProvider ChannelManager_as_EventsProvider(const struct LDKChanne
 /**
  * Updates channel state based on transactions seen in a connected block.
  */
-void ChannelManager_block_connected(const struct LDKChannelManager *this_arg, const uint8_t (*header)[80], LDKCVec_C2Tuple_usizeTransactionZZ txdata, uint32_t height);
+void ChannelManager_block_connected(const struct LDKChannelManager *NONNULL_PTR this_arg, const uint8_t (*header)[80], LDKCVec_C2Tuple_usizeTransactionZZ txdata, uint32_t height);
 
 /**
  * Updates channel state based on a disconnected block.
@@ -5164,7 +5164,7 @@ void ChannelManager_block_connected(const struct LDKChannelManager *this_arg, co
  * If necessary, the channel may be force-closed without letting the counterparty participate
  * in the shutdown.
  */
-void ChannelManager_block_disconnected(const struct LDKChannelManager *this_arg, const uint8_t (*header)[80]);
+void ChannelManager_block_disconnected(const struct LDKChannelManager *NONNULL_PTR this_arg, const uint8_t (*header)[80]);
 
 struct LDKChannelMessageHandler ChannelManager_as_ChannelMessageHandler(const struct LDKChannelManager *this_arg);
 
@@ -5177,28 +5177,28 @@ void ChannelManagerReadArgs_free(struct LDKChannelManagerReadArgs this_ptr);
  * deserialization and KeysInterface::read_chan_signer will be used to read per-Channel
  * signing data.
  */
-const struct LDKKeysInterface *ChannelManagerReadArgs_get_keys_manager(const struct LDKChannelManagerReadArgs *this_ptr);
+const struct LDKKeysInterface *ChannelManagerReadArgs_get_keys_manager(const struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr);
 
 /**
  * The keys provider which will give us relevant keys. Some keys will be loaded during
  * deserialization and KeysInterface::read_chan_signer will be used to read per-Channel
  * signing data.
  */
-void ChannelManagerReadArgs_set_keys_manager(struct LDKChannelManagerReadArgs *this_ptr, struct LDKKeysInterface val);
+void ChannelManagerReadArgs_set_keys_manager(struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr, struct LDKKeysInterface val);
 
 /**
  * The fee_estimator for use in the ChannelManager in the future.
  *
  * No calls to the FeeEstimator will be made during deserialization.
  */
-const struct LDKFeeEstimator *ChannelManagerReadArgs_get_fee_estimator(const struct LDKChannelManagerReadArgs *this_ptr);
+const struct LDKFeeEstimator *ChannelManagerReadArgs_get_fee_estimator(const struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr);
 
 /**
  * The fee_estimator for use in the ChannelManager in the future.
  *
  * No calls to the FeeEstimator will be made during deserialization.
  */
-void ChannelManagerReadArgs_set_fee_estimator(struct LDKChannelManagerReadArgs *this_ptr, struct LDKFeeEstimator val);
+void ChannelManagerReadArgs_set_fee_estimator(struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr, struct LDKFeeEstimator val);
 
 /**
  * The chain::Watch for use in the ChannelManager in the future.
@@ -5207,7 +5207,7 @@ void ChannelManagerReadArgs_set_fee_estimator(struct LDKChannelManagerReadArgs *
  * you have deserialized ChannelMonitors separately and will add them to your
  * chain::Watch after deserializing this ChannelManager.
  */
-const struct LDKWatch *ChannelManagerReadArgs_get_chain_monitor(const struct LDKChannelManagerReadArgs *this_ptr);
+const struct LDKWatch *ChannelManagerReadArgs_get_chain_monitor(const struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr);
 
 /**
  * The chain::Watch for use in the ChannelManager in the future.
@@ -5216,45 +5216,45 @@ const struct LDKWatch *ChannelManagerReadArgs_get_chain_monitor(const struct LDK
  * you have deserialized ChannelMonitors separately and will add them to your
  * chain::Watch after deserializing this ChannelManager.
  */
-void ChannelManagerReadArgs_set_chain_monitor(struct LDKChannelManagerReadArgs *this_ptr, struct LDKWatch val);
+void ChannelManagerReadArgs_set_chain_monitor(struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr, struct LDKWatch val);
 
 /**
  * The BroadcasterInterface which will be used in the ChannelManager in the future and may be
  * used to broadcast the latest local commitment transactions of channels which must be
  * force-closed during deserialization.
  */
-const struct LDKBroadcasterInterface *ChannelManagerReadArgs_get_tx_broadcaster(const struct LDKChannelManagerReadArgs *this_ptr);
+const struct LDKBroadcasterInterface *ChannelManagerReadArgs_get_tx_broadcaster(const struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr);
 
 /**
  * The BroadcasterInterface which will be used in the ChannelManager in the future and may be
  * used to broadcast the latest local commitment transactions of channels which must be
  * force-closed during deserialization.
  */
-void ChannelManagerReadArgs_set_tx_broadcaster(struct LDKChannelManagerReadArgs *this_ptr, struct LDKBroadcasterInterface val);
+void ChannelManagerReadArgs_set_tx_broadcaster(struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr, struct LDKBroadcasterInterface val);
 
 /**
  * The Logger for use in the ChannelManager and which may be used to log information during
  * deserialization.
  */
-const struct LDKLogger *ChannelManagerReadArgs_get_logger(const struct LDKChannelManagerReadArgs *this_ptr);
+const struct LDKLogger *ChannelManagerReadArgs_get_logger(const struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr);
 
 /**
  * The Logger for use in the ChannelManager and which may be used to log information during
  * deserialization.
  */
-void ChannelManagerReadArgs_set_logger(struct LDKChannelManagerReadArgs *this_ptr, struct LDKLogger val);
+void ChannelManagerReadArgs_set_logger(struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr, struct LDKLogger val);
 
 /**
  * Default settings used for new channels. Any existing channels will continue to use the
  * runtime settings which were stored when the ChannelManager was serialized.
  */
-struct LDKUserConfig ChannelManagerReadArgs_get_default_config(const struct LDKChannelManagerReadArgs *this_ptr);
+struct LDKUserConfig ChannelManagerReadArgs_get_default_config(const struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr);
 
 /**
  * Default settings used for new channels. Any existing channels will continue to use the
  * runtime settings which were stored when the ChannelManager was serialized.
  */
-void ChannelManagerReadArgs_set_default_config(struct LDKChannelManagerReadArgs *this_ptr, struct LDKUserConfig val);
+void ChannelManagerReadArgs_set_default_config(struct LDKChannelManagerReadArgs *NONNULL_PTR this_ptr, struct LDKUserConfig val);
 
 /**
  * Simple utility function to create a ChannelManagerReadArgs which creates the monitor
@@ -5269,21 +5269,21 @@ void DecodeError_free(struct LDKDecodeError this_ptr);
 
 void Init_free(struct LDKInit this_ptr);
 
-struct LDKInit Init_clone(const struct LDKInit *orig);
+struct LDKInit Init_clone(const struct LDKInit *NONNULL_PTR orig);
 
 void ErrorMessage_free(struct LDKErrorMessage this_ptr);
 
-struct LDKErrorMessage ErrorMessage_clone(const struct LDKErrorMessage *orig);
+struct LDKErrorMessage ErrorMessage_clone(const struct LDKErrorMessage *NONNULL_PTR orig);
 
 /**
  * The channel ID involved in the error
  */
-const uint8_t (*ErrorMessage_get_channel_id(const struct LDKErrorMessage *this_ptr))[32];
+const uint8_t (*ErrorMessage_get_channel_id(const struct LDKErrorMessage *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID involved in the error
  */
-void ErrorMessage_set_channel_id(struct LDKErrorMessage *this_ptr, struct LDKThirtyTwoBytes val);
+void ErrorMessage_set_channel_id(struct LDKErrorMessage *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * A possibly human-readable error description.
@@ -5291,7 +5291,7 @@ void ErrorMessage_set_channel_id(struct LDKErrorMessage *this_ptr, struct LDKThi
  * or printed to stdout).  Otherwise, a well crafted error message may trigger a security
  * vulnerability in the terminal emulator or the logging subsystem.
  */
-struct LDKStr ErrorMessage_get_data(const struct LDKErrorMessage *this_ptr);
+struct LDKStr ErrorMessage_get_data(const struct LDKErrorMessage *NONNULL_PTR this_ptr);
 
 /**
  * A possibly human-readable error description.
@@ -5299,898 +5299,898 @@ struct LDKStr ErrorMessage_get_data(const struct LDKErrorMessage *this_ptr);
  * or printed to stdout).  Otherwise, a well crafted error message may trigger a security
  * vulnerability in the terminal emulator or the logging subsystem.
  */
-void ErrorMessage_set_data(struct LDKErrorMessage *this_ptr, LDKCVec_u8Z val);
+void ErrorMessage_set_data(struct LDKErrorMessage *NONNULL_PTR this_ptr, LDKCVec_u8Z val);
 
 MUST_USE_RES struct LDKErrorMessage ErrorMessage_new(struct LDKThirtyTwoBytes channel_id_arg, LDKCVec_u8Z data_arg);
 
 void Ping_free(struct LDKPing this_ptr);
 
-struct LDKPing Ping_clone(const struct LDKPing *orig);
+struct LDKPing Ping_clone(const struct LDKPing *NONNULL_PTR orig);
 
 /**
  * The desired response length
  */
-uint16_t Ping_get_ponglen(const struct LDKPing *this_ptr);
+uint16_t Ping_get_ponglen(const struct LDKPing *NONNULL_PTR this_ptr);
 
 /**
  * The desired response length
  */
-void Ping_set_ponglen(struct LDKPing *this_ptr, uint16_t val);
+void Ping_set_ponglen(struct LDKPing *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * The ping packet size.
  * This field is not sent on the wire. byteslen zeros are sent.
  */
-uint16_t Ping_get_byteslen(const struct LDKPing *this_ptr);
+uint16_t Ping_get_byteslen(const struct LDKPing *NONNULL_PTR this_ptr);
 
 /**
  * The ping packet size.
  * This field is not sent on the wire. byteslen zeros are sent.
  */
-void Ping_set_byteslen(struct LDKPing *this_ptr, uint16_t val);
+void Ping_set_byteslen(struct LDKPing *NONNULL_PTR this_ptr, uint16_t val);
 
 MUST_USE_RES struct LDKPing Ping_new(uint16_t ponglen_arg, uint16_t byteslen_arg);
 
 void Pong_free(struct LDKPong this_ptr);
 
-struct LDKPong Pong_clone(const struct LDKPong *orig);
+struct LDKPong Pong_clone(const struct LDKPong *NONNULL_PTR orig);
 
 /**
  * The pong packet size.
  * This field is not sent on the wire. byteslen zeros are sent.
  */
-uint16_t Pong_get_byteslen(const struct LDKPong *this_ptr);
+uint16_t Pong_get_byteslen(const struct LDKPong *NONNULL_PTR this_ptr);
 
 /**
  * The pong packet size.
  * This field is not sent on the wire. byteslen zeros are sent.
  */
-void Pong_set_byteslen(struct LDKPong *this_ptr, uint16_t val);
+void Pong_set_byteslen(struct LDKPong *NONNULL_PTR this_ptr, uint16_t val);
 
 MUST_USE_RES struct LDKPong Pong_new(uint16_t byteslen_arg);
 
 void OpenChannel_free(struct LDKOpenChannel this_ptr);
 
-struct LDKOpenChannel OpenChannel_clone(const struct LDKOpenChannel *orig);
+struct LDKOpenChannel OpenChannel_clone(const struct LDKOpenChannel *NONNULL_PTR orig);
 
 /**
  * The genesis hash of the blockchain where the channel is to be opened
  */
-const uint8_t (*OpenChannel_get_chain_hash(const struct LDKOpenChannel *this_ptr))[32];
+const uint8_t (*OpenChannel_get_chain_hash(const struct LDKOpenChannel *NONNULL_PTR this_ptr))[32];
 
 /**
  * The genesis hash of the blockchain where the channel is to be opened
  */
-void OpenChannel_set_chain_hash(struct LDKOpenChannel *this_ptr, struct LDKThirtyTwoBytes val);
+void OpenChannel_set_chain_hash(struct LDKOpenChannel *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * A temporary channel ID, until the funding outpoint is announced
  */
-const uint8_t (*OpenChannel_get_temporary_channel_id(const struct LDKOpenChannel *this_ptr))[32];
+const uint8_t (*OpenChannel_get_temporary_channel_id(const struct LDKOpenChannel *NONNULL_PTR this_ptr))[32];
 
 /**
  * A temporary channel ID, until the funding outpoint is announced
  */
-void OpenChannel_set_temporary_channel_id(struct LDKOpenChannel *this_ptr, struct LDKThirtyTwoBytes val);
+void OpenChannel_set_temporary_channel_id(struct LDKOpenChannel *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The channel value
  */
-uint64_t OpenChannel_get_funding_satoshis(const struct LDKOpenChannel *this_ptr);
+uint64_t OpenChannel_get_funding_satoshis(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The channel value
  */
-void OpenChannel_set_funding_satoshis(struct LDKOpenChannel *this_ptr, uint64_t val);
+void OpenChannel_set_funding_satoshis(struct LDKOpenChannel *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The amount to push to the counterparty as part of the open, in milli-satoshi
  */
-uint64_t OpenChannel_get_push_msat(const struct LDKOpenChannel *this_ptr);
+uint64_t OpenChannel_get_push_msat(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The amount to push to the counterparty as part of the open, in milli-satoshi
  */
-void OpenChannel_set_push_msat(struct LDKOpenChannel *this_ptr, uint64_t val);
+void OpenChannel_set_push_msat(struct LDKOpenChannel *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The threshold below which outputs on transactions broadcast by sender will be omitted
  */
-uint64_t OpenChannel_get_dust_limit_satoshis(const struct LDKOpenChannel *this_ptr);
+uint64_t OpenChannel_get_dust_limit_satoshis(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The threshold below which outputs on transactions broadcast by sender will be omitted
  */
-void OpenChannel_set_dust_limit_satoshis(struct LDKOpenChannel *this_ptr, uint64_t val);
+void OpenChannel_set_dust_limit_satoshis(struct LDKOpenChannel *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The maximum inbound HTLC value in flight towards sender, in milli-satoshi
  */
-uint64_t OpenChannel_get_max_htlc_value_in_flight_msat(const struct LDKOpenChannel *this_ptr);
+uint64_t OpenChannel_get_max_htlc_value_in_flight_msat(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The maximum inbound HTLC value in flight towards sender, in milli-satoshi
  */
-void OpenChannel_set_max_htlc_value_in_flight_msat(struct LDKOpenChannel *this_ptr, uint64_t val);
+void OpenChannel_set_max_htlc_value_in_flight_msat(struct LDKOpenChannel *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The minimum value unencumbered by HTLCs for the counterparty to keep in the channel
  */
-uint64_t OpenChannel_get_channel_reserve_satoshis(const struct LDKOpenChannel *this_ptr);
+uint64_t OpenChannel_get_channel_reserve_satoshis(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The minimum value unencumbered by HTLCs for the counterparty to keep in the channel
  */
-void OpenChannel_set_channel_reserve_satoshis(struct LDKOpenChannel *this_ptr, uint64_t val);
+void OpenChannel_set_channel_reserve_satoshis(struct LDKOpenChannel *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The minimum HTLC size incoming to sender, in milli-satoshi
  */
-uint64_t OpenChannel_get_htlc_minimum_msat(const struct LDKOpenChannel *this_ptr);
+uint64_t OpenChannel_get_htlc_minimum_msat(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The minimum HTLC size incoming to sender, in milli-satoshi
  */
-void OpenChannel_set_htlc_minimum_msat(struct LDKOpenChannel *this_ptr, uint64_t val);
+void OpenChannel_set_htlc_minimum_msat(struct LDKOpenChannel *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The feerate per 1000-weight of sender generated transactions, until updated by update_fee
  */
-uint32_t OpenChannel_get_feerate_per_kw(const struct LDKOpenChannel *this_ptr);
+uint32_t OpenChannel_get_feerate_per_kw(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The feerate per 1000-weight of sender generated transactions, until updated by update_fee
  */
-void OpenChannel_set_feerate_per_kw(struct LDKOpenChannel *this_ptr, uint32_t val);
+void OpenChannel_set_feerate_per_kw(struct LDKOpenChannel *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * The number of blocks which the counterparty will have to wait to claim on-chain funds if they broadcast a commitment transaction
  */
-uint16_t OpenChannel_get_to_self_delay(const struct LDKOpenChannel *this_ptr);
+uint16_t OpenChannel_get_to_self_delay(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The number of blocks which the counterparty will have to wait to claim on-chain funds if they broadcast a commitment transaction
  */
-void OpenChannel_set_to_self_delay(struct LDKOpenChannel *this_ptr, uint16_t val);
+void OpenChannel_set_to_self_delay(struct LDKOpenChannel *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * The maximum number of inbound HTLCs towards sender
  */
-uint16_t OpenChannel_get_max_accepted_htlcs(const struct LDKOpenChannel *this_ptr);
+uint16_t OpenChannel_get_max_accepted_htlcs(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The maximum number of inbound HTLCs towards sender
  */
-void OpenChannel_set_max_accepted_htlcs(struct LDKOpenChannel *this_ptr, uint16_t val);
+void OpenChannel_set_max_accepted_htlcs(struct LDKOpenChannel *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * The sender's key controlling the funding transaction
  */
-struct LDKPublicKey OpenChannel_get_funding_pubkey(const struct LDKOpenChannel *this_ptr);
+struct LDKPublicKey OpenChannel_get_funding_pubkey(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The sender's key controlling the funding transaction
  */
-void OpenChannel_set_funding_pubkey(struct LDKOpenChannel *this_ptr, struct LDKPublicKey val);
+void OpenChannel_set_funding_pubkey(struct LDKOpenChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Used to derive a revocation key for transactions broadcast by counterparty
  */
-struct LDKPublicKey OpenChannel_get_revocation_basepoint(const struct LDKOpenChannel *this_ptr);
+struct LDKPublicKey OpenChannel_get_revocation_basepoint(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * Used to derive a revocation key for transactions broadcast by counterparty
  */
-void OpenChannel_set_revocation_basepoint(struct LDKOpenChannel *this_ptr, struct LDKPublicKey val);
+void OpenChannel_set_revocation_basepoint(struct LDKOpenChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * A payment key to sender for transactions broadcast by counterparty
  */
-struct LDKPublicKey OpenChannel_get_payment_point(const struct LDKOpenChannel *this_ptr);
+struct LDKPublicKey OpenChannel_get_payment_point(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * A payment key to sender for transactions broadcast by counterparty
  */
-void OpenChannel_set_payment_point(struct LDKOpenChannel *this_ptr, struct LDKPublicKey val);
+void OpenChannel_set_payment_point(struct LDKOpenChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Used to derive a payment key to sender for transactions broadcast by sender
  */
-struct LDKPublicKey OpenChannel_get_delayed_payment_basepoint(const struct LDKOpenChannel *this_ptr);
+struct LDKPublicKey OpenChannel_get_delayed_payment_basepoint(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * Used to derive a payment key to sender for transactions broadcast by sender
  */
-void OpenChannel_set_delayed_payment_basepoint(struct LDKOpenChannel *this_ptr, struct LDKPublicKey val);
+void OpenChannel_set_delayed_payment_basepoint(struct LDKOpenChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Used to derive an HTLC payment key to sender
  */
-struct LDKPublicKey OpenChannel_get_htlc_basepoint(const struct LDKOpenChannel *this_ptr);
+struct LDKPublicKey OpenChannel_get_htlc_basepoint(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * Used to derive an HTLC payment key to sender
  */
-void OpenChannel_set_htlc_basepoint(struct LDKOpenChannel *this_ptr, struct LDKPublicKey val);
+void OpenChannel_set_htlc_basepoint(struct LDKOpenChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The first to-be-broadcast-by-sender transaction's per commitment point
  */
-struct LDKPublicKey OpenChannel_get_first_per_commitment_point(const struct LDKOpenChannel *this_ptr);
+struct LDKPublicKey OpenChannel_get_first_per_commitment_point(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * The first to-be-broadcast-by-sender transaction's per commitment point
  */
-void OpenChannel_set_first_per_commitment_point(struct LDKOpenChannel *this_ptr, struct LDKPublicKey val);
+void OpenChannel_set_first_per_commitment_point(struct LDKOpenChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Channel flags
  */
-uint8_t OpenChannel_get_channel_flags(const struct LDKOpenChannel *this_ptr);
+uint8_t OpenChannel_get_channel_flags(const struct LDKOpenChannel *NONNULL_PTR this_ptr);
 
 /**
  * Channel flags
  */
-void OpenChannel_set_channel_flags(struct LDKOpenChannel *this_ptr, uint8_t val);
+void OpenChannel_set_channel_flags(struct LDKOpenChannel *NONNULL_PTR this_ptr, uint8_t val);
 
 void AcceptChannel_free(struct LDKAcceptChannel this_ptr);
 
-struct LDKAcceptChannel AcceptChannel_clone(const struct LDKAcceptChannel *orig);
+struct LDKAcceptChannel AcceptChannel_clone(const struct LDKAcceptChannel *NONNULL_PTR orig);
 
 /**
  * A temporary channel ID, until the funding outpoint is announced
  */
-const uint8_t (*AcceptChannel_get_temporary_channel_id(const struct LDKAcceptChannel *this_ptr))[32];
+const uint8_t (*AcceptChannel_get_temporary_channel_id(const struct LDKAcceptChannel *NONNULL_PTR this_ptr))[32];
 
 /**
  * A temporary channel ID, until the funding outpoint is announced
  */
-void AcceptChannel_set_temporary_channel_id(struct LDKAcceptChannel *this_ptr, struct LDKThirtyTwoBytes val);
+void AcceptChannel_set_temporary_channel_id(struct LDKAcceptChannel *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The threshold below which outputs on transactions broadcast by sender will be omitted
  */
-uint64_t AcceptChannel_get_dust_limit_satoshis(const struct LDKAcceptChannel *this_ptr);
+uint64_t AcceptChannel_get_dust_limit_satoshis(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * The threshold below which outputs on transactions broadcast by sender will be omitted
  */
-void AcceptChannel_set_dust_limit_satoshis(struct LDKAcceptChannel *this_ptr, uint64_t val);
+void AcceptChannel_set_dust_limit_satoshis(struct LDKAcceptChannel *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The maximum inbound HTLC value in flight towards sender, in milli-satoshi
  */
-uint64_t AcceptChannel_get_max_htlc_value_in_flight_msat(const struct LDKAcceptChannel *this_ptr);
+uint64_t AcceptChannel_get_max_htlc_value_in_flight_msat(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * The maximum inbound HTLC value in flight towards sender, in milli-satoshi
  */
-void AcceptChannel_set_max_htlc_value_in_flight_msat(struct LDKAcceptChannel *this_ptr, uint64_t val);
+void AcceptChannel_set_max_htlc_value_in_flight_msat(struct LDKAcceptChannel *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The minimum value unencumbered by HTLCs for the counterparty to keep in the channel
  */
-uint64_t AcceptChannel_get_channel_reserve_satoshis(const struct LDKAcceptChannel *this_ptr);
+uint64_t AcceptChannel_get_channel_reserve_satoshis(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * The minimum value unencumbered by HTLCs for the counterparty to keep in the channel
  */
-void AcceptChannel_set_channel_reserve_satoshis(struct LDKAcceptChannel *this_ptr, uint64_t val);
+void AcceptChannel_set_channel_reserve_satoshis(struct LDKAcceptChannel *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The minimum HTLC size incoming to sender, in milli-satoshi
  */
-uint64_t AcceptChannel_get_htlc_minimum_msat(const struct LDKAcceptChannel *this_ptr);
+uint64_t AcceptChannel_get_htlc_minimum_msat(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * The minimum HTLC size incoming to sender, in milli-satoshi
  */
-void AcceptChannel_set_htlc_minimum_msat(struct LDKAcceptChannel *this_ptr, uint64_t val);
+void AcceptChannel_set_htlc_minimum_msat(struct LDKAcceptChannel *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * Minimum depth of the funding transaction before the channel is considered open
  */
-uint32_t AcceptChannel_get_minimum_depth(const struct LDKAcceptChannel *this_ptr);
+uint32_t AcceptChannel_get_minimum_depth(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * Minimum depth of the funding transaction before the channel is considered open
  */
-void AcceptChannel_set_minimum_depth(struct LDKAcceptChannel *this_ptr, uint32_t val);
+void AcceptChannel_set_minimum_depth(struct LDKAcceptChannel *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * The number of blocks which the counterparty will have to wait to claim on-chain funds if they broadcast a commitment transaction
  */
-uint16_t AcceptChannel_get_to_self_delay(const struct LDKAcceptChannel *this_ptr);
+uint16_t AcceptChannel_get_to_self_delay(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * The number of blocks which the counterparty will have to wait to claim on-chain funds if they broadcast a commitment transaction
  */
-void AcceptChannel_set_to_self_delay(struct LDKAcceptChannel *this_ptr, uint16_t val);
+void AcceptChannel_set_to_self_delay(struct LDKAcceptChannel *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * The maximum number of inbound HTLCs towards sender
  */
-uint16_t AcceptChannel_get_max_accepted_htlcs(const struct LDKAcceptChannel *this_ptr);
+uint16_t AcceptChannel_get_max_accepted_htlcs(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * The maximum number of inbound HTLCs towards sender
  */
-void AcceptChannel_set_max_accepted_htlcs(struct LDKAcceptChannel *this_ptr, uint16_t val);
+void AcceptChannel_set_max_accepted_htlcs(struct LDKAcceptChannel *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * The sender's key controlling the funding transaction
  */
-struct LDKPublicKey AcceptChannel_get_funding_pubkey(const struct LDKAcceptChannel *this_ptr);
+struct LDKPublicKey AcceptChannel_get_funding_pubkey(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * The sender's key controlling the funding transaction
  */
-void AcceptChannel_set_funding_pubkey(struct LDKAcceptChannel *this_ptr, struct LDKPublicKey val);
+void AcceptChannel_set_funding_pubkey(struct LDKAcceptChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Used to derive a revocation key for transactions broadcast by counterparty
  */
-struct LDKPublicKey AcceptChannel_get_revocation_basepoint(const struct LDKAcceptChannel *this_ptr);
+struct LDKPublicKey AcceptChannel_get_revocation_basepoint(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * Used to derive a revocation key for transactions broadcast by counterparty
  */
-void AcceptChannel_set_revocation_basepoint(struct LDKAcceptChannel *this_ptr, struct LDKPublicKey val);
+void AcceptChannel_set_revocation_basepoint(struct LDKAcceptChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * A payment key to sender for transactions broadcast by counterparty
  */
-struct LDKPublicKey AcceptChannel_get_payment_point(const struct LDKAcceptChannel *this_ptr);
+struct LDKPublicKey AcceptChannel_get_payment_point(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * A payment key to sender for transactions broadcast by counterparty
  */
-void AcceptChannel_set_payment_point(struct LDKAcceptChannel *this_ptr, struct LDKPublicKey val);
+void AcceptChannel_set_payment_point(struct LDKAcceptChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Used to derive a payment key to sender for transactions broadcast by sender
  */
-struct LDKPublicKey AcceptChannel_get_delayed_payment_basepoint(const struct LDKAcceptChannel *this_ptr);
+struct LDKPublicKey AcceptChannel_get_delayed_payment_basepoint(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * Used to derive a payment key to sender for transactions broadcast by sender
  */
-void AcceptChannel_set_delayed_payment_basepoint(struct LDKAcceptChannel *this_ptr, struct LDKPublicKey val);
+void AcceptChannel_set_delayed_payment_basepoint(struct LDKAcceptChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Used to derive an HTLC payment key to sender for transactions broadcast by counterparty
  */
-struct LDKPublicKey AcceptChannel_get_htlc_basepoint(const struct LDKAcceptChannel *this_ptr);
+struct LDKPublicKey AcceptChannel_get_htlc_basepoint(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * Used to derive an HTLC payment key to sender for transactions broadcast by counterparty
  */
-void AcceptChannel_set_htlc_basepoint(struct LDKAcceptChannel *this_ptr, struct LDKPublicKey val);
+void AcceptChannel_set_htlc_basepoint(struct LDKAcceptChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The first to-be-broadcast-by-sender transaction's per commitment point
  */
-struct LDKPublicKey AcceptChannel_get_first_per_commitment_point(const struct LDKAcceptChannel *this_ptr);
+struct LDKPublicKey AcceptChannel_get_first_per_commitment_point(const struct LDKAcceptChannel *NONNULL_PTR this_ptr);
 
 /**
  * The first to-be-broadcast-by-sender transaction's per commitment point
  */
-void AcceptChannel_set_first_per_commitment_point(struct LDKAcceptChannel *this_ptr, struct LDKPublicKey val);
+void AcceptChannel_set_first_per_commitment_point(struct LDKAcceptChannel *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 void FundingCreated_free(struct LDKFundingCreated this_ptr);
 
-struct LDKFundingCreated FundingCreated_clone(const struct LDKFundingCreated *orig);
+struct LDKFundingCreated FundingCreated_clone(const struct LDKFundingCreated *NONNULL_PTR orig);
 
 /**
  * A temporary channel ID, until the funding is established
  */
-const uint8_t (*FundingCreated_get_temporary_channel_id(const struct LDKFundingCreated *this_ptr))[32];
+const uint8_t (*FundingCreated_get_temporary_channel_id(const struct LDKFundingCreated *NONNULL_PTR this_ptr))[32];
 
 /**
  * A temporary channel ID, until the funding is established
  */
-void FundingCreated_set_temporary_channel_id(struct LDKFundingCreated *this_ptr, struct LDKThirtyTwoBytes val);
+void FundingCreated_set_temporary_channel_id(struct LDKFundingCreated *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The funding transaction ID
  */
-const uint8_t (*FundingCreated_get_funding_txid(const struct LDKFundingCreated *this_ptr))[32];
+const uint8_t (*FundingCreated_get_funding_txid(const struct LDKFundingCreated *NONNULL_PTR this_ptr))[32];
 
 /**
  * The funding transaction ID
  */
-void FundingCreated_set_funding_txid(struct LDKFundingCreated *this_ptr, struct LDKThirtyTwoBytes val);
+void FundingCreated_set_funding_txid(struct LDKFundingCreated *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The specific output index funding this channel
  */
-uint16_t FundingCreated_get_funding_output_index(const struct LDKFundingCreated *this_ptr);
+uint16_t FundingCreated_get_funding_output_index(const struct LDKFundingCreated *NONNULL_PTR this_ptr);
 
 /**
  * The specific output index funding this channel
  */
-void FundingCreated_set_funding_output_index(struct LDKFundingCreated *this_ptr, uint16_t val);
+void FundingCreated_set_funding_output_index(struct LDKFundingCreated *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * The signature of the channel initiator (funder) on the funding transaction
  */
-struct LDKSignature FundingCreated_get_signature(const struct LDKFundingCreated *this_ptr);
+struct LDKSignature FundingCreated_get_signature(const struct LDKFundingCreated *NONNULL_PTR this_ptr);
 
 /**
  * The signature of the channel initiator (funder) on the funding transaction
  */
-void FundingCreated_set_signature(struct LDKFundingCreated *this_ptr, struct LDKSignature val);
+void FundingCreated_set_signature(struct LDKFundingCreated *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 MUST_USE_RES struct LDKFundingCreated FundingCreated_new(struct LDKThirtyTwoBytes temporary_channel_id_arg, struct LDKThirtyTwoBytes funding_txid_arg, uint16_t funding_output_index_arg, struct LDKSignature signature_arg);
 
 void FundingSigned_free(struct LDKFundingSigned this_ptr);
 
-struct LDKFundingSigned FundingSigned_clone(const struct LDKFundingSigned *orig);
+struct LDKFundingSigned FundingSigned_clone(const struct LDKFundingSigned *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*FundingSigned_get_channel_id(const struct LDKFundingSigned *this_ptr))[32];
+const uint8_t (*FundingSigned_get_channel_id(const struct LDKFundingSigned *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void FundingSigned_set_channel_id(struct LDKFundingSigned *this_ptr, struct LDKThirtyTwoBytes val);
+void FundingSigned_set_channel_id(struct LDKFundingSigned *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The signature of the channel acceptor (fundee) on the funding transaction
  */
-struct LDKSignature FundingSigned_get_signature(const struct LDKFundingSigned *this_ptr);
+struct LDKSignature FundingSigned_get_signature(const struct LDKFundingSigned *NONNULL_PTR this_ptr);
 
 /**
  * The signature of the channel acceptor (fundee) on the funding transaction
  */
-void FundingSigned_set_signature(struct LDKFundingSigned *this_ptr, struct LDKSignature val);
+void FundingSigned_set_signature(struct LDKFundingSigned *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 MUST_USE_RES struct LDKFundingSigned FundingSigned_new(struct LDKThirtyTwoBytes channel_id_arg, struct LDKSignature signature_arg);
 
 void FundingLocked_free(struct LDKFundingLocked this_ptr);
 
-struct LDKFundingLocked FundingLocked_clone(const struct LDKFundingLocked *orig);
+struct LDKFundingLocked FundingLocked_clone(const struct LDKFundingLocked *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*FundingLocked_get_channel_id(const struct LDKFundingLocked *this_ptr))[32];
+const uint8_t (*FundingLocked_get_channel_id(const struct LDKFundingLocked *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void FundingLocked_set_channel_id(struct LDKFundingLocked *this_ptr, struct LDKThirtyTwoBytes val);
+void FundingLocked_set_channel_id(struct LDKFundingLocked *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The per-commitment point of the second commitment transaction
  */
-struct LDKPublicKey FundingLocked_get_next_per_commitment_point(const struct LDKFundingLocked *this_ptr);
+struct LDKPublicKey FundingLocked_get_next_per_commitment_point(const struct LDKFundingLocked *NONNULL_PTR this_ptr);
 
 /**
  * The per-commitment point of the second commitment transaction
  */
-void FundingLocked_set_next_per_commitment_point(struct LDKFundingLocked *this_ptr, struct LDKPublicKey val);
+void FundingLocked_set_next_per_commitment_point(struct LDKFundingLocked *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 MUST_USE_RES struct LDKFundingLocked FundingLocked_new(struct LDKThirtyTwoBytes channel_id_arg, struct LDKPublicKey next_per_commitment_point_arg);
 
 void Shutdown_free(struct LDKShutdown this_ptr);
 
-struct LDKShutdown Shutdown_clone(const struct LDKShutdown *orig);
+struct LDKShutdown Shutdown_clone(const struct LDKShutdown *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*Shutdown_get_channel_id(const struct LDKShutdown *this_ptr))[32];
+const uint8_t (*Shutdown_get_channel_id(const struct LDKShutdown *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void Shutdown_set_channel_id(struct LDKShutdown *this_ptr, struct LDKThirtyTwoBytes val);
+void Shutdown_set_channel_id(struct LDKShutdown *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The destination of this peer's funds on closing.
  * Must be in one of these forms: p2pkh, p2sh, p2wpkh, p2wsh.
  */
-struct LDKu8slice Shutdown_get_scriptpubkey(const struct LDKShutdown *this_ptr);
+struct LDKu8slice Shutdown_get_scriptpubkey(const struct LDKShutdown *NONNULL_PTR this_ptr);
 
 /**
  * The destination of this peer's funds on closing.
  * Must be in one of these forms: p2pkh, p2sh, p2wpkh, p2wsh.
  */
-void Shutdown_set_scriptpubkey(struct LDKShutdown *this_ptr, LDKCVec_u8Z val);
+void Shutdown_set_scriptpubkey(struct LDKShutdown *NONNULL_PTR this_ptr, LDKCVec_u8Z val);
 
 MUST_USE_RES struct LDKShutdown Shutdown_new(struct LDKThirtyTwoBytes channel_id_arg, LDKCVec_u8Z scriptpubkey_arg);
 
 void ClosingSigned_free(struct LDKClosingSigned this_ptr);
 
-struct LDKClosingSigned ClosingSigned_clone(const struct LDKClosingSigned *orig);
+struct LDKClosingSigned ClosingSigned_clone(const struct LDKClosingSigned *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*ClosingSigned_get_channel_id(const struct LDKClosingSigned *this_ptr))[32];
+const uint8_t (*ClosingSigned_get_channel_id(const struct LDKClosingSigned *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void ClosingSigned_set_channel_id(struct LDKClosingSigned *this_ptr, struct LDKThirtyTwoBytes val);
+void ClosingSigned_set_channel_id(struct LDKClosingSigned *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The proposed total fee for the closing transaction
  */
-uint64_t ClosingSigned_get_fee_satoshis(const struct LDKClosingSigned *this_ptr);
+uint64_t ClosingSigned_get_fee_satoshis(const struct LDKClosingSigned *NONNULL_PTR this_ptr);
 
 /**
  * The proposed total fee for the closing transaction
  */
-void ClosingSigned_set_fee_satoshis(struct LDKClosingSigned *this_ptr, uint64_t val);
+void ClosingSigned_set_fee_satoshis(struct LDKClosingSigned *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * A signature on the closing transaction
  */
-struct LDKSignature ClosingSigned_get_signature(const struct LDKClosingSigned *this_ptr);
+struct LDKSignature ClosingSigned_get_signature(const struct LDKClosingSigned *NONNULL_PTR this_ptr);
 
 /**
  * A signature on the closing transaction
  */
-void ClosingSigned_set_signature(struct LDKClosingSigned *this_ptr, struct LDKSignature val);
+void ClosingSigned_set_signature(struct LDKClosingSigned *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 MUST_USE_RES struct LDKClosingSigned ClosingSigned_new(struct LDKThirtyTwoBytes channel_id_arg, uint64_t fee_satoshis_arg, struct LDKSignature signature_arg);
 
 void UpdateAddHTLC_free(struct LDKUpdateAddHTLC this_ptr);
 
-struct LDKUpdateAddHTLC UpdateAddHTLC_clone(const struct LDKUpdateAddHTLC *orig);
+struct LDKUpdateAddHTLC UpdateAddHTLC_clone(const struct LDKUpdateAddHTLC *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*UpdateAddHTLC_get_channel_id(const struct LDKUpdateAddHTLC *this_ptr))[32];
+const uint8_t (*UpdateAddHTLC_get_channel_id(const struct LDKUpdateAddHTLC *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void UpdateAddHTLC_set_channel_id(struct LDKUpdateAddHTLC *this_ptr, struct LDKThirtyTwoBytes val);
+void UpdateAddHTLC_set_channel_id(struct LDKUpdateAddHTLC *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The HTLC ID
  */
-uint64_t UpdateAddHTLC_get_htlc_id(const struct LDKUpdateAddHTLC *this_ptr);
+uint64_t UpdateAddHTLC_get_htlc_id(const struct LDKUpdateAddHTLC *NONNULL_PTR this_ptr);
 
 /**
  * The HTLC ID
  */
-void UpdateAddHTLC_set_htlc_id(struct LDKUpdateAddHTLC *this_ptr, uint64_t val);
+void UpdateAddHTLC_set_htlc_id(struct LDKUpdateAddHTLC *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The HTLC value in milli-satoshi
  */
-uint64_t UpdateAddHTLC_get_amount_msat(const struct LDKUpdateAddHTLC *this_ptr);
+uint64_t UpdateAddHTLC_get_amount_msat(const struct LDKUpdateAddHTLC *NONNULL_PTR this_ptr);
 
 /**
  * The HTLC value in milli-satoshi
  */
-void UpdateAddHTLC_set_amount_msat(struct LDKUpdateAddHTLC *this_ptr, uint64_t val);
+void UpdateAddHTLC_set_amount_msat(struct LDKUpdateAddHTLC *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The payment hash, the pre-image of which controls HTLC redemption
  */
-const uint8_t (*UpdateAddHTLC_get_payment_hash(const struct LDKUpdateAddHTLC *this_ptr))[32];
+const uint8_t (*UpdateAddHTLC_get_payment_hash(const struct LDKUpdateAddHTLC *NONNULL_PTR this_ptr))[32];
 
 /**
  * The payment hash, the pre-image of which controls HTLC redemption
  */
-void UpdateAddHTLC_set_payment_hash(struct LDKUpdateAddHTLC *this_ptr, struct LDKThirtyTwoBytes val);
+void UpdateAddHTLC_set_payment_hash(struct LDKUpdateAddHTLC *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The expiry height of the HTLC
  */
-uint32_t UpdateAddHTLC_get_cltv_expiry(const struct LDKUpdateAddHTLC *this_ptr);
+uint32_t UpdateAddHTLC_get_cltv_expiry(const struct LDKUpdateAddHTLC *NONNULL_PTR this_ptr);
 
 /**
  * The expiry height of the HTLC
  */
-void UpdateAddHTLC_set_cltv_expiry(struct LDKUpdateAddHTLC *this_ptr, uint32_t val);
+void UpdateAddHTLC_set_cltv_expiry(struct LDKUpdateAddHTLC *NONNULL_PTR this_ptr, uint32_t val);
 
 void UpdateFulfillHTLC_free(struct LDKUpdateFulfillHTLC this_ptr);
 
-struct LDKUpdateFulfillHTLC UpdateFulfillHTLC_clone(const struct LDKUpdateFulfillHTLC *orig);
+struct LDKUpdateFulfillHTLC UpdateFulfillHTLC_clone(const struct LDKUpdateFulfillHTLC *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*UpdateFulfillHTLC_get_channel_id(const struct LDKUpdateFulfillHTLC *this_ptr))[32];
+const uint8_t (*UpdateFulfillHTLC_get_channel_id(const struct LDKUpdateFulfillHTLC *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void UpdateFulfillHTLC_set_channel_id(struct LDKUpdateFulfillHTLC *this_ptr, struct LDKThirtyTwoBytes val);
+void UpdateFulfillHTLC_set_channel_id(struct LDKUpdateFulfillHTLC *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The HTLC ID
  */
-uint64_t UpdateFulfillHTLC_get_htlc_id(const struct LDKUpdateFulfillHTLC *this_ptr);
+uint64_t UpdateFulfillHTLC_get_htlc_id(const struct LDKUpdateFulfillHTLC *NONNULL_PTR this_ptr);
 
 /**
  * The HTLC ID
  */
-void UpdateFulfillHTLC_set_htlc_id(struct LDKUpdateFulfillHTLC *this_ptr, uint64_t val);
+void UpdateFulfillHTLC_set_htlc_id(struct LDKUpdateFulfillHTLC *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The pre-image of the payment hash, allowing HTLC redemption
  */
-const uint8_t (*UpdateFulfillHTLC_get_payment_preimage(const struct LDKUpdateFulfillHTLC *this_ptr))[32];
+const uint8_t (*UpdateFulfillHTLC_get_payment_preimage(const struct LDKUpdateFulfillHTLC *NONNULL_PTR this_ptr))[32];
 
 /**
  * The pre-image of the payment hash, allowing HTLC redemption
  */
-void UpdateFulfillHTLC_set_payment_preimage(struct LDKUpdateFulfillHTLC *this_ptr, struct LDKThirtyTwoBytes val);
+void UpdateFulfillHTLC_set_payment_preimage(struct LDKUpdateFulfillHTLC *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 MUST_USE_RES struct LDKUpdateFulfillHTLC UpdateFulfillHTLC_new(struct LDKThirtyTwoBytes channel_id_arg, uint64_t htlc_id_arg, struct LDKThirtyTwoBytes payment_preimage_arg);
 
 void UpdateFailHTLC_free(struct LDKUpdateFailHTLC this_ptr);
 
-struct LDKUpdateFailHTLC UpdateFailHTLC_clone(const struct LDKUpdateFailHTLC *orig);
+struct LDKUpdateFailHTLC UpdateFailHTLC_clone(const struct LDKUpdateFailHTLC *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*UpdateFailHTLC_get_channel_id(const struct LDKUpdateFailHTLC *this_ptr))[32];
+const uint8_t (*UpdateFailHTLC_get_channel_id(const struct LDKUpdateFailHTLC *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void UpdateFailHTLC_set_channel_id(struct LDKUpdateFailHTLC *this_ptr, struct LDKThirtyTwoBytes val);
+void UpdateFailHTLC_set_channel_id(struct LDKUpdateFailHTLC *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The HTLC ID
  */
-uint64_t UpdateFailHTLC_get_htlc_id(const struct LDKUpdateFailHTLC *this_ptr);
+uint64_t UpdateFailHTLC_get_htlc_id(const struct LDKUpdateFailHTLC *NONNULL_PTR this_ptr);
 
 /**
  * The HTLC ID
  */
-void UpdateFailHTLC_set_htlc_id(struct LDKUpdateFailHTLC *this_ptr, uint64_t val);
+void UpdateFailHTLC_set_htlc_id(struct LDKUpdateFailHTLC *NONNULL_PTR this_ptr, uint64_t val);
 
 void UpdateFailMalformedHTLC_free(struct LDKUpdateFailMalformedHTLC this_ptr);
 
-struct LDKUpdateFailMalformedHTLC UpdateFailMalformedHTLC_clone(const struct LDKUpdateFailMalformedHTLC *orig);
+struct LDKUpdateFailMalformedHTLC UpdateFailMalformedHTLC_clone(const struct LDKUpdateFailMalformedHTLC *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*UpdateFailMalformedHTLC_get_channel_id(const struct LDKUpdateFailMalformedHTLC *this_ptr))[32];
+const uint8_t (*UpdateFailMalformedHTLC_get_channel_id(const struct LDKUpdateFailMalformedHTLC *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void UpdateFailMalformedHTLC_set_channel_id(struct LDKUpdateFailMalformedHTLC *this_ptr, struct LDKThirtyTwoBytes val);
+void UpdateFailMalformedHTLC_set_channel_id(struct LDKUpdateFailMalformedHTLC *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The HTLC ID
  */
-uint64_t UpdateFailMalformedHTLC_get_htlc_id(const struct LDKUpdateFailMalformedHTLC *this_ptr);
+uint64_t UpdateFailMalformedHTLC_get_htlc_id(const struct LDKUpdateFailMalformedHTLC *NONNULL_PTR this_ptr);
 
 /**
  * The HTLC ID
  */
-void UpdateFailMalformedHTLC_set_htlc_id(struct LDKUpdateFailMalformedHTLC *this_ptr, uint64_t val);
+void UpdateFailMalformedHTLC_set_htlc_id(struct LDKUpdateFailMalformedHTLC *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The failure code
  */
-uint16_t UpdateFailMalformedHTLC_get_failure_code(const struct LDKUpdateFailMalformedHTLC *this_ptr);
+uint16_t UpdateFailMalformedHTLC_get_failure_code(const struct LDKUpdateFailMalformedHTLC *NONNULL_PTR this_ptr);
 
 /**
  * The failure code
  */
-void UpdateFailMalformedHTLC_set_failure_code(struct LDKUpdateFailMalformedHTLC *this_ptr, uint16_t val);
+void UpdateFailMalformedHTLC_set_failure_code(struct LDKUpdateFailMalformedHTLC *NONNULL_PTR this_ptr, uint16_t val);
 
 void CommitmentSigned_free(struct LDKCommitmentSigned this_ptr);
 
-struct LDKCommitmentSigned CommitmentSigned_clone(const struct LDKCommitmentSigned *orig);
+struct LDKCommitmentSigned CommitmentSigned_clone(const struct LDKCommitmentSigned *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*CommitmentSigned_get_channel_id(const struct LDKCommitmentSigned *this_ptr))[32];
+const uint8_t (*CommitmentSigned_get_channel_id(const struct LDKCommitmentSigned *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void CommitmentSigned_set_channel_id(struct LDKCommitmentSigned *this_ptr, struct LDKThirtyTwoBytes val);
+void CommitmentSigned_set_channel_id(struct LDKCommitmentSigned *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * A signature on the commitment transaction
  */
-struct LDKSignature CommitmentSigned_get_signature(const struct LDKCommitmentSigned *this_ptr);
+struct LDKSignature CommitmentSigned_get_signature(const struct LDKCommitmentSigned *NONNULL_PTR this_ptr);
 
 /**
  * A signature on the commitment transaction
  */
-void CommitmentSigned_set_signature(struct LDKCommitmentSigned *this_ptr, struct LDKSignature val);
+void CommitmentSigned_set_signature(struct LDKCommitmentSigned *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 /**
  * Signatures on the HTLC transactions
  */
-void CommitmentSigned_set_htlc_signatures(struct LDKCommitmentSigned *this_ptr, LDKCVec_SignatureZ val);
+void CommitmentSigned_set_htlc_signatures(struct LDKCommitmentSigned *NONNULL_PTR this_ptr, LDKCVec_SignatureZ val);
 
 MUST_USE_RES struct LDKCommitmentSigned CommitmentSigned_new(struct LDKThirtyTwoBytes channel_id_arg, struct LDKSignature signature_arg, LDKCVec_SignatureZ htlc_signatures_arg);
 
 void RevokeAndACK_free(struct LDKRevokeAndACK this_ptr);
 
-struct LDKRevokeAndACK RevokeAndACK_clone(const struct LDKRevokeAndACK *orig);
+struct LDKRevokeAndACK RevokeAndACK_clone(const struct LDKRevokeAndACK *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*RevokeAndACK_get_channel_id(const struct LDKRevokeAndACK *this_ptr))[32];
+const uint8_t (*RevokeAndACK_get_channel_id(const struct LDKRevokeAndACK *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void RevokeAndACK_set_channel_id(struct LDKRevokeAndACK *this_ptr, struct LDKThirtyTwoBytes val);
+void RevokeAndACK_set_channel_id(struct LDKRevokeAndACK *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The secret corresponding to the per-commitment point
  */
-const uint8_t (*RevokeAndACK_get_per_commitment_secret(const struct LDKRevokeAndACK *this_ptr))[32];
+const uint8_t (*RevokeAndACK_get_per_commitment_secret(const struct LDKRevokeAndACK *NONNULL_PTR this_ptr))[32];
 
 /**
  * The secret corresponding to the per-commitment point
  */
-void RevokeAndACK_set_per_commitment_secret(struct LDKRevokeAndACK *this_ptr, struct LDKThirtyTwoBytes val);
+void RevokeAndACK_set_per_commitment_secret(struct LDKRevokeAndACK *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The next sender-broadcast commitment transaction's per-commitment point
  */
-struct LDKPublicKey RevokeAndACK_get_next_per_commitment_point(const struct LDKRevokeAndACK *this_ptr);
+struct LDKPublicKey RevokeAndACK_get_next_per_commitment_point(const struct LDKRevokeAndACK *NONNULL_PTR this_ptr);
 
 /**
  * The next sender-broadcast commitment transaction's per-commitment point
  */
-void RevokeAndACK_set_next_per_commitment_point(struct LDKRevokeAndACK *this_ptr, struct LDKPublicKey val);
+void RevokeAndACK_set_next_per_commitment_point(struct LDKRevokeAndACK *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 MUST_USE_RES struct LDKRevokeAndACK RevokeAndACK_new(struct LDKThirtyTwoBytes channel_id_arg, struct LDKThirtyTwoBytes per_commitment_secret_arg, struct LDKPublicKey next_per_commitment_point_arg);
 
 void UpdateFee_free(struct LDKUpdateFee this_ptr);
 
-struct LDKUpdateFee UpdateFee_clone(const struct LDKUpdateFee *orig);
+struct LDKUpdateFee UpdateFee_clone(const struct LDKUpdateFee *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*UpdateFee_get_channel_id(const struct LDKUpdateFee *this_ptr))[32];
+const uint8_t (*UpdateFee_get_channel_id(const struct LDKUpdateFee *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void UpdateFee_set_channel_id(struct LDKUpdateFee *this_ptr, struct LDKThirtyTwoBytes val);
+void UpdateFee_set_channel_id(struct LDKUpdateFee *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * Fee rate per 1000-weight of the transaction
  */
-uint32_t UpdateFee_get_feerate_per_kw(const struct LDKUpdateFee *this_ptr);
+uint32_t UpdateFee_get_feerate_per_kw(const struct LDKUpdateFee *NONNULL_PTR this_ptr);
 
 /**
  * Fee rate per 1000-weight of the transaction
  */
-void UpdateFee_set_feerate_per_kw(struct LDKUpdateFee *this_ptr, uint32_t val);
+void UpdateFee_set_feerate_per_kw(struct LDKUpdateFee *NONNULL_PTR this_ptr, uint32_t val);
 
 MUST_USE_RES struct LDKUpdateFee UpdateFee_new(struct LDKThirtyTwoBytes channel_id_arg, uint32_t feerate_per_kw_arg);
 
 void DataLossProtect_free(struct LDKDataLossProtect this_ptr);
 
-struct LDKDataLossProtect DataLossProtect_clone(const struct LDKDataLossProtect *orig);
+struct LDKDataLossProtect DataLossProtect_clone(const struct LDKDataLossProtect *NONNULL_PTR orig);
 
 /**
  * Proof that the sender knows the per-commitment secret of a specific commitment transaction
  * belonging to the recipient
  */
-const uint8_t (*DataLossProtect_get_your_last_per_commitment_secret(const struct LDKDataLossProtect *this_ptr))[32];
+const uint8_t (*DataLossProtect_get_your_last_per_commitment_secret(const struct LDKDataLossProtect *NONNULL_PTR this_ptr))[32];
 
 /**
  * Proof that the sender knows the per-commitment secret of a specific commitment transaction
  * belonging to the recipient
  */
-void DataLossProtect_set_your_last_per_commitment_secret(struct LDKDataLossProtect *this_ptr, struct LDKThirtyTwoBytes val);
+void DataLossProtect_set_your_last_per_commitment_secret(struct LDKDataLossProtect *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The sender's per-commitment point for their current commitment transaction
  */
-struct LDKPublicKey DataLossProtect_get_my_current_per_commitment_point(const struct LDKDataLossProtect *this_ptr);
+struct LDKPublicKey DataLossProtect_get_my_current_per_commitment_point(const struct LDKDataLossProtect *NONNULL_PTR this_ptr);
 
 /**
  * The sender's per-commitment point for their current commitment transaction
  */
-void DataLossProtect_set_my_current_per_commitment_point(struct LDKDataLossProtect *this_ptr, struct LDKPublicKey val);
+void DataLossProtect_set_my_current_per_commitment_point(struct LDKDataLossProtect *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 MUST_USE_RES struct LDKDataLossProtect DataLossProtect_new(struct LDKThirtyTwoBytes your_last_per_commitment_secret_arg, struct LDKPublicKey my_current_per_commitment_point_arg);
 
 void ChannelReestablish_free(struct LDKChannelReestablish this_ptr);
 
-struct LDKChannelReestablish ChannelReestablish_clone(const struct LDKChannelReestablish *orig);
+struct LDKChannelReestablish ChannelReestablish_clone(const struct LDKChannelReestablish *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*ChannelReestablish_get_channel_id(const struct LDKChannelReestablish *this_ptr))[32];
+const uint8_t (*ChannelReestablish_get_channel_id(const struct LDKChannelReestablish *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void ChannelReestablish_set_channel_id(struct LDKChannelReestablish *this_ptr, struct LDKThirtyTwoBytes val);
+void ChannelReestablish_set_channel_id(struct LDKChannelReestablish *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The next commitment number for the sender
  */
-uint64_t ChannelReestablish_get_next_local_commitment_number(const struct LDKChannelReestablish *this_ptr);
+uint64_t ChannelReestablish_get_next_local_commitment_number(const struct LDKChannelReestablish *NONNULL_PTR this_ptr);
 
 /**
  * The next commitment number for the sender
  */
-void ChannelReestablish_set_next_local_commitment_number(struct LDKChannelReestablish *this_ptr, uint64_t val);
+void ChannelReestablish_set_next_local_commitment_number(struct LDKChannelReestablish *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The next commitment number for the recipient
  */
-uint64_t ChannelReestablish_get_next_remote_commitment_number(const struct LDKChannelReestablish *this_ptr);
+uint64_t ChannelReestablish_get_next_remote_commitment_number(const struct LDKChannelReestablish *NONNULL_PTR this_ptr);
 
 /**
  * The next commitment number for the recipient
  */
-void ChannelReestablish_set_next_remote_commitment_number(struct LDKChannelReestablish *this_ptr, uint64_t val);
+void ChannelReestablish_set_next_remote_commitment_number(struct LDKChannelReestablish *NONNULL_PTR this_ptr, uint64_t val);
 
 void AnnouncementSignatures_free(struct LDKAnnouncementSignatures this_ptr);
 
-struct LDKAnnouncementSignatures AnnouncementSignatures_clone(const struct LDKAnnouncementSignatures *orig);
+struct LDKAnnouncementSignatures AnnouncementSignatures_clone(const struct LDKAnnouncementSignatures *NONNULL_PTR orig);
 
 /**
  * The channel ID
  */
-const uint8_t (*AnnouncementSignatures_get_channel_id(const struct LDKAnnouncementSignatures *this_ptr))[32];
+const uint8_t (*AnnouncementSignatures_get_channel_id(const struct LDKAnnouncementSignatures *NONNULL_PTR this_ptr))[32];
 
 /**
  * The channel ID
  */
-void AnnouncementSignatures_set_channel_id(struct LDKAnnouncementSignatures *this_ptr, struct LDKThirtyTwoBytes val);
+void AnnouncementSignatures_set_channel_id(struct LDKAnnouncementSignatures *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The short channel ID
  */
-uint64_t AnnouncementSignatures_get_short_channel_id(const struct LDKAnnouncementSignatures *this_ptr);
+uint64_t AnnouncementSignatures_get_short_channel_id(const struct LDKAnnouncementSignatures *NONNULL_PTR this_ptr);
 
 /**
  * The short channel ID
  */
-void AnnouncementSignatures_set_short_channel_id(struct LDKAnnouncementSignatures *this_ptr, uint64_t val);
+void AnnouncementSignatures_set_short_channel_id(struct LDKAnnouncementSignatures *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * A signature by the node key
  */
-struct LDKSignature AnnouncementSignatures_get_node_signature(const struct LDKAnnouncementSignatures *this_ptr);
+struct LDKSignature AnnouncementSignatures_get_node_signature(const struct LDKAnnouncementSignatures *NONNULL_PTR this_ptr);
 
 /**
  * A signature by the node key
  */
-void AnnouncementSignatures_set_node_signature(struct LDKAnnouncementSignatures *this_ptr, struct LDKSignature val);
+void AnnouncementSignatures_set_node_signature(struct LDKAnnouncementSignatures *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 /**
  * A signature by the funding key
  */
-struct LDKSignature AnnouncementSignatures_get_bitcoin_signature(const struct LDKAnnouncementSignatures *this_ptr);
+struct LDKSignature AnnouncementSignatures_get_bitcoin_signature(const struct LDKAnnouncementSignatures *NONNULL_PTR this_ptr);
 
 /**
  * A signature by the funding key
  */
-void AnnouncementSignatures_set_bitcoin_signature(struct LDKAnnouncementSignatures *this_ptr, struct LDKSignature val);
+void AnnouncementSignatures_set_bitcoin_signature(struct LDKAnnouncementSignatures *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 MUST_USE_RES struct LDKAnnouncementSignatures AnnouncementSignatures_new(struct LDKThirtyTwoBytes channel_id_arg, uint64_t short_channel_id_arg, struct LDKSignature node_signature_arg, struct LDKSignature bitcoin_signature_arg);
 
 void NetAddress_free(struct LDKNetAddress this_ptr);
 
-struct LDKNetAddress NetAddress_clone(const struct LDKNetAddress *orig);
+struct LDKNetAddress NetAddress_clone(const struct LDKNetAddress *NONNULL_PTR orig);
 
 LDKCVec_u8Z NetAddress_write(const struct LDKNetAddress *obj);
 
@@ -6198,584 +6198,584 @@ LDKCResult_CResult_NetAddressu8ZDecodeErrorZ Result_read(struct LDKu8slice ser);
 
 void UnsignedNodeAnnouncement_free(struct LDKUnsignedNodeAnnouncement this_ptr);
 
-struct LDKUnsignedNodeAnnouncement UnsignedNodeAnnouncement_clone(const struct LDKUnsignedNodeAnnouncement *orig);
+struct LDKUnsignedNodeAnnouncement UnsignedNodeAnnouncement_clone(const struct LDKUnsignedNodeAnnouncement *NONNULL_PTR orig);
 
 /**
  * The advertised features
  */
-struct LDKNodeFeatures UnsignedNodeAnnouncement_get_features(const struct LDKUnsignedNodeAnnouncement *this_ptr);
+struct LDKNodeFeatures UnsignedNodeAnnouncement_get_features(const struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * The advertised features
  */
-void UnsignedNodeAnnouncement_set_features(struct LDKUnsignedNodeAnnouncement *this_ptr, struct LDKNodeFeatures val);
+void UnsignedNodeAnnouncement_set_features(struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr, struct LDKNodeFeatures val);
 
 /**
  * A strictly monotonic announcement counter, with gaps allowed
  */
-uint32_t UnsignedNodeAnnouncement_get_timestamp(const struct LDKUnsignedNodeAnnouncement *this_ptr);
+uint32_t UnsignedNodeAnnouncement_get_timestamp(const struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * A strictly monotonic announcement counter, with gaps allowed
  */
-void UnsignedNodeAnnouncement_set_timestamp(struct LDKUnsignedNodeAnnouncement *this_ptr, uint32_t val);
+void UnsignedNodeAnnouncement_set_timestamp(struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * The node_id this announcement originated from (don't rebroadcast the node_announcement back
  * to this node).
  */
-struct LDKPublicKey UnsignedNodeAnnouncement_get_node_id(const struct LDKUnsignedNodeAnnouncement *this_ptr);
+struct LDKPublicKey UnsignedNodeAnnouncement_get_node_id(const struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * The node_id this announcement originated from (don't rebroadcast the node_announcement back
  * to this node).
  */
-void UnsignedNodeAnnouncement_set_node_id(struct LDKUnsignedNodeAnnouncement *this_ptr, struct LDKPublicKey val);
+void UnsignedNodeAnnouncement_set_node_id(struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * An RGB color for UI purposes
  */
-const uint8_t (*UnsignedNodeAnnouncement_get_rgb(const struct LDKUnsignedNodeAnnouncement *this_ptr))[3];
+const uint8_t (*UnsignedNodeAnnouncement_get_rgb(const struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr))[3];
 
 /**
  * An RGB color for UI purposes
  */
-void UnsignedNodeAnnouncement_set_rgb(struct LDKUnsignedNodeAnnouncement *this_ptr, struct LDKThreeBytes val);
+void UnsignedNodeAnnouncement_set_rgb(struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr, struct LDKThreeBytes val);
 
 /**
  * An alias, for UI purposes.  This should be sanitized before use.  There is no guarantee
  * of uniqueness.
  */
-const uint8_t (*UnsignedNodeAnnouncement_get_alias(const struct LDKUnsignedNodeAnnouncement *this_ptr))[32];
+const uint8_t (*UnsignedNodeAnnouncement_get_alias(const struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr))[32];
 
 /**
  * An alias, for UI purposes.  This should be sanitized before use.  There is no guarantee
  * of uniqueness.
  */
-void UnsignedNodeAnnouncement_set_alias(struct LDKUnsignedNodeAnnouncement *this_ptr, struct LDKThirtyTwoBytes val);
+void UnsignedNodeAnnouncement_set_alias(struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * List of addresses on which this node is reachable
  */
-void UnsignedNodeAnnouncement_set_addresses(struct LDKUnsignedNodeAnnouncement *this_ptr, LDKCVec_NetAddressZ val);
+void UnsignedNodeAnnouncement_set_addresses(struct LDKUnsignedNodeAnnouncement *NONNULL_PTR this_ptr, LDKCVec_NetAddressZ val);
 
 void NodeAnnouncement_free(struct LDKNodeAnnouncement this_ptr);
 
-struct LDKNodeAnnouncement NodeAnnouncement_clone(const struct LDKNodeAnnouncement *orig);
+struct LDKNodeAnnouncement NodeAnnouncement_clone(const struct LDKNodeAnnouncement *NONNULL_PTR orig);
 
 /**
  * The signature by the node key
  */
-struct LDKSignature NodeAnnouncement_get_signature(const struct LDKNodeAnnouncement *this_ptr);
+struct LDKSignature NodeAnnouncement_get_signature(const struct LDKNodeAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * The signature by the node key
  */
-void NodeAnnouncement_set_signature(struct LDKNodeAnnouncement *this_ptr, struct LDKSignature val);
+void NodeAnnouncement_set_signature(struct LDKNodeAnnouncement *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 /**
  * The actual content of the announcement
  */
-struct LDKUnsignedNodeAnnouncement NodeAnnouncement_get_contents(const struct LDKNodeAnnouncement *this_ptr);
+struct LDKUnsignedNodeAnnouncement NodeAnnouncement_get_contents(const struct LDKNodeAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * The actual content of the announcement
  */
-void NodeAnnouncement_set_contents(struct LDKNodeAnnouncement *this_ptr, struct LDKUnsignedNodeAnnouncement val);
+void NodeAnnouncement_set_contents(struct LDKNodeAnnouncement *NONNULL_PTR this_ptr, struct LDKUnsignedNodeAnnouncement val);
 
 MUST_USE_RES struct LDKNodeAnnouncement NodeAnnouncement_new(struct LDKSignature signature_arg, struct LDKUnsignedNodeAnnouncement contents_arg);
 
 void UnsignedChannelAnnouncement_free(struct LDKUnsignedChannelAnnouncement this_ptr);
 
-struct LDKUnsignedChannelAnnouncement UnsignedChannelAnnouncement_clone(const struct LDKUnsignedChannelAnnouncement *orig);
+struct LDKUnsignedChannelAnnouncement UnsignedChannelAnnouncement_clone(const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR orig);
 
 /**
  * The advertised channel features
  */
-struct LDKChannelFeatures UnsignedChannelAnnouncement_get_features(const struct LDKUnsignedChannelAnnouncement *this_ptr);
+struct LDKChannelFeatures UnsignedChannelAnnouncement_get_features(const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * The advertised channel features
  */
-void UnsignedChannelAnnouncement_set_features(struct LDKUnsignedChannelAnnouncement *this_ptr, struct LDKChannelFeatures val);
+void UnsignedChannelAnnouncement_set_features(struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKChannelFeatures val);
 
 /**
  * The genesis hash of the blockchain where the channel is to be opened
  */
-const uint8_t (*UnsignedChannelAnnouncement_get_chain_hash(const struct LDKUnsignedChannelAnnouncement *this_ptr))[32];
+const uint8_t (*UnsignedChannelAnnouncement_get_chain_hash(const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr))[32];
 
 /**
  * The genesis hash of the blockchain where the channel is to be opened
  */
-void UnsignedChannelAnnouncement_set_chain_hash(struct LDKUnsignedChannelAnnouncement *this_ptr, struct LDKThirtyTwoBytes val);
+void UnsignedChannelAnnouncement_set_chain_hash(struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The short channel ID
  */
-uint64_t UnsignedChannelAnnouncement_get_short_channel_id(const struct LDKUnsignedChannelAnnouncement *this_ptr);
+uint64_t UnsignedChannelAnnouncement_get_short_channel_id(const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * The short channel ID
  */
-void UnsignedChannelAnnouncement_set_short_channel_id(struct LDKUnsignedChannelAnnouncement *this_ptr, uint64_t val);
+void UnsignedChannelAnnouncement_set_short_channel_id(struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * One of the two node_ids which are endpoints of this channel
  */
-struct LDKPublicKey UnsignedChannelAnnouncement_get_node_id_1(const struct LDKUnsignedChannelAnnouncement *this_ptr);
+struct LDKPublicKey UnsignedChannelAnnouncement_get_node_id_1(const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * One of the two node_ids which are endpoints of this channel
  */
-void UnsignedChannelAnnouncement_set_node_id_1(struct LDKUnsignedChannelAnnouncement *this_ptr, struct LDKPublicKey val);
+void UnsignedChannelAnnouncement_set_node_id_1(struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The other of the two node_ids which are endpoints of this channel
  */
-struct LDKPublicKey UnsignedChannelAnnouncement_get_node_id_2(const struct LDKUnsignedChannelAnnouncement *this_ptr);
+struct LDKPublicKey UnsignedChannelAnnouncement_get_node_id_2(const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * The other of the two node_ids which are endpoints of this channel
  */
-void UnsignedChannelAnnouncement_set_node_id_2(struct LDKUnsignedChannelAnnouncement *this_ptr, struct LDKPublicKey val);
+void UnsignedChannelAnnouncement_set_node_id_2(struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The funding key for the first node
  */
-struct LDKPublicKey UnsignedChannelAnnouncement_get_bitcoin_key_1(const struct LDKUnsignedChannelAnnouncement *this_ptr);
+struct LDKPublicKey UnsignedChannelAnnouncement_get_bitcoin_key_1(const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * The funding key for the first node
  */
-void UnsignedChannelAnnouncement_set_bitcoin_key_1(struct LDKUnsignedChannelAnnouncement *this_ptr, struct LDKPublicKey val);
+void UnsignedChannelAnnouncement_set_bitcoin_key_1(struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The funding key for the second node
  */
-struct LDKPublicKey UnsignedChannelAnnouncement_get_bitcoin_key_2(const struct LDKUnsignedChannelAnnouncement *this_ptr);
+struct LDKPublicKey UnsignedChannelAnnouncement_get_bitcoin_key_2(const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * The funding key for the second node
  */
-void UnsignedChannelAnnouncement_set_bitcoin_key_2(struct LDKUnsignedChannelAnnouncement *this_ptr, struct LDKPublicKey val);
+void UnsignedChannelAnnouncement_set_bitcoin_key_2(struct LDKUnsignedChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 void ChannelAnnouncement_free(struct LDKChannelAnnouncement this_ptr);
 
-struct LDKChannelAnnouncement ChannelAnnouncement_clone(const struct LDKChannelAnnouncement *orig);
+struct LDKChannelAnnouncement ChannelAnnouncement_clone(const struct LDKChannelAnnouncement *NONNULL_PTR orig);
 
 /**
  * Authentication of the announcement by the first public node
  */
-struct LDKSignature ChannelAnnouncement_get_node_signature_1(const struct LDKChannelAnnouncement *this_ptr);
+struct LDKSignature ChannelAnnouncement_get_node_signature_1(const struct LDKChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * Authentication of the announcement by the first public node
  */
-void ChannelAnnouncement_set_node_signature_1(struct LDKChannelAnnouncement *this_ptr, struct LDKSignature val);
+void ChannelAnnouncement_set_node_signature_1(struct LDKChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 /**
  * Authentication of the announcement by the second public node
  */
-struct LDKSignature ChannelAnnouncement_get_node_signature_2(const struct LDKChannelAnnouncement *this_ptr);
+struct LDKSignature ChannelAnnouncement_get_node_signature_2(const struct LDKChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * Authentication of the announcement by the second public node
  */
-void ChannelAnnouncement_set_node_signature_2(struct LDKChannelAnnouncement *this_ptr, struct LDKSignature val);
+void ChannelAnnouncement_set_node_signature_2(struct LDKChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 /**
  * Proof of funding UTXO ownership by the first public node
  */
-struct LDKSignature ChannelAnnouncement_get_bitcoin_signature_1(const struct LDKChannelAnnouncement *this_ptr);
+struct LDKSignature ChannelAnnouncement_get_bitcoin_signature_1(const struct LDKChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * Proof of funding UTXO ownership by the first public node
  */
-void ChannelAnnouncement_set_bitcoin_signature_1(struct LDKChannelAnnouncement *this_ptr, struct LDKSignature val);
+void ChannelAnnouncement_set_bitcoin_signature_1(struct LDKChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 /**
  * Proof of funding UTXO ownership by the second public node
  */
-struct LDKSignature ChannelAnnouncement_get_bitcoin_signature_2(const struct LDKChannelAnnouncement *this_ptr);
+struct LDKSignature ChannelAnnouncement_get_bitcoin_signature_2(const struct LDKChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * Proof of funding UTXO ownership by the second public node
  */
-void ChannelAnnouncement_set_bitcoin_signature_2(struct LDKChannelAnnouncement *this_ptr, struct LDKSignature val);
+void ChannelAnnouncement_set_bitcoin_signature_2(struct LDKChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 /**
  * The actual announcement
  */
-struct LDKUnsignedChannelAnnouncement ChannelAnnouncement_get_contents(const struct LDKChannelAnnouncement *this_ptr);
+struct LDKUnsignedChannelAnnouncement ChannelAnnouncement_get_contents(const struct LDKChannelAnnouncement *NONNULL_PTR this_ptr);
 
 /**
  * The actual announcement
  */
-void ChannelAnnouncement_set_contents(struct LDKChannelAnnouncement *this_ptr, struct LDKUnsignedChannelAnnouncement val);
+void ChannelAnnouncement_set_contents(struct LDKChannelAnnouncement *NONNULL_PTR this_ptr, struct LDKUnsignedChannelAnnouncement val);
 
 MUST_USE_RES struct LDKChannelAnnouncement ChannelAnnouncement_new(struct LDKSignature node_signature_1_arg, struct LDKSignature node_signature_2_arg, struct LDKSignature bitcoin_signature_1_arg, struct LDKSignature bitcoin_signature_2_arg, struct LDKUnsignedChannelAnnouncement contents_arg);
 
 void UnsignedChannelUpdate_free(struct LDKUnsignedChannelUpdate this_ptr);
 
-struct LDKUnsignedChannelUpdate UnsignedChannelUpdate_clone(const struct LDKUnsignedChannelUpdate *orig);
+struct LDKUnsignedChannelUpdate UnsignedChannelUpdate_clone(const struct LDKUnsignedChannelUpdate *NONNULL_PTR orig);
 
 /**
  * The genesis hash of the blockchain where the channel is to be opened
  */
-const uint8_t (*UnsignedChannelUpdate_get_chain_hash(const struct LDKUnsignedChannelUpdate *this_ptr))[32];
+const uint8_t (*UnsignedChannelUpdate_get_chain_hash(const struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr))[32];
 
 /**
  * The genesis hash of the blockchain where the channel is to be opened
  */
-void UnsignedChannelUpdate_set_chain_hash(struct LDKUnsignedChannelUpdate *this_ptr, struct LDKThirtyTwoBytes val);
+void UnsignedChannelUpdate_set_chain_hash(struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The short channel ID
  */
-uint64_t UnsignedChannelUpdate_get_short_channel_id(const struct LDKUnsignedChannelUpdate *this_ptr);
+uint64_t UnsignedChannelUpdate_get_short_channel_id(const struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr);
 
 /**
  * The short channel ID
  */
-void UnsignedChannelUpdate_set_short_channel_id(struct LDKUnsignedChannelUpdate *this_ptr, uint64_t val);
+void UnsignedChannelUpdate_set_short_channel_id(struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * A strictly monotonic announcement counter, with gaps allowed, specific to this channel
  */
-uint32_t UnsignedChannelUpdate_get_timestamp(const struct LDKUnsignedChannelUpdate *this_ptr);
+uint32_t UnsignedChannelUpdate_get_timestamp(const struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr);
 
 /**
  * A strictly monotonic announcement counter, with gaps allowed, specific to this channel
  */
-void UnsignedChannelUpdate_set_timestamp(struct LDKUnsignedChannelUpdate *this_ptr, uint32_t val);
+void UnsignedChannelUpdate_set_timestamp(struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * Channel flags
  */
-uint8_t UnsignedChannelUpdate_get_flags(const struct LDKUnsignedChannelUpdate *this_ptr);
+uint8_t UnsignedChannelUpdate_get_flags(const struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr);
 
 /**
  * Channel flags
  */
-void UnsignedChannelUpdate_set_flags(struct LDKUnsignedChannelUpdate *this_ptr, uint8_t val);
+void UnsignedChannelUpdate_set_flags(struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr, uint8_t val);
 
 /**
  * The number of blocks to subtract from incoming HTLC cltv_expiry values
  */
-uint16_t UnsignedChannelUpdate_get_cltv_expiry_delta(const struct LDKUnsignedChannelUpdate *this_ptr);
+uint16_t UnsignedChannelUpdate_get_cltv_expiry_delta(const struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr);
 
 /**
  * The number of blocks to subtract from incoming HTLC cltv_expiry values
  */
-void UnsignedChannelUpdate_set_cltv_expiry_delta(struct LDKUnsignedChannelUpdate *this_ptr, uint16_t val);
+void UnsignedChannelUpdate_set_cltv_expiry_delta(struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * The minimum HTLC size incoming to sender, in milli-satoshi
  */
-uint64_t UnsignedChannelUpdate_get_htlc_minimum_msat(const struct LDKUnsignedChannelUpdate *this_ptr);
+uint64_t UnsignedChannelUpdate_get_htlc_minimum_msat(const struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr);
 
 /**
  * The minimum HTLC size incoming to sender, in milli-satoshi
  */
-void UnsignedChannelUpdate_set_htlc_minimum_msat(struct LDKUnsignedChannelUpdate *this_ptr, uint64_t val);
+void UnsignedChannelUpdate_set_htlc_minimum_msat(struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The base HTLC fee charged by sender, in milli-satoshi
  */
-uint32_t UnsignedChannelUpdate_get_fee_base_msat(const struct LDKUnsignedChannelUpdate *this_ptr);
+uint32_t UnsignedChannelUpdate_get_fee_base_msat(const struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr);
 
 /**
  * The base HTLC fee charged by sender, in milli-satoshi
  */
-void UnsignedChannelUpdate_set_fee_base_msat(struct LDKUnsignedChannelUpdate *this_ptr, uint32_t val);
+void UnsignedChannelUpdate_set_fee_base_msat(struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * The amount to fee multiplier, in micro-satoshi
  */
-uint32_t UnsignedChannelUpdate_get_fee_proportional_millionths(const struct LDKUnsignedChannelUpdate *this_ptr);
+uint32_t UnsignedChannelUpdate_get_fee_proportional_millionths(const struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr);
 
 /**
  * The amount to fee multiplier, in micro-satoshi
  */
-void UnsignedChannelUpdate_set_fee_proportional_millionths(struct LDKUnsignedChannelUpdate *this_ptr, uint32_t val);
+void UnsignedChannelUpdate_set_fee_proportional_millionths(struct LDKUnsignedChannelUpdate *NONNULL_PTR this_ptr, uint32_t val);
 
 void ChannelUpdate_free(struct LDKChannelUpdate this_ptr);
 
-struct LDKChannelUpdate ChannelUpdate_clone(const struct LDKChannelUpdate *orig);
+struct LDKChannelUpdate ChannelUpdate_clone(const struct LDKChannelUpdate *NONNULL_PTR orig);
 
 /**
  * A signature of the channel update
  */
-struct LDKSignature ChannelUpdate_get_signature(const struct LDKChannelUpdate *this_ptr);
+struct LDKSignature ChannelUpdate_get_signature(const struct LDKChannelUpdate *NONNULL_PTR this_ptr);
 
 /**
  * A signature of the channel update
  */
-void ChannelUpdate_set_signature(struct LDKChannelUpdate *this_ptr, struct LDKSignature val);
+void ChannelUpdate_set_signature(struct LDKChannelUpdate *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 /**
  * The actual channel update
  */
-struct LDKUnsignedChannelUpdate ChannelUpdate_get_contents(const struct LDKChannelUpdate *this_ptr);
+struct LDKUnsignedChannelUpdate ChannelUpdate_get_contents(const struct LDKChannelUpdate *NONNULL_PTR this_ptr);
 
 /**
  * The actual channel update
  */
-void ChannelUpdate_set_contents(struct LDKChannelUpdate *this_ptr, struct LDKUnsignedChannelUpdate val);
+void ChannelUpdate_set_contents(struct LDKChannelUpdate *NONNULL_PTR this_ptr, struct LDKUnsignedChannelUpdate val);
 
 MUST_USE_RES struct LDKChannelUpdate ChannelUpdate_new(struct LDKSignature signature_arg, struct LDKUnsignedChannelUpdate contents_arg);
 
 void QueryChannelRange_free(struct LDKQueryChannelRange this_ptr);
 
-struct LDKQueryChannelRange QueryChannelRange_clone(const struct LDKQueryChannelRange *orig);
+struct LDKQueryChannelRange QueryChannelRange_clone(const struct LDKQueryChannelRange *NONNULL_PTR orig);
 
 /**
  * The genesis hash of the blockchain being queried
  */
-const uint8_t (*QueryChannelRange_get_chain_hash(const struct LDKQueryChannelRange *this_ptr))[32];
+const uint8_t (*QueryChannelRange_get_chain_hash(const struct LDKQueryChannelRange *NONNULL_PTR this_ptr))[32];
 
 /**
  * The genesis hash of the blockchain being queried
  */
-void QueryChannelRange_set_chain_hash(struct LDKQueryChannelRange *this_ptr, struct LDKThirtyTwoBytes val);
+void QueryChannelRange_set_chain_hash(struct LDKQueryChannelRange *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The height of the first block for the channel UTXOs being queried
  */
-uint32_t QueryChannelRange_get_first_blocknum(const struct LDKQueryChannelRange *this_ptr);
+uint32_t QueryChannelRange_get_first_blocknum(const struct LDKQueryChannelRange *NONNULL_PTR this_ptr);
 
 /**
  * The height of the first block for the channel UTXOs being queried
  */
-void QueryChannelRange_set_first_blocknum(struct LDKQueryChannelRange *this_ptr, uint32_t val);
+void QueryChannelRange_set_first_blocknum(struct LDKQueryChannelRange *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * The number of blocks to include in the query results
  */
-uint32_t QueryChannelRange_get_number_of_blocks(const struct LDKQueryChannelRange *this_ptr);
+uint32_t QueryChannelRange_get_number_of_blocks(const struct LDKQueryChannelRange *NONNULL_PTR this_ptr);
 
 /**
  * The number of blocks to include in the query results
  */
-void QueryChannelRange_set_number_of_blocks(struct LDKQueryChannelRange *this_ptr, uint32_t val);
+void QueryChannelRange_set_number_of_blocks(struct LDKQueryChannelRange *NONNULL_PTR this_ptr, uint32_t val);
 
 MUST_USE_RES struct LDKQueryChannelRange QueryChannelRange_new(struct LDKThirtyTwoBytes chain_hash_arg, uint32_t first_blocknum_arg, uint32_t number_of_blocks_arg);
 
 void ReplyChannelRange_free(struct LDKReplyChannelRange this_ptr);
 
-struct LDKReplyChannelRange ReplyChannelRange_clone(const struct LDKReplyChannelRange *orig);
+struct LDKReplyChannelRange ReplyChannelRange_clone(const struct LDKReplyChannelRange *NONNULL_PTR orig);
 
 /**
  * The genesis hash of the blockchain being queried
  */
-const uint8_t (*ReplyChannelRange_get_chain_hash(const struct LDKReplyChannelRange *this_ptr))[32];
+const uint8_t (*ReplyChannelRange_get_chain_hash(const struct LDKReplyChannelRange *NONNULL_PTR this_ptr))[32];
 
 /**
  * The genesis hash of the blockchain being queried
  */
-void ReplyChannelRange_set_chain_hash(struct LDKReplyChannelRange *this_ptr, struct LDKThirtyTwoBytes val);
+void ReplyChannelRange_set_chain_hash(struct LDKReplyChannelRange *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The height of the first block in the range of the reply
  */
-uint32_t ReplyChannelRange_get_first_blocknum(const struct LDKReplyChannelRange *this_ptr);
+uint32_t ReplyChannelRange_get_first_blocknum(const struct LDKReplyChannelRange *NONNULL_PTR this_ptr);
 
 /**
  * The height of the first block in the range of the reply
  */
-void ReplyChannelRange_set_first_blocknum(struct LDKReplyChannelRange *this_ptr, uint32_t val);
+void ReplyChannelRange_set_first_blocknum(struct LDKReplyChannelRange *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * The number of blocks included in the range of the reply
  */
-uint32_t ReplyChannelRange_get_number_of_blocks(const struct LDKReplyChannelRange *this_ptr);
+uint32_t ReplyChannelRange_get_number_of_blocks(const struct LDKReplyChannelRange *NONNULL_PTR this_ptr);
 
 /**
  * The number of blocks included in the range of the reply
  */
-void ReplyChannelRange_set_number_of_blocks(struct LDKReplyChannelRange *this_ptr, uint32_t val);
+void ReplyChannelRange_set_number_of_blocks(struct LDKReplyChannelRange *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * Indicates if the query recipient maintains up-to-date channel
  * information for the chain_hash
  */
-bool ReplyChannelRange_get_full_information(const struct LDKReplyChannelRange *this_ptr);
+bool ReplyChannelRange_get_full_information(const struct LDKReplyChannelRange *NONNULL_PTR this_ptr);
 
 /**
  * Indicates if the query recipient maintains up-to-date channel
  * information for the chain_hash
  */
-void ReplyChannelRange_set_full_information(struct LDKReplyChannelRange *this_ptr, bool val);
+void ReplyChannelRange_set_full_information(struct LDKReplyChannelRange *NONNULL_PTR this_ptr, bool val);
 
 /**
  * The short_channel_ids in the channel range
  */
-void ReplyChannelRange_set_short_channel_ids(struct LDKReplyChannelRange *this_ptr, LDKCVec_u64Z val);
+void ReplyChannelRange_set_short_channel_ids(struct LDKReplyChannelRange *NONNULL_PTR this_ptr, LDKCVec_u64Z val);
 
 MUST_USE_RES struct LDKReplyChannelRange ReplyChannelRange_new(struct LDKThirtyTwoBytes chain_hash_arg, uint32_t first_blocknum_arg, uint32_t number_of_blocks_arg, bool full_information_arg, LDKCVec_u64Z short_channel_ids_arg);
 
 void QueryShortChannelIds_free(struct LDKQueryShortChannelIds this_ptr);
 
-struct LDKQueryShortChannelIds QueryShortChannelIds_clone(const struct LDKQueryShortChannelIds *orig);
+struct LDKQueryShortChannelIds QueryShortChannelIds_clone(const struct LDKQueryShortChannelIds *NONNULL_PTR orig);
 
 /**
  * The genesis hash of the blockchain being queried
  */
-const uint8_t (*QueryShortChannelIds_get_chain_hash(const struct LDKQueryShortChannelIds *this_ptr))[32];
+const uint8_t (*QueryShortChannelIds_get_chain_hash(const struct LDKQueryShortChannelIds *NONNULL_PTR this_ptr))[32];
 
 /**
  * The genesis hash of the blockchain being queried
  */
-void QueryShortChannelIds_set_chain_hash(struct LDKQueryShortChannelIds *this_ptr, struct LDKThirtyTwoBytes val);
+void QueryShortChannelIds_set_chain_hash(struct LDKQueryShortChannelIds *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The short_channel_ids that are being queried
  */
-void QueryShortChannelIds_set_short_channel_ids(struct LDKQueryShortChannelIds *this_ptr, LDKCVec_u64Z val);
+void QueryShortChannelIds_set_short_channel_ids(struct LDKQueryShortChannelIds *NONNULL_PTR this_ptr, LDKCVec_u64Z val);
 
 MUST_USE_RES struct LDKQueryShortChannelIds QueryShortChannelIds_new(struct LDKThirtyTwoBytes chain_hash_arg, LDKCVec_u64Z short_channel_ids_arg);
 
 void ReplyShortChannelIdsEnd_free(struct LDKReplyShortChannelIdsEnd this_ptr);
 
-struct LDKReplyShortChannelIdsEnd ReplyShortChannelIdsEnd_clone(const struct LDKReplyShortChannelIdsEnd *orig);
+struct LDKReplyShortChannelIdsEnd ReplyShortChannelIdsEnd_clone(const struct LDKReplyShortChannelIdsEnd *NONNULL_PTR orig);
 
 /**
  * The genesis hash of the blockchain that was queried
  */
-const uint8_t (*ReplyShortChannelIdsEnd_get_chain_hash(const struct LDKReplyShortChannelIdsEnd *this_ptr))[32];
+const uint8_t (*ReplyShortChannelIdsEnd_get_chain_hash(const struct LDKReplyShortChannelIdsEnd *NONNULL_PTR this_ptr))[32];
 
 /**
  * The genesis hash of the blockchain that was queried
  */
-void ReplyShortChannelIdsEnd_set_chain_hash(struct LDKReplyShortChannelIdsEnd *this_ptr, struct LDKThirtyTwoBytes val);
+void ReplyShortChannelIdsEnd_set_chain_hash(struct LDKReplyShortChannelIdsEnd *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * Indicates if the query recipient maintains up-to-date channel
  * information for the chain_hash
  */
-bool ReplyShortChannelIdsEnd_get_full_information(const struct LDKReplyShortChannelIdsEnd *this_ptr);
+bool ReplyShortChannelIdsEnd_get_full_information(const struct LDKReplyShortChannelIdsEnd *NONNULL_PTR this_ptr);
 
 /**
  * Indicates if the query recipient maintains up-to-date channel
  * information for the chain_hash
  */
-void ReplyShortChannelIdsEnd_set_full_information(struct LDKReplyShortChannelIdsEnd *this_ptr, bool val);
+void ReplyShortChannelIdsEnd_set_full_information(struct LDKReplyShortChannelIdsEnd *NONNULL_PTR this_ptr, bool val);
 
 MUST_USE_RES struct LDKReplyShortChannelIdsEnd ReplyShortChannelIdsEnd_new(struct LDKThirtyTwoBytes chain_hash_arg, bool full_information_arg);
 
 void GossipTimestampFilter_free(struct LDKGossipTimestampFilter this_ptr);
 
-struct LDKGossipTimestampFilter GossipTimestampFilter_clone(const struct LDKGossipTimestampFilter *orig);
+struct LDKGossipTimestampFilter GossipTimestampFilter_clone(const struct LDKGossipTimestampFilter *NONNULL_PTR orig);
 
 /**
  * The genesis hash of the blockchain for channel and node information
  */
-const uint8_t (*GossipTimestampFilter_get_chain_hash(const struct LDKGossipTimestampFilter *this_ptr))[32];
+const uint8_t (*GossipTimestampFilter_get_chain_hash(const struct LDKGossipTimestampFilter *NONNULL_PTR this_ptr))[32];
 
 /**
  * The genesis hash of the blockchain for channel and node information
  */
-void GossipTimestampFilter_set_chain_hash(struct LDKGossipTimestampFilter *this_ptr, struct LDKThirtyTwoBytes val);
+void GossipTimestampFilter_set_chain_hash(struct LDKGossipTimestampFilter *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * The starting unix timestamp
  */
-uint32_t GossipTimestampFilter_get_first_timestamp(const struct LDKGossipTimestampFilter *this_ptr);
+uint32_t GossipTimestampFilter_get_first_timestamp(const struct LDKGossipTimestampFilter *NONNULL_PTR this_ptr);
 
 /**
  * The starting unix timestamp
  */
-void GossipTimestampFilter_set_first_timestamp(struct LDKGossipTimestampFilter *this_ptr, uint32_t val);
+void GossipTimestampFilter_set_first_timestamp(struct LDKGossipTimestampFilter *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * The range of information in seconds
  */
-uint32_t GossipTimestampFilter_get_timestamp_range(const struct LDKGossipTimestampFilter *this_ptr);
+uint32_t GossipTimestampFilter_get_timestamp_range(const struct LDKGossipTimestampFilter *NONNULL_PTR this_ptr);
 
 /**
  * The range of information in seconds
  */
-void GossipTimestampFilter_set_timestamp_range(struct LDKGossipTimestampFilter *this_ptr, uint32_t val);
+void GossipTimestampFilter_set_timestamp_range(struct LDKGossipTimestampFilter *NONNULL_PTR this_ptr, uint32_t val);
 
 MUST_USE_RES struct LDKGossipTimestampFilter GossipTimestampFilter_new(struct LDKThirtyTwoBytes chain_hash_arg, uint32_t first_timestamp_arg, uint32_t timestamp_range_arg);
 
 void ErrorAction_free(struct LDKErrorAction this_ptr);
 
-struct LDKErrorAction ErrorAction_clone(const struct LDKErrorAction *orig);
+struct LDKErrorAction ErrorAction_clone(const struct LDKErrorAction *NONNULL_PTR orig);
 
 void LightningError_free(struct LDKLightningError this_ptr);
 
 /**
  * A human-readable message describing the error
  */
-struct LDKStr LightningError_get_err(const struct LDKLightningError *this_ptr);
+struct LDKStr LightningError_get_err(const struct LDKLightningError *NONNULL_PTR this_ptr);
 
 /**
  * A human-readable message describing the error
  */
-void LightningError_set_err(struct LDKLightningError *this_ptr, LDKCVec_u8Z val);
+void LightningError_set_err(struct LDKLightningError *NONNULL_PTR this_ptr, LDKCVec_u8Z val);
 
 /**
  * The action which should be taken against the offending peer.
  */
-struct LDKErrorAction LightningError_get_action(const struct LDKLightningError *this_ptr);
+struct LDKErrorAction LightningError_get_action(const struct LDKLightningError *NONNULL_PTR this_ptr);
 
 /**
  * The action which should be taken against the offending peer.
  */
-void LightningError_set_action(struct LDKLightningError *this_ptr, struct LDKErrorAction val);
+void LightningError_set_action(struct LDKLightningError *NONNULL_PTR this_ptr, struct LDKErrorAction val);
 
 MUST_USE_RES struct LDKLightningError LightningError_new(LDKCVec_u8Z err_arg, struct LDKErrorAction action_arg);
 
 void CommitmentUpdate_free(struct LDKCommitmentUpdate this_ptr);
 
-struct LDKCommitmentUpdate CommitmentUpdate_clone(const struct LDKCommitmentUpdate *orig);
+struct LDKCommitmentUpdate CommitmentUpdate_clone(const struct LDKCommitmentUpdate *NONNULL_PTR orig);
 
 /**
  * update_add_htlc messages which should be sent
  */
-void CommitmentUpdate_set_update_add_htlcs(struct LDKCommitmentUpdate *this_ptr, LDKCVec_UpdateAddHTLCZ val);
+void CommitmentUpdate_set_update_add_htlcs(struct LDKCommitmentUpdate *NONNULL_PTR this_ptr, LDKCVec_UpdateAddHTLCZ val);
 
 /**
  * update_fulfill_htlc messages which should be sent
  */
-void CommitmentUpdate_set_update_fulfill_htlcs(struct LDKCommitmentUpdate *this_ptr, LDKCVec_UpdateFulfillHTLCZ val);
+void CommitmentUpdate_set_update_fulfill_htlcs(struct LDKCommitmentUpdate *NONNULL_PTR this_ptr, LDKCVec_UpdateFulfillHTLCZ val);
 
 /**
  * update_fail_htlc messages which should be sent
  */
-void CommitmentUpdate_set_update_fail_htlcs(struct LDKCommitmentUpdate *this_ptr, LDKCVec_UpdateFailHTLCZ val);
+void CommitmentUpdate_set_update_fail_htlcs(struct LDKCommitmentUpdate *NONNULL_PTR this_ptr, LDKCVec_UpdateFailHTLCZ val);
 
 /**
  * update_fail_malformed_htlc messages which should be sent
  */
-void CommitmentUpdate_set_update_fail_malformed_htlcs(struct LDKCommitmentUpdate *this_ptr, LDKCVec_UpdateFailMalformedHTLCZ val);
+void CommitmentUpdate_set_update_fail_malformed_htlcs(struct LDKCommitmentUpdate *NONNULL_PTR this_ptr, LDKCVec_UpdateFailMalformedHTLCZ val);
 
 /**
  * An update_fee message which should be sent
  */
-struct LDKUpdateFee CommitmentUpdate_get_update_fee(const struct LDKCommitmentUpdate *this_ptr);
+struct LDKUpdateFee CommitmentUpdate_get_update_fee(const struct LDKCommitmentUpdate *NONNULL_PTR this_ptr);
 
 /**
  * An update_fee message which should be sent
  */
-void CommitmentUpdate_set_update_fee(struct LDKCommitmentUpdate *this_ptr, struct LDKUpdateFee val);
+void CommitmentUpdate_set_update_fee(struct LDKCommitmentUpdate *NONNULL_PTR this_ptr, struct LDKUpdateFee val);
 
 /**
  * Finally, the commitment_signed message which should be sent
  */
-struct LDKCommitmentSigned CommitmentUpdate_get_commitment_signed(const struct LDKCommitmentUpdate *this_ptr);
+struct LDKCommitmentSigned CommitmentUpdate_get_commitment_signed(const struct LDKCommitmentUpdate *NONNULL_PTR this_ptr);
 
 /**
  * Finally, the commitment_signed message which should be sent
  */
-void CommitmentUpdate_set_commitment_signed(struct LDKCommitmentUpdate *this_ptr, struct LDKCommitmentSigned val);
+void CommitmentUpdate_set_commitment_signed(struct LDKCommitmentUpdate *NONNULL_PTR this_ptr, struct LDKCommitmentSigned val);
 
 MUST_USE_RES struct LDKCommitmentUpdate CommitmentUpdate_new(LDKCVec_UpdateAddHTLCZ update_add_htlcs_arg, LDKCVec_UpdateFulfillHTLCZ update_fulfill_htlcs_arg, LDKCVec_UpdateFailHTLCZ update_fail_htlcs_arg, LDKCVec_UpdateFailMalformedHTLCZ update_fail_malformed_htlcs_arg, struct LDKUpdateFee update_fee_arg, struct LDKCommitmentSigned commitment_signed_arg);
 
 void HTLCFailChannelUpdate_free(struct LDKHTLCFailChannelUpdate this_ptr);
 
-struct LDKHTLCFailChannelUpdate HTLCFailChannelUpdate_clone(const struct LDKHTLCFailChannelUpdate *orig);
+struct LDKHTLCFailChannelUpdate HTLCFailChannelUpdate_clone(const struct LDKHTLCFailChannelUpdate *NONNULL_PTR orig);
 
 /**
  * Calls the free function if one is set
@@ -6917,29 +6917,29 @@ void MessageHandler_free(struct LDKMessageHandler this_ptr);
  * A message handler which handles messages specific to channels. Usually this is just a
  * ChannelManager object.
  */
-const struct LDKChannelMessageHandler *MessageHandler_get_chan_handler(const struct LDKMessageHandler *this_ptr);
+const struct LDKChannelMessageHandler *MessageHandler_get_chan_handler(const struct LDKMessageHandler *NONNULL_PTR this_ptr);
 
 /**
  * A message handler which handles messages specific to channels. Usually this is just a
  * ChannelManager object.
  */
-void MessageHandler_set_chan_handler(struct LDKMessageHandler *this_ptr, struct LDKChannelMessageHandler val);
+void MessageHandler_set_chan_handler(struct LDKMessageHandler *NONNULL_PTR this_ptr, struct LDKChannelMessageHandler val);
 
 /**
  * A message handler which handles messages updating our knowledge of the network channel
  * graph. Usually this is just a NetGraphMsgHandlerMonitor object.
  */
-const struct LDKRoutingMessageHandler *MessageHandler_get_route_handler(const struct LDKMessageHandler *this_ptr);
+const struct LDKRoutingMessageHandler *MessageHandler_get_route_handler(const struct LDKMessageHandler *NONNULL_PTR this_ptr);
 
 /**
  * A message handler which handles messages updating our knowledge of the network channel
  * graph. Usually this is just a NetGraphMsgHandlerMonitor object.
  */
-void MessageHandler_set_route_handler(struct LDKMessageHandler *this_ptr, struct LDKRoutingMessageHandler val);
+void MessageHandler_set_route_handler(struct LDKMessageHandler *NONNULL_PTR this_ptr, struct LDKRoutingMessageHandler val);
 
 MUST_USE_RES struct LDKMessageHandler MessageHandler_new(struct LDKChannelMessageHandler chan_handler_arg, struct LDKRoutingMessageHandler route_handler_arg);
 
-struct LDKSocketDescriptor SocketDescriptor_clone(const struct LDKSocketDescriptor *orig);
+struct LDKSocketDescriptor SocketDescriptor_clone(const struct LDKSocketDescriptor *NONNULL_PTR orig);
 
 /**
  * Calls the free function if one is set
@@ -6952,13 +6952,13 @@ void PeerHandleError_free(struct LDKPeerHandleError this_ptr);
  * Used to indicate that we probably can't make any future connections to this peer, implying
  * we should go ahead and force-close any channels we have with it.
  */
-bool PeerHandleError_get_no_connection_possible(const struct LDKPeerHandleError *this_ptr);
+bool PeerHandleError_get_no_connection_possible(const struct LDKPeerHandleError *NONNULL_PTR this_ptr);
 
 /**
  * Used to indicate that we probably can't make any future connections to this peer, implying
  * we should go ahead and force-close any channels we have with it.
  */
-void PeerHandleError_set_no_connection_possible(struct LDKPeerHandleError *this_ptr, bool val);
+void PeerHandleError_set_no_connection_possible(struct LDKPeerHandleError *NONNULL_PTR this_ptr, bool val);
 
 MUST_USE_RES struct LDKPeerHandleError PeerHandleError_new(bool no_connection_possible_arg);
 
@@ -6978,7 +6978,7 @@ MUST_USE_RES struct LDKPeerManager PeerManager_new(struct LDKMessageHandler mess
  * new_outbound_connection, however entries will only appear once the initial handshake has
  * completed and we are sure the remote peer has the private key for the given node_id.
  */
-MUST_USE_RES LDKCVec_PublicKeyZ PeerManager_get_peer_node_ids(const struct LDKPeerManager *this_arg);
+MUST_USE_RES LDKCVec_PublicKeyZ PeerManager_get_peer_node_ids(const struct LDKPeerManager *NONNULL_PTR this_arg);
 
 /**
  * Indicates a new outbound connection has been established to a node with the given node_id.
@@ -6990,7 +6990,7 @@ MUST_USE_RES LDKCVec_PublicKeyZ PeerManager_get_peer_node_ids(const struct LDKPe
  * Panics if descriptor is duplicative with some other descriptor which has not yet had a
  * socket_disconnected().
  */
-MUST_USE_RES LDKCResult_CVec_u8ZPeerHandleErrorZ PeerManager_new_outbound_connection(const struct LDKPeerManager *this_arg, struct LDKPublicKey their_node_id, struct LDKSocketDescriptor descriptor);
+MUST_USE_RES LDKCResult_CVec_u8ZPeerHandleErrorZ PeerManager_new_outbound_connection(const struct LDKPeerManager *NONNULL_PTR this_arg, struct LDKPublicKey their_node_id, struct LDKSocketDescriptor descriptor);
 
 /**
  * Indicates a new inbound connection has been established.
@@ -7003,7 +7003,7 @@ MUST_USE_RES LDKCResult_CVec_u8ZPeerHandleErrorZ PeerManager_new_outbound_connec
  * Panics if descriptor is duplicative with some other descriptor which has not yet had
  * socket_disconnected called.
  */
-MUST_USE_RES LDKCResult_NonePeerHandleErrorZ PeerManager_new_inbound_connection(const struct LDKPeerManager *this_arg, struct LDKSocketDescriptor descriptor);
+MUST_USE_RES LDKCResult_NonePeerHandleErrorZ PeerManager_new_inbound_connection(const struct LDKPeerManager *NONNULL_PTR this_arg, struct LDKSocketDescriptor descriptor);
 
 /**
  * Indicates that there is room to write data to the given socket descriptor.
@@ -7017,7 +7017,7 @@ MUST_USE_RES LDKCResult_NonePeerHandleErrorZ PeerManager_new_inbound_connection(
  * here isn't sufficient! Panics if the descriptor was not previously registered in a
  * new_\\*_connection event.
  */
-MUST_USE_RES LDKCResult_NonePeerHandleErrorZ PeerManager_write_buffer_space_avail(const struct LDKPeerManager *this_arg, struct LDKSocketDescriptor *descriptor);
+MUST_USE_RES LDKCResult_NonePeerHandleErrorZ PeerManager_write_buffer_space_avail(const struct LDKPeerManager *NONNULL_PTR this_arg, struct LDKSocketDescriptor *NONNULL_PTR descriptor);
 
 /**
  * Indicates that data was read from the given socket descriptor.
@@ -7033,14 +7033,14 @@ MUST_USE_RES LDKCResult_NonePeerHandleErrorZ PeerManager_write_buffer_space_avai
  *
  * Panics if the descriptor was not previously registered in a new_*_connection event.
  */
-MUST_USE_RES LDKCResult_boolPeerHandleErrorZ PeerManager_read_event(const struct LDKPeerManager *this_arg, struct LDKSocketDescriptor *peer_descriptor, struct LDKu8slice data);
+MUST_USE_RES LDKCResult_boolPeerHandleErrorZ PeerManager_read_event(const struct LDKPeerManager *NONNULL_PTR this_arg, struct LDKSocketDescriptor *NONNULL_PTR peer_descriptor, struct LDKu8slice data);
 
 /**
  * Checks for any events generated by our handlers and processes them. Includes sending most
  * response messages as well as messages generated by calls to handler functions directly (eg
  * functions like ChannelManager::process_pending_htlc_forward or send_payment).
  */
-void PeerManager_process_events(const struct LDKPeerManager *this_arg);
+void PeerManager_process_events(const struct LDKPeerManager *NONNULL_PTR this_arg);
 
 /**
  * Indicates that the given socket descriptor's connection is now closed.
@@ -7052,14 +7052,14 @@ void PeerManager_process_events(const struct LDKPeerManager *this_arg);
  *
  * Panics if the descriptor was not previously registered in a successful new_*_connection event.
  */
-void PeerManager_socket_disconnected(const struct LDKPeerManager *this_arg, const struct LDKSocketDescriptor *descriptor);
+void PeerManager_socket_disconnected(const struct LDKPeerManager *NONNULL_PTR this_arg, const struct LDKSocketDescriptor *NONNULL_PTR descriptor);
 
 /**
  * This function should be called roughly once every 30 seconds.
  * It will send pings to each peer and disconnect those which did not respond to the last round of pings.
  * Will most likely call send_data on all of the registered descriptors, thus, be very careful with reentrancy issues!
  */
-void PeerManager_timer_tick_occured(const struct LDKPeerManager *this_arg);
+void PeerManager_timer_tick_occured(const struct LDKPeerManager *NONNULL_PTR this_arg);
 
 /**
  * Build the commitment secret from the seed and the commitment number
@@ -7115,61 +7115,61 @@ LDKCResult_PublicKeySecpErrorZ derive_public_revocation_key(struct LDKPublicKey 
 
 void TxCreationKeys_free(struct LDKTxCreationKeys this_ptr);
 
-struct LDKTxCreationKeys TxCreationKeys_clone(const struct LDKTxCreationKeys *orig);
+struct LDKTxCreationKeys TxCreationKeys_clone(const struct LDKTxCreationKeys *NONNULL_PTR orig);
 
 /**
  * The broadcaster's per-commitment public key which was used to derive the other keys.
  */
-struct LDKPublicKey TxCreationKeys_get_per_commitment_point(const struct LDKTxCreationKeys *this_ptr);
+struct LDKPublicKey TxCreationKeys_get_per_commitment_point(const struct LDKTxCreationKeys *NONNULL_PTR this_ptr);
 
 /**
  * The broadcaster's per-commitment public key which was used to derive the other keys.
  */
-void TxCreationKeys_set_per_commitment_point(struct LDKTxCreationKeys *this_ptr, struct LDKPublicKey val);
+void TxCreationKeys_set_per_commitment_point(struct LDKTxCreationKeys *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The revocation key which is used to allow the broadcaster of the commitment
  * transaction to provide their counterparty the ability to punish them if they broadcast
  * an old state.
  */
-struct LDKPublicKey TxCreationKeys_get_revocation_key(const struct LDKTxCreationKeys *this_ptr);
+struct LDKPublicKey TxCreationKeys_get_revocation_key(const struct LDKTxCreationKeys *NONNULL_PTR this_ptr);
 
 /**
  * The revocation key which is used to allow the broadcaster of the commitment
  * transaction to provide their counterparty the ability to punish them if they broadcast
  * an old state.
  */
-void TxCreationKeys_set_revocation_key(struct LDKTxCreationKeys *this_ptr, struct LDKPublicKey val);
+void TxCreationKeys_set_revocation_key(struct LDKTxCreationKeys *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Broadcaster's HTLC Key
  */
-struct LDKPublicKey TxCreationKeys_get_broadcaster_htlc_key(const struct LDKTxCreationKeys *this_ptr);
+struct LDKPublicKey TxCreationKeys_get_broadcaster_htlc_key(const struct LDKTxCreationKeys *NONNULL_PTR this_ptr);
 
 /**
  * Broadcaster's HTLC Key
  */
-void TxCreationKeys_set_broadcaster_htlc_key(struct LDKTxCreationKeys *this_ptr, struct LDKPublicKey val);
+void TxCreationKeys_set_broadcaster_htlc_key(struct LDKTxCreationKeys *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Countersignatory's HTLC Key
  */
-struct LDKPublicKey TxCreationKeys_get_countersignatory_htlc_key(const struct LDKTxCreationKeys *this_ptr);
+struct LDKPublicKey TxCreationKeys_get_countersignatory_htlc_key(const struct LDKTxCreationKeys *NONNULL_PTR this_ptr);
 
 /**
  * Countersignatory's HTLC Key
  */
-void TxCreationKeys_set_countersignatory_htlc_key(struct LDKTxCreationKeys *this_ptr, struct LDKPublicKey val);
+void TxCreationKeys_set_countersignatory_htlc_key(struct LDKTxCreationKeys *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Broadcaster's Payment Key (which isn't allowed to be spent from for some delay)
  */
-struct LDKPublicKey TxCreationKeys_get_broadcaster_delayed_payment_key(const struct LDKTxCreationKeys *this_ptr);
+struct LDKPublicKey TxCreationKeys_get_broadcaster_delayed_payment_key(const struct LDKTxCreationKeys *NONNULL_PTR this_ptr);
 
 /**
  * Broadcaster's Payment Key (which isn't allowed to be spent from for some delay)
  */
-void TxCreationKeys_set_broadcaster_delayed_payment_key(struct LDKTxCreationKeys *this_ptr, struct LDKPublicKey val);
+void TxCreationKeys_set_broadcaster_delayed_payment_key(struct LDKTxCreationKeys *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 MUST_USE_RES struct LDKTxCreationKeys TxCreationKeys_new(struct LDKPublicKey per_commitment_point_arg, struct LDKPublicKey revocation_key_arg, struct LDKPublicKey broadcaster_htlc_key_arg, struct LDKPublicKey countersignatory_htlc_key_arg, struct LDKPublicKey broadcaster_delayed_payment_key_arg);
 
@@ -7179,19 +7179,19 @@ struct LDKTxCreationKeys TxCreationKeys_read(struct LDKu8slice ser);
 
 void ChannelPublicKeys_free(struct LDKChannelPublicKeys this_ptr);
 
-struct LDKChannelPublicKeys ChannelPublicKeys_clone(const struct LDKChannelPublicKeys *orig);
+struct LDKChannelPublicKeys ChannelPublicKeys_clone(const struct LDKChannelPublicKeys *NONNULL_PTR orig);
 
 /**
  * The public key which is used to sign all commitment transactions, as it appears in the
  * on-chain channel lock-in 2-of-2 multisig output.
  */
-struct LDKPublicKey ChannelPublicKeys_get_funding_pubkey(const struct LDKChannelPublicKeys *this_ptr);
+struct LDKPublicKey ChannelPublicKeys_get_funding_pubkey(const struct LDKChannelPublicKeys *NONNULL_PTR this_ptr);
 
 /**
  * The public key which is used to sign all commitment transactions, as it appears in the
  * on-chain channel lock-in 2-of-2 multisig output.
  */
-void ChannelPublicKeys_set_funding_pubkey(struct LDKChannelPublicKeys *this_ptr, struct LDKPublicKey val);
+void ChannelPublicKeys_set_funding_pubkey(struct LDKChannelPublicKeys *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The base point which is used (with derive_public_revocation_key) to derive per-commitment
@@ -7199,7 +7199,7 @@ void ChannelPublicKeys_set_funding_pubkey(struct LDKChannelPublicKeys *this_ptr,
  * counterparty to create a secret which the counterparty can reveal to revoke previous
  * states.
  */
-struct LDKPublicKey ChannelPublicKeys_get_revocation_basepoint(const struct LDKChannelPublicKeys *this_ptr);
+struct LDKPublicKey ChannelPublicKeys_get_revocation_basepoint(const struct LDKChannelPublicKeys *NONNULL_PTR this_ptr);
 
 /**
  * The base point which is used (with derive_public_revocation_key) to derive per-commitment
@@ -7207,47 +7207,47 @@ struct LDKPublicKey ChannelPublicKeys_get_revocation_basepoint(const struct LDKC
  * counterparty to create a secret which the counterparty can reveal to revoke previous
  * states.
  */
-void ChannelPublicKeys_set_revocation_basepoint(struct LDKChannelPublicKeys *this_ptr, struct LDKPublicKey val);
+void ChannelPublicKeys_set_revocation_basepoint(struct LDKChannelPublicKeys *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The public key on which the non-broadcaster (ie the countersignatory) receives an immediately
  * spendable primary channel balance on the broadcaster's commitment transaction. This key is
  * static across every commitment transaction.
  */
-struct LDKPublicKey ChannelPublicKeys_get_payment_point(const struct LDKChannelPublicKeys *this_ptr);
+struct LDKPublicKey ChannelPublicKeys_get_payment_point(const struct LDKChannelPublicKeys *NONNULL_PTR this_ptr);
 
 /**
  * The public key on which the non-broadcaster (ie the countersignatory) receives an immediately
  * spendable primary channel balance on the broadcaster's commitment transaction. This key is
  * static across every commitment transaction.
  */
-void ChannelPublicKeys_set_payment_point(struct LDKChannelPublicKeys *this_ptr, struct LDKPublicKey val);
+void ChannelPublicKeys_set_payment_point(struct LDKChannelPublicKeys *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The base point which is used (with derive_public_key) to derive a per-commitment payment
  * public key which receives non-HTLC-encumbered funds which are only available for spending
  * after some delay (or can be claimed via the revocation path).
  */
-struct LDKPublicKey ChannelPublicKeys_get_delayed_payment_basepoint(const struct LDKChannelPublicKeys *this_ptr);
+struct LDKPublicKey ChannelPublicKeys_get_delayed_payment_basepoint(const struct LDKChannelPublicKeys *NONNULL_PTR this_ptr);
 
 /**
  * The base point which is used (with derive_public_key) to derive a per-commitment payment
  * public key which receives non-HTLC-encumbered funds which are only available for spending
  * after some delay (or can be claimed via the revocation path).
  */
-void ChannelPublicKeys_set_delayed_payment_basepoint(struct LDKChannelPublicKeys *this_ptr, struct LDKPublicKey val);
+void ChannelPublicKeys_set_delayed_payment_basepoint(struct LDKChannelPublicKeys *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The base point which is used (with derive_public_key) to derive a per-commitment public key
  * which is used to encumber HTLC-in-flight outputs.
  */
-struct LDKPublicKey ChannelPublicKeys_get_htlc_basepoint(const struct LDKChannelPublicKeys *this_ptr);
+struct LDKPublicKey ChannelPublicKeys_get_htlc_basepoint(const struct LDKChannelPublicKeys *NONNULL_PTR this_ptr);
 
 /**
  * The base point which is used (with derive_public_key) to derive a per-commitment public key
  * which is used to encumber HTLC-in-flight outputs.
  */
-void ChannelPublicKeys_set_htlc_basepoint(struct LDKChannelPublicKeys *this_ptr, struct LDKPublicKey val);
+void ChannelPublicKeys_set_htlc_basepoint(struct LDKChannelPublicKeys *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 MUST_USE_RES struct LDKChannelPublicKeys ChannelPublicKeys_new(struct LDKPublicKey funding_pubkey_arg, struct LDKPublicKey revocation_basepoint_arg, struct LDKPublicKey payment_point_arg, struct LDKPublicKey delayed_payment_basepoint_arg, struct LDKPublicKey htlc_basepoint_arg);
 
@@ -7265,7 +7265,7 @@ MUST_USE_RES LDKCResult_TxCreationKeysSecpErrorZ TxCreationKeys_derive_new(struc
  * Generate per-state keys from channel static keys.
  * Key set is asymmetric and can't be used as part of counter-signatory set of transactions.
  */
-MUST_USE_RES LDKCResult_TxCreationKeysSecpErrorZ TxCreationKeys_from_channel_static_keys(struct LDKPublicKey per_commitment_point, const struct LDKChannelPublicKeys *broadcaster_keys, const struct LDKChannelPublicKeys *countersignatory_keys);
+MUST_USE_RES LDKCResult_TxCreationKeysSecpErrorZ TxCreationKeys_from_channel_static_keys(struct LDKPublicKey per_commitment_point, const struct LDKChannelPublicKeys *NONNULL_PTR broadcaster_keys, const struct LDKChannelPublicKeys *NONNULL_PTR countersignatory_keys);
 
 /**
  * A script either spendable by the revocation
@@ -7276,7 +7276,7 @@ LDKCVec_u8Z get_revokeable_redeemscript(struct LDKPublicKey revocation_key, uint
 
 void HTLCOutputInCommitment_free(struct LDKHTLCOutputInCommitment this_ptr);
 
-struct LDKHTLCOutputInCommitment HTLCOutputInCommitment_clone(const struct LDKHTLCOutputInCommitment *orig);
+struct LDKHTLCOutputInCommitment HTLCOutputInCommitment_clone(const struct LDKHTLCOutputInCommitment *NONNULL_PTR orig);
 
 /**
  * Whether the HTLC was \"offered\" (ie outbound in relation to this commitment transaction).
@@ -7284,7 +7284,7 @@ struct LDKHTLCOutputInCommitment HTLCOutputInCommitment_clone(const struct LDKHT
  * need to compare this value to whether the commitment transaction in question is that of
  * the counterparty or our own.
  */
-bool HTLCOutputInCommitment_get_offered(const struct LDKHTLCOutputInCommitment *this_ptr);
+bool HTLCOutputInCommitment_get_offered(const struct LDKHTLCOutputInCommitment *NONNULL_PTR this_ptr);
 
 /**
  * Whether the HTLC was \"offered\" (ie outbound in relation to this commitment transaction).
@@ -7292,39 +7292,39 @@ bool HTLCOutputInCommitment_get_offered(const struct LDKHTLCOutputInCommitment *
  * need to compare this value to whether the commitment transaction in question is that of
  * the counterparty or our own.
  */
-void HTLCOutputInCommitment_set_offered(struct LDKHTLCOutputInCommitment *this_ptr, bool val);
+void HTLCOutputInCommitment_set_offered(struct LDKHTLCOutputInCommitment *NONNULL_PTR this_ptr, bool val);
 
 /**
  * The value, in msat, of the HTLC. The value as it appears in the commitment transaction is
  * this divided by 1000.
  */
-uint64_t HTLCOutputInCommitment_get_amount_msat(const struct LDKHTLCOutputInCommitment *this_ptr);
+uint64_t HTLCOutputInCommitment_get_amount_msat(const struct LDKHTLCOutputInCommitment *NONNULL_PTR this_ptr);
 
 /**
  * The value, in msat, of the HTLC. The value as it appears in the commitment transaction is
  * this divided by 1000.
  */
-void HTLCOutputInCommitment_set_amount_msat(struct LDKHTLCOutputInCommitment *this_ptr, uint64_t val);
+void HTLCOutputInCommitment_set_amount_msat(struct LDKHTLCOutputInCommitment *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The CLTV lock-time at which this HTLC expires.
  */
-uint32_t HTLCOutputInCommitment_get_cltv_expiry(const struct LDKHTLCOutputInCommitment *this_ptr);
+uint32_t HTLCOutputInCommitment_get_cltv_expiry(const struct LDKHTLCOutputInCommitment *NONNULL_PTR this_ptr);
 
 /**
  * The CLTV lock-time at which this HTLC expires.
  */
-void HTLCOutputInCommitment_set_cltv_expiry(struct LDKHTLCOutputInCommitment *this_ptr, uint32_t val);
+void HTLCOutputInCommitment_set_cltv_expiry(struct LDKHTLCOutputInCommitment *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * The hash of the preimage which unlocks this HTLC.
  */
-const uint8_t (*HTLCOutputInCommitment_get_payment_hash(const struct LDKHTLCOutputInCommitment *this_ptr))[32];
+const uint8_t (*HTLCOutputInCommitment_get_payment_hash(const struct LDKHTLCOutputInCommitment *NONNULL_PTR this_ptr))[32];
 
 /**
  * The hash of the preimage which unlocks this HTLC.
  */
-void HTLCOutputInCommitment_set_payment_hash(struct LDKHTLCOutputInCommitment *this_ptr, struct LDKThirtyTwoBytes val);
+void HTLCOutputInCommitment_set_payment_hash(struct LDKHTLCOutputInCommitment *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 LDKCVec_u8Z HTLCOutputInCommitment_write(const struct LDKHTLCOutputInCommitment *obj);
 
@@ -7334,7 +7334,7 @@ struct LDKHTLCOutputInCommitment HTLCOutputInCommitment_read(struct LDKu8slice s
  * Gets the witness redeemscript for an HTLC output in a commitment transaction. Note that htlc
  * does not need to have its previous_output_index filled.
  */
-LDKCVec_u8Z get_htlc_redeemscript(const struct LDKHTLCOutputInCommitment *htlc, const struct LDKTxCreationKeys *keys);
+LDKCVec_u8Z get_htlc_redeemscript(const struct LDKHTLCOutputInCommitment *NONNULL_PTR htlc, const struct LDKTxCreationKeys *NONNULL_PTR keys);
 
 /**
  * Gets the redeemscript for a funding output from the two funding public keys.
@@ -7345,98 +7345,98 @@ LDKCVec_u8Z make_funding_redeemscript(struct LDKPublicKey broadcaster, struct LD
 /**
  * panics if htlc.transaction_output_index.is_none()!
  */
-struct LDKTransaction build_htlc_transaction(const uint8_t (*prev_hash)[32], uint32_t feerate_per_kw, uint16_t contest_delay, const struct LDKHTLCOutputInCommitment *htlc, struct LDKPublicKey broadcaster_delayed_payment_key, struct LDKPublicKey revocation_key);
+struct LDKTransaction build_htlc_transaction(const uint8_t (*prev_hash)[32], uint32_t feerate_per_kw, uint16_t contest_delay, const struct LDKHTLCOutputInCommitment *NONNULL_PTR htlc, struct LDKPublicKey broadcaster_delayed_payment_key, struct LDKPublicKey revocation_key);
 
 void ChannelTransactionParameters_free(struct LDKChannelTransactionParameters this_ptr);
 
-struct LDKChannelTransactionParameters ChannelTransactionParameters_clone(const struct LDKChannelTransactionParameters *orig);
+struct LDKChannelTransactionParameters ChannelTransactionParameters_clone(const struct LDKChannelTransactionParameters *NONNULL_PTR orig);
 
 /**
  * Holder public keys
  */
-struct LDKChannelPublicKeys ChannelTransactionParameters_get_holder_pubkeys(const struct LDKChannelTransactionParameters *this_ptr);
+struct LDKChannelPublicKeys ChannelTransactionParameters_get_holder_pubkeys(const struct LDKChannelTransactionParameters *NONNULL_PTR this_ptr);
 
 /**
  * Holder public keys
  */
-void ChannelTransactionParameters_set_holder_pubkeys(struct LDKChannelTransactionParameters *this_ptr, struct LDKChannelPublicKeys val);
+void ChannelTransactionParameters_set_holder_pubkeys(struct LDKChannelTransactionParameters *NONNULL_PTR this_ptr, struct LDKChannelPublicKeys val);
 
 /**
  * The contest delay selected by the holder, which applies to counterparty-broadcast transactions
  */
-uint16_t ChannelTransactionParameters_get_holder_selected_contest_delay(const struct LDKChannelTransactionParameters *this_ptr);
+uint16_t ChannelTransactionParameters_get_holder_selected_contest_delay(const struct LDKChannelTransactionParameters *NONNULL_PTR this_ptr);
 
 /**
  * The contest delay selected by the holder, which applies to counterparty-broadcast transactions
  */
-void ChannelTransactionParameters_set_holder_selected_contest_delay(struct LDKChannelTransactionParameters *this_ptr, uint16_t val);
+void ChannelTransactionParameters_set_holder_selected_contest_delay(struct LDKChannelTransactionParameters *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * Whether the holder is the initiator of this channel.
  * This is an input to the commitment number obscure factor computation.
  */
-bool ChannelTransactionParameters_get_is_outbound_from_holder(const struct LDKChannelTransactionParameters *this_ptr);
+bool ChannelTransactionParameters_get_is_outbound_from_holder(const struct LDKChannelTransactionParameters *NONNULL_PTR this_ptr);
 
 /**
  * Whether the holder is the initiator of this channel.
  * This is an input to the commitment number obscure factor computation.
  */
-void ChannelTransactionParameters_set_is_outbound_from_holder(struct LDKChannelTransactionParameters *this_ptr, bool val);
+void ChannelTransactionParameters_set_is_outbound_from_holder(struct LDKChannelTransactionParameters *NONNULL_PTR this_ptr, bool val);
 
 /**
  * The late-bound counterparty channel transaction parameters.
  * These parameters are populated at the point in the protocol where the counterparty provides them.
  */
-struct LDKCounterpartyChannelTransactionParameters ChannelTransactionParameters_get_counterparty_parameters(const struct LDKChannelTransactionParameters *this_ptr);
+struct LDKCounterpartyChannelTransactionParameters ChannelTransactionParameters_get_counterparty_parameters(const struct LDKChannelTransactionParameters *NONNULL_PTR this_ptr);
 
 /**
  * The late-bound counterparty channel transaction parameters.
  * These parameters are populated at the point in the protocol where the counterparty provides them.
  */
-void ChannelTransactionParameters_set_counterparty_parameters(struct LDKChannelTransactionParameters *this_ptr, struct LDKCounterpartyChannelTransactionParameters val);
+void ChannelTransactionParameters_set_counterparty_parameters(struct LDKChannelTransactionParameters *NONNULL_PTR this_ptr, struct LDKCounterpartyChannelTransactionParameters val);
 
 /**
  * The late-bound funding outpoint
  */
-struct LDKOutPoint ChannelTransactionParameters_get_funding_outpoint(const struct LDKChannelTransactionParameters *this_ptr);
+struct LDKOutPoint ChannelTransactionParameters_get_funding_outpoint(const struct LDKChannelTransactionParameters *NONNULL_PTR this_ptr);
 
 /**
  * The late-bound funding outpoint
  */
-void ChannelTransactionParameters_set_funding_outpoint(struct LDKChannelTransactionParameters *this_ptr, struct LDKOutPoint val);
+void ChannelTransactionParameters_set_funding_outpoint(struct LDKChannelTransactionParameters *NONNULL_PTR this_ptr, struct LDKOutPoint val);
 
 MUST_USE_RES struct LDKChannelTransactionParameters ChannelTransactionParameters_new(struct LDKChannelPublicKeys holder_pubkeys_arg, uint16_t holder_selected_contest_delay_arg, bool is_outbound_from_holder_arg, struct LDKCounterpartyChannelTransactionParameters counterparty_parameters_arg, struct LDKOutPoint funding_outpoint_arg);
 
 void CounterpartyChannelTransactionParameters_free(struct LDKCounterpartyChannelTransactionParameters this_ptr);
 
-struct LDKCounterpartyChannelTransactionParameters CounterpartyChannelTransactionParameters_clone(const struct LDKCounterpartyChannelTransactionParameters *orig);
+struct LDKCounterpartyChannelTransactionParameters CounterpartyChannelTransactionParameters_clone(const struct LDKCounterpartyChannelTransactionParameters *NONNULL_PTR orig);
 
 /**
  * Counter-party public keys
  */
-struct LDKChannelPublicKeys CounterpartyChannelTransactionParameters_get_pubkeys(const struct LDKCounterpartyChannelTransactionParameters *this_ptr);
+struct LDKChannelPublicKeys CounterpartyChannelTransactionParameters_get_pubkeys(const struct LDKCounterpartyChannelTransactionParameters *NONNULL_PTR this_ptr);
 
 /**
  * Counter-party public keys
  */
-void CounterpartyChannelTransactionParameters_set_pubkeys(struct LDKCounterpartyChannelTransactionParameters *this_ptr, struct LDKChannelPublicKeys val);
+void CounterpartyChannelTransactionParameters_set_pubkeys(struct LDKCounterpartyChannelTransactionParameters *NONNULL_PTR this_ptr, struct LDKChannelPublicKeys val);
 
 /**
  * The contest delay selected by the counterparty, which applies to holder-broadcast transactions
  */
-uint16_t CounterpartyChannelTransactionParameters_get_selected_contest_delay(const struct LDKCounterpartyChannelTransactionParameters *this_ptr);
+uint16_t CounterpartyChannelTransactionParameters_get_selected_contest_delay(const struct LDKCounterpartyChannelTransactionParameters *NONNULL_PTR this_ptr);
 
 /**
  * The contest delay selected by the counterparty, which applies to holder-broadcast transactions
  */
-void CounterpartyChannelTransactionParameters_set_selected_contest_delay(struct LDKCounterpartyChannelTransactionParameters *this_ptr, uint16_t val);
+void CounterpartyChannelTransactionParameters_set_selected_contest_delay(struct LDKCounterpartyChannelTransactionParameters *NONNULL_PTR this_ptr, uint16_t val);
 
 MUST_USE_RES struct LDKCounterpartyChannelTransactionParameters CounterpartyChannelTransactionParameters_new(struct LDKChannelPublicKeys pubkeys_arg, uint16_t selected_contest_delay_arg);
 
 /**
  * Whether the late bound parameters are populated.
  */
-MUST_USE_RES bool ChannelTransactionParameters_is_populated(const struct LDKChannelTransactionParameters *this_arg);
+MUST_USE_RES bool ChannelTransactionParameters_is_populated(const struct LDKChannelTransactionParameters *NONNULL_PTR this_arg);
 
 /**
  * Convert the holder/counterparty parameters to broadcaster/countersignatory-organized parameters,
@@ -7444,7 +7444,7 @@ MUST_USE_RES bool ChannelTransactionParameters_is_populated(const struct LDKChan
  *
  * self.is_populated() must be true before calling this function.
  */
-MUST_USE_RES struct LDKDirectedChannelTransactionParameters ChannelTransactionParameters_as_holder_broadcastable(const struct LDKChannelTransactionParameters *this_arg);
+MUST_USE_RES struct LDKDirectedChannelTransactionParameters ChannelTransactionParameters_as_holder_broadcastable(const struct LDKChannelTransactionParameters *NONNULL_PTR this_arg);
 
 /**
  * Convert the holder/counterparty parameters to broadcaster/countersignatory-organized parameters,
@@ -7452,7 +7452,7 @@ MUST_USE_RES struct LDKDirectedChannelTransactionParameters ChannelTransactionPa
  *
  * self.is_populated() must be true before calling this function.
  */
-MUST_USE_RES struct LDKDirectedChannelTransactionParameters ChannelTransactionParameters_as_counterparty_broadcastable(const struct LDKChannelTransactionParameters *this_arg);
+MUST_USE_RES struct LDKDirectedChannelTransactionParameters ChannelTransactionParameters_as_counterparty_broadcastable(const struct LDKChannelTransactionParameters *NONNULL_PTR this_arg);
 
 LDKCVec_u8Z CounterpartyChannelTransactionParameters_write(const struct LDKCounterpartyChannelTransactionParameters *obj);
 
@@ -7467,18 +7467,18 @@ void DirectedChannelTransactionParameters_free(struct LDKDirectedChannelTransact
 /**
  * Get the channel pubkeys for the broadcaster
  */
-MUST_USE_RES struct LDKChannelPublicKeys DirectedChannelTransactionParameters_broadcaster_pubkeys(const struct LDKDirectedChannelTransactionParameters *this_arg);
+MUST_USE_RES struct LDKChannelPublicKeys DirectedChannelTransactionParameters_broadcaster_pubkeys(const struct LDKDirectedChannelTransactionParameters *NONNULL_PTR this_arg);
 
 /**
  * Get the channel pubkeys for the countersignatory
  */
-MUST_USE_RES struct LDKChannelPublicKeys DirectedChannelTransactionParameters_countersignatory_pubkeys(const struct LDKDirectedChannelTransactionParameters *this_arg);
+MUST_USE_RES struct LDKChannelPublicKeys DirectedChannelTransactionParameters_countersignatory_pubkeys(const struct LDKDirectedChannelTransactionParameters *NONNULL_PTR this_arg);
 
 /**
  * Get the contest delay applicable to the transactions.
  * Note that the contest delay was selected by the countersignatory.
  */
-MUST_USE_RES uint16_t DirectedChannelTransactionParameters_contest_delay(const struct LDKDirectedChannelTransactionParameters *this_arg);
+MUST_USE_RES uint16_t DirectedChannelTransactionParameters_contest_delay(const struct LDKDirectedChannelTransactionParameters *NONNULL_PTR this_arg);
 
 /**
  * Whether the channel is outbound from the broadcaster.
@@ -7486,31 +7486,31 @@ MUST_USE_RES uint16_t DirectedChannelTransactionParameters_contest_delay(const s
  * The boolean representing the side that initiated the channel is
  * an input to the commitment number obscure factor computation.
  */
-MUST_USE_RES bool DirectedChannelTransactionParameters_is_outbound(const struct LDKDirectedChannelTransactionParameters *this_arg);
+MUST_USE_RES bool DirectedChannelTransactionParameters_is_outbound(const struct LDKDirectedChannelTransactionParameters *NONNULL_PTR this_arg);
 
 /**
  * The funding outpoint
  */
-MUST_USE_RES struct LDKOutPoint DirectedChannelTransactionParameters_funding_outpoint(const struct LDKDirectedChannelTransactionParameters *this_arg);
+MUST_USE_RES struct LDKOutPoint DirectedChannelTransactionParameters_funding_outpoint(const struct LDKDirectedChannelTransactionParameters *NONNULL_PTR this_arg);
 
 void HolderCommitmentTransaction_free(struct LDKHolderCommitmentTransaction this_ptr);
 
-struct LDKHolderCommitmentTransaction HolderCommitmentTransaction_clone(const struct LDKHolderCommitmentTransaction *orig);
+struct LDKHolderCommitmentTransaction HolderCommitmentTransaction_clone(const struct LDKHolderCommitmentTransaction *NONNULL_PTR orig);
 
 /**
  * Our counterparty's signature for the transaction
  */
-struct LDKSignature HolderCommitmentTransaction_get_counterparty_sig(const struct LDKHolderCommitmentTransaction *this_ptr);
+struct LDKSignature HolderCommitmentTransaction_get_counterparty_sig(const struct LDKHolderCommitmentTransaction *NONNULL_PTR this_ptr);
 
 /**
  * Our counterparty's signature for the transaction
  */
-void HolderCommitmentTransaction_set_counterparty_sig(struct LDKHolderCommitmentTransaction *this_ptr, struct LDKSignature val);
+void HolderCommitmentTransaction_set_counterparty_sig(struct LDKHolderCommitmentTransaction *NONNULL_PTR this_ptr, struct LDKSignature val);
 
 /**
  * All non-dust counterparty HTLC signatures, in the order they appear in the transaction
  */
-void HolderCommitmentTransaction_set_counterparty_htlc_sigs(struct LDKHolderCommitmentTransaction *this_ptr, LDKCVec_SignatureZ val);
+void HolderCommitmentTransaction_set_counterparty_htlc_sigs(struct LDKHolderCommitmentTransaction *NONNULL_PTR this_ptr, LDKCVec_SignatureZ val);
 
 LDKCVec_u8Z HolderCommitmentTransaction_write(const struct LDKHolderCommitmentTransaction *obj);
 
@@ -7524,17 +7524,17 @@ MUST_USE_RES struct LDKHolderCommitmentTransaction HolderCommitmentTransaction_n
 
 void BuiltCommitmentTransaction_free(struct LDKBuiltCommitmentTransaction this_ptr);
 
-struct LDKBuiltCommitmentTransaction BuiltCommitmentTransaction_clone(const struct LDKBuiltCommitmentTransaction *orig);
+struct LDKBuiltCommitmentTransaction BuiltCommitmentTransaction_clone(const struct LDKBuiltCommitmentTransaction *NONNULL_PTR orig);
 
 /**
  * The commitment transaction
  */
-struct LDKTransaction BuiltCommitmentTransaction_get_transaction(const struct LDKBuiltCommitmentTransaction *this_ptr);
+struct LDKTransaction BuiltCommitmentTransaction_get_transaction(const struct LDKBuiltCommitmentTransaction *NONNULL_PTR this_ptr);
 
 /**
  * The commitment transaction
  */
-void BuiltCommitmentTransaction_set_transaction(struct LDKBuiltCommitmentTransaction *this_ptr, struct LDKTransaction val);
+void BuiltCommitmentTransaction_set_transaction(struct LDKBuiltCommitmentTransaction *NONNULL_PTR this_ptr, struct LDKTransaction val);
 
 /**
  * The txid for the commitment transaction.
@@ -7542,7 +7542,7 @@ void BuiltCommitmentTransaction_set_transaction(struct LDKBuiltCommitmentTransac
  * This is provided as a performance optimization, instead of calling transaction.txid()
  * multiple times.
  */
-const uint8_t (*BuiltCommitmentTransaction_get_txid(const struct LDKBuiltCommitmentTransaction *this_ptr))[32];
+const uint8_t (*BuiltCommitmentTransaction_get_txid(const struct LDKBuiltCommitmentTransaction *NONNULL_PTR this_ptr))[32];
 
 /**
  * The txid for the commitment transaction.
@@ -7550,7 +7550,7 @@ const uint8_t (*BuiltCommitmentTransaction_get_txid(const struct LDKBuiltCommitm
  * This is provided as a performance optimization, instead of calling transaction.txid()
  * multiple times.
  */
-void BuiltCommitmentTransaction_set_txid(struct LDKBuiltCommitmentTransaction *this_ptr, struct LDKThirtyTwoBytes val);
+void BuiltCommitmentTransaction_set_txid(struct LDKBuiltCommitmentTransaction *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 MUST_USE_RES struct LDKBuiltCommitmentTransaction BuiltCommitmentTransaction_new(struct LDKTransaction transaction_arg, struct LDKThirtyTwoBytes txid_arg);
 
@@ -7563,17 +7563,17 @@ struct LDKBuiltCommitmentTransaction BuiltCommitmentTransaction_read(struct LDKu
  *
  * This can be used to verify a signature.
  */
-MUST_USE_RES struct LDKThirtyTwoBytes BuiltCommitmentTransaction_get_sighash_all(const struct LDKBuiltCommitmentTransaction *this_arg, struct LDKu8slice funding_redeemscript, uint64_t channel_value_satoshis);
+MUST_USE_RES struct LDKThirtyTwoBytes BuiltCommitmentTransaction_get_sighash_all(const struct LDKBuiltCommitmentTransaction *NONNULL_PTR this_arg, struct LDKu8slice funding_redeemscript, uint64_t channel_value_satoshis);
 
 /**
  * Sign a transaction, either because we are counter-signing the counterparty's transaction or
  * because we are about to broadcast a holder transaction.
  */
-MUST_USE_RES struct LDKSignature BuiltCommitmentTransaction_sign(const struct LDKBuiltCommitmentTransaction *this_arg, const uint8_t (*funding_key)[32], struct LDKu8slice funding_redeemscript, uint64_t channel_value_satoshis);
+MUST_USE_RES struct LDKSignature BuiltCommitmentTransaction_sign(const struct LDKBuiltCommitmentTransaction *NONNULL_PTR this_arg, const uint8_t (*funding_key)[32], struct LDKu8slice funding_redeemscript, uint64_t channel_value_satoshis);
 
 void CommitmentTransaction_free(struct LDKCommitmentTransaction this_ptr);
 
-struct LDKCommitmentTransaction CommitmentTransaction_clone(const struct LDKCommitmentTransaction *orig);
+struct LDKCommitmentTransaction CommitmentTransaction_clone(const struct LDKCommitmentTransaction *NONNULL_PTR orig);
 
 LDKCVec_u8Z CommitmentTransaction_write(const struct LDKCommitmentTransaction *obj);
 
@@ -7582,22 +7582,22 @@ struct LDKCommitmentTransaction CommitmentTransaction_read(struct LDKu8slice ser
 /**
  * The backwards-counting commitment number
  */
-MUST_USE_RES uint64_t CommitmentTransaction_commitment_number(const struct LDKCommitmentTransaction *this_arg);
+MUST_USE_RES uint64_t CommitmentTransaction_commitment_number(const struct LDKCommitmentTransaction *NONNULL_PTR this_arg);
 
 /**
  * The value to be sent to the broadcaster
  */
-MUST_USE_RES uint64_t CommitmentTransaction_to_broadcaster_value_sat(const struct LDKCommitmentTransaction *this_arg);
+MUST_USE_RES uint64_t CommitmentTransaction_to_broadcaster_value_sat(const struct LDKCommitmentTransaction *NONNULL_PTR this_arg);
 
 /**
  * The value to be sent to the counterparty
  */
-MUST_USE_RES uint64_t CommitmentTransaction_to_countersignatory_value_sat(const struct LDKCommitmentTransaction *this_arg);
+MUST_USE_RES uint64_t CommitmentTransaction_to_countersignatory_value_sat(const struct LDKCommitmentTransaction *NONNULL_PTR this_arg);
 
 /**
  * The feerate paid per 1000-weight-unit in this commitment transaction.
  */
-MUST_USE_RES uint32_t CommitmentTransaction_feerate_per_kw(const struct LDKCommitmentTransaction *this_arg);
+MUST_USE_RES uint32_t CommitmentTransaction_feerate_per_kw(const struct LDKCommitmentTransaction *NONNULL_PTR this_arg);
 
 /**
  * Trust our pre-built transaction and derived transaction creation public keys.
@@ -7607,7 +7607,7 @@ MUST_USE_RES uint32_t CommitmentTransaction_feerate_per_kw(const struct LDKCommi
  * This should only be used if you fully trust the builder of this object.  It should not
  *\tbe used by an external signer - instead use the verify function.
  */
-MUST_USE_RES struct LDKTrustedCommitmentTransaction CommitmentTransaction_trust(const struct LDKCommitmentTransaction *this_arg);
+MUST_USE_RES struct LDKTrustedCommitmentTransaction CommitmentTransaction_trust(const struct LDKCommitmentTransaction *NONNULL_PTR this_arg);
 
 /**
  * Verify our pre-built transaction and derived transaction creation public keys.
@@ -7617,24 +7617,24 @@ MUST_USE_RES struct LDKTrustedCommitmentTransaction CommitmentTransaction_trust(
  * An external validating signer must call this method before signing
  * or using the built transaction.
  */
-MUST_USE_RES LDKCResult_TrustedCommitmentTransactionNoneZ CommitmentTransaction_verify(const struct LDKCommitmentTransaction *this_arg, const struct LDKDirectedChannelTransactionParameters *channel_parameters, const struct LDKChannelPublicKeys *broadcaster_keys, const struct LDKChannelPublicKeys *countersignatory_keys);
+MUST_USE_RES LDKCResult_TrustedCommitmentTransactionNoneZ CommitmentTransaction_verify(const struct LDKCommitmentTransaction *NONNULL_PTR this_arg, const struct LDKDirectedChannelTransactionParameters *NONNULL_PTR channel_parameters, const struct LDKChannelPublicKeys *NONNULL_PTR broadcaster_keys, const struct LDKChannelPublicKeys *NONNULL_PTR countersignatory_keys);
 
 void TrustedCommitmentTransaction_free(struct LDKTrustedCommitmentTransaction this_ptr);
 
 /**
  * The transaction ID of the built Bitcoin transaction
  */
-MUST_USE_RES struct LDKThirtyTwoBytes TrustedCommitmentTransaction_txid(const struct LDKTrustedCommitmentTransaction *this_arg);
+MUST_USE_RES struct LDKThirtyTwoBytes TrustedCommitmentTransaction_txid(const struct LDKTrustedCommitmentTransaction *NONNULL_PTR this_arg);
 
 /**
  * The pre-built Bitcoin commitment transaction
  */
-MUST_USE_RES struct LDKBuiltCommitmentTransaction TrustedCommitmentTransaction_built_transaction(const struct LDKTrustedCommitmentTransaction *this_arg);
+MUST_USE_RES struct LDKBuiltCommitmentTransaction TrustedCommitmentTransaction_built_transaction(const struct LDKTrustedCommitmentTransaction *NONNULL_PTR this_arg);
 
 /**
  * The pre-calculated transaction creation public keys.
  */
-MUST_USE_RES struct LDKTxCreationKeys TrustedCommitmentTransaction_keys(const struct LDKTrustedCommitmentTransaction *this_arg);
+MUST_USE_RES struct LDKTxCreationKeys TrustedCommitmentTransaction_keys(const struct LDKTrustedCommitmentTransaction *NONNULL_PTR this_arg);
 
 /**
  * Get a signature for each HTLC which was included in the commitment transaction (ie for
@@ -7642,7 +7642,7 @@ MUST_USE_RES struct LDKTxCreationKeys TrustedCommitmentTransaction_keys(const st
  *
  * The returned Vec has one entry for each HTLC, and in the same order.
  */
-MUST_USE_RES LDKCResult_CVec_SignatureZNoneZ TrustedCommitmentTransaction_get_htlc_sigs(const struct LDKTrustedCommitmentTransaction *this_arg, const uint8_t (*htlc_base_key)[32], const struct LDKDirectedChannelTransactionParameters *channel_parameters);
+MUST_USE_RES LDKCResult_CVec_SignatureZNoneZ TrustedCommitmentTransaction_get_htlc_sigs(const struct LDKTrustedCommitmentTransaction *NONNULL_PTR this_arg, const uint8_t (*htlc_base_key)[32], const struct LDKDirectedChannelTransactionParameters *NONNULL_PTR channel_parameters);
 
 /**
  * Get the transaction number obscure factor
@@ -7657,79 +7657,79 @@ void ChannelFeatures_free(struct LDKChannelFeatures this_ptr);
 
 void RouteHop_free(struct LDKRouteHop this_ptr);
 
-struct LDKRouteHop RouteHop_clone(const struct LDKRouteHop *orig);
+struct LDKRouteHop RouteHop_clone(const struct LDKRouteHop *NONNULL_PTR orig);
 
 /**
  * The node_id of the node at this hop.
  */
-struct LDKPublicKey RouteHop_get_pubkey(const struct LDKRouteHop *this_ptr);
+struct LDKPublicKey RouteHop_get_pubkey(const struct LDKRouteHop *NONNULL_PTR this_ptr);
 
 /**
  * The node_id of the node at this hop.
  */
-void RouteHop_set_pubkey(struct LDKRouteHop *this_ptr, struct LDKPublicKey val);
+void RouteHop_set_pubkey(struct LDKRouteHop *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The node_announcement features of the node at this hop. For the last hop, these may be
  * amended to match the features present in the invoice this node generated.
  */
-struct LDKNodeFeatures RouteHop_get_node_features(const struct LDKRouteHop *this_ptr);
+struct LDKNodeFeatures RouteHop_get_node_features(const struct LDKRouteHop *NONNULL_PTR this_ptr);
 
 /**
  * The node_announcement features of the node at this hop. For the last hop, these may be
  * amended to match the features present in the invoice this node generated.
  */
-void RouteHop_set_node_features(struct LDKRouteHop *this_ptr, struct LDKNodeFeatures val);
+void RouteHop_set_node_features(struct LDKRouteHop *NONNULL_PTR this_ptr, struct LDKNodeFeatures val);
 
 /**
  * The channel that should be used from the previous hop to reach this node.
  */
-uint64_t RouteHop_get_short_channel_id(const struct LDKRouteHop *this_ptr);
+uint64_t RouteHop_get_short_channel_id(const struct LDKRouteHop *NONNULL_PTR this_ptr);
 
 /**
  * The channel that should be used from the previous hop to reach this node.
  */
-void RouteHop_set_short_channel_id(struct LDKRouteHop *this_ptr, uint64_t val);
+void RouteHop_set_short_channel_id(struct LDKRouteHop *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The channel_announcement features of the channel that should be used from the previous hop
  * to reach this node.
  */
-struct LDKChannelFeatures RouteHop_get_channel_features(const struct LDKRouteHop *this_ptr);
+struct LDKChannelFeatures RouteHop_get_channel_features(const struct LDKRouteHop *NONNULL_PTR this_ptr);
 
 /**
  * The channel_announcement features of the channel that should be used from the previous hop
  * to reach this node.
  */
-void RouteHop_set_channel_features(struct LDKRouteHop *this_ptr, struct LDKChannelFeatures val);
+void RouteHop_set_channel_features(struct LDKRouteHop *NONNULL_PTR this_ptr, struct LDKChannelFeatures val);
 
 /**
  * The fee taken on this hop. For the last hop, this should be the full value of the payment.
  */
-uint64_t RouteHop_get_fee_msat(const struct LDKRouteHop *this_ptr);
+uint64_t RouteHop_get_fee_msat(const struct LDKRouteHop *NONNULL_PTR this_ptr);
 
 /**
  * The fee taken on this hop. For the last hop, this should be the full value of the payment.
  */
-void RouteHop_set_fee_msat(struct LDKRouteHop *this_ptr, uint64_t val);
+void RouteHop_set_fee_msat(struct LDKRouteHop *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The CLTV delta added for this hop. For the last hop, this should be the full CLTV value
  * expected at the destination, in excess of the current block height.
  */
-uint32_t RouteHop_get_cltv_expiry_delta(const struct LDKRouteHop *this_ptr);
+uint32_t RouteHop_get_cltv_expiry_delta(const struct LDKRouteHop *NONNULL_PTR this_ptr);
 
 /**
  * The CLTV delta added for this hop. For the last hop, this should be the full CLTV value
  * expected at the destination, in excess of the current block height.
  */
-void RouteHop_set_cltv_expiry_delta(struct LDKRouteHop *this_ptr, uint32_t val);
+void RouteHop_set_cltv_expiry_delta(struct LDKRouteHop *NONNULL_PTR this_ptr, uint32_t val);
 
 MUST_USE_RES struct LDKRouteHop RouteHop_new(struct LDKPublicKey pubkey_arg, struct LDKNodeFeatures node_features_arg, uint64_t short_channel_id_arg, struct LDKChannelFeatures channel_features_arg, uint64_t fee_msat_arg, uint32_t cltv_expiry_delta_arg);
 
 void Route_free(struct LDKRoute this_ptr);
 
-struct LDKRoute Route_clone(const struct LDKRoute *orig);
+struct LDKRoute Route_clone(const struct LDKRoute *NONNULL_PTR orig);
 
 /**
  * The list of routes taken for a single (potentially-)multi-part payment. The pubkey of the
@@ -7739,7 +7739,7 @@ struct LDKRoute Route_clone(const struct LDKRoute *orig);
  * given path is variable, keeping the length of any path to less than 20 should currently
  * ensure it is viable.
  */
-void Route_set_paths(struct LDKRoute *this_ptr, LDKCVec_CVec_RouteHopZZ val);
+void Route_set_paths(struct LDKRoute *NONNULL_PTR this_ptr, LDKCVec_CVec_RouteHopZZ val);
 
 MUST_USE_RES struct LDKRoute Route_new(LDKCVec_CVec_RouteHopZZ paths_arg);
 
@@ -7749,57 +7749,57 @@ LDKCResult_RouteDecodeErrorZ Route_read(struct LDKu8slice ser);
 
 void RouteHint_free(struct LDKRouteHint this_ptr);
 
-struct LDKRouteHint RouteHint_clone(const struct LDKRouteHint *orig);
+struct LDKRouteHint RouteHint_clone(const struct LDKRouteHint *NONNULL_PTR orig);
 
 /**
  * The node_id of the non-target end of the route
  */
-struct LDKPublicKey RouteHint_get_src_node_id(const struct LDKRouteHint *this_ptr);
+struct LDKPublicKey RouteHint_get_src_node_id(const struct LDKRouteHint *NONNULL_PTR this_ptr);
 
 /**
  * The node_id of the non-target end of the route
  */
-void RouteHint_set_src_node_id(struct LDKRouteHint *this_ptr, struct LDKPublicKey val);
+void RouteHint_set_src_node_id(struct LDKRouteHint *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * The short_channel_id of this channel
  */
-uint64_t RouteHint_get_short_channel_id(const struct LDKRouteHint *this_ptr);
+uint64_t RouteHint_get_short_channel_id(const struct LDKRouteHint *NONNULL_PTR this_ptr);
 
 /**
  * The short_channel_id of this channel
  */
-void RouteHint_set_short_channel_id(struct LDKRouteHint *this_ptr, uint64_t val);
+void RouteHint_set_short_channel_id(struct LDKRouteHint *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * The fees which must be paid to use this channel
  */
-struct LDKRoutingFees RouteHint_get_fees(const struct LDKRouteHint *this_ptr);
+struct LDKRoutingFees RouteHint_get_fees(const struct LDKRouteHint *NONNULL_PTR this_ptr);
 
 /**
  * The fees which must be paid to use this channel
  */
-void RouteHint_set_fees(struct LDKRouteHint *this_ptr, struct LDKRoutingFees val);
+void RouteHint_set_fees(struct LDKRouteHint *NONNULL_PTR this_ptr, struct LDKRoutingFees val);
 
 /**
  * The difference in CLTV values between this node and the next node.
  */
-uint16_t RouteHint_get_cltv_expiry_delta(const struct LDKRouteHint *this_ptr);
+uint16_t RouteHint_get_cltv_expiry_delta(const struct LDKRouteHint *NONNULL_PTR this_ptr);
 
 /**
  * The difference in CLTV values between this node and the next node.
  */
-void RouteHint_set_cltv_expiry_delta(struct LDKRouteHint *this_ptr, uint16_t val);
+void RouteHint_set_cltv_expiry_delta(struct LDKRouteHint *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * The minimum value, in msat, which must be relayed to the next hop.
  */
-uint64_t RouteHint_get_htlc_minimum_msat(const struct LDKRouteHint *this_ptr);
+uint64_t RouteHint_get_htlc_minimum_msat(const struct LDKRouteHint *NONNULL_PTR this_ptr);
 
 /**
  * The minimum value, in msat, which must be relayed to the next hop.
  */
-void RouteHint_set_htlc_minimum_msat(struct LDKRouteHint *this_ptr, uint64_t val);
+void RouteHint_set_htlc_minimum_msat(struct LDKRouteHint *NONNULL_PTR this_ptr, uint64_t val);
 
 MUST_USE_RES struct LDKRouteHint RouteHint_new(struct LDKPublicKey src_node_id_arg, uint64_t short_channel_id_arg, struct LDKRoutingFees fees_arg, uint16_t cltv_expiry_delta_arg, uint64_t htlc_minimum_msat_arg);
 
@@ -7821,7 +7821,7 @@ MUST_USE_RES struct LDKRouteHint RouteHint_new(struct LDKPublicKey src_node_id_a
  * equal), however the enabled/disabled bit on such channels as well as the htlc_minimum_msat
  * *is* checked as they may change based on the receiving node.
  */
-LDKCResult_RouteLightningErrorZ get_route(struct LDKPublicKey our_node_id, const struct LDKNetworkGraph *network, struct LDKPublicKey target, LDKCVec_ChannelDetailsZ *first_hops, LDKCVec_RouteHintZ last_hops, uint64_t final_value_msat, uint32_t final_cltv, struct LDKLogger logger);
+LDKCResult_RouteLightningErrorZ get_route(struct LDKPublicKey our_node_id, const struct LDKNetworkGraph *NONNULL_PTR network, struct LDKPublicKey target, LDKCVec_ChannelDetailsZ *first_hops, LDKCVec_RouteHintZ last_hops, uint64_t final_value_msat, uint32_t final_cltv, struct LDKLogger logger);
 
 void NetworkGraph_free(struct LDKNetworkGraph this_ptr);
 
@@ -7850,12 +7850,12 @@ MUST_USE_RES struct LDKNetGraphMsgHandler NetGraphMsgHandler_from_net_graph(stru
  * bindings as you can call `self.network_graph.read().unwrap()` in Rust
  * yourself.
  */
-MUST_USE_RES struct LDKLockedNetworkGraph NetGraphMsgHandler_read_locked_graph(const struct LDKNetGraphMsgHandler *this_arg);
+MUST_USE_RES struct LDKLockedNetworkGraph NetGraphMsgHandler_read_locked_graph(const struct LDKNetGraphMsgHandler *NONNULL_PTR this_arg);
 
 /**
  * Get a reference to the NetworkGraph which this read-lock contains.
  */
-MUST_USE_RES struct LDKNetworkGraph LockedNetworkGraph_graph(const struct LDKLockedNetworkGraph *this_arg);
+MUST_USE_RES struct LDKNetworkGraph LockedNetworkGraph_graph(const struct LDKLockedNetworkGraph *NONNULL_PTR this_arg);
 
 struct LDKRoutingMessageHandler NetGraphMsgHandler_as_RoutingMessageHandler(const struct LDKNetGraphMsgHandler *this_arg);
 
@@ -7867,53 +7867,53 @@ void DirectionalChannelInfo_free(struct LDKDirectionalChannelInfo this_ptr);
  * When the last update to the channel direction was issued.
  * Value is opaque, as set in the announcement.
  */
-uint32_t DirectionalChannelInfo_get_last_update(const struct LDKDirectionalChannelInfo *this_ptr);
+uint32_t DirectionalChannelInfo_get_last_update(const struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * When the last update to the channel direction was issued.
  * Value is opaque, as set in the announcement.
  */
-void DirectionalChannelInfo_set_last_update(struct LDKDirectionalChannelInfo *this_ptr, uint32_t val);
+void DirectionalChannelInfo_set_last_update(struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * Whether the channel can be currently used for payments (in this one direction).
  */
-bool DirectionalChannelInfo_get_enabled(const struct LDKDirectionalChannelInfo *this_ptr);
+bool DirectionalChannelInfo_get_enabled(const struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * Whether the channel can be currently used for payments (in this one direction).
  */
-void DirectionalChannelInfo_set_enabled(struct LDKDirectionalChannelInfo *this_ptr, bool val);
+void DirectionalChannelInfo_set_enabled(struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr, bool val);
 
 /**
  * The difference in CLTV values that you must have when routing through this channel.
  */
-uint16_t DirectionalChannelInfo_get_cltv_expiry_delta(const struct LDKDirectionalChannelInfo *this_ptr);
+uint16_t DirectionalChannelInfo_get_cltv_expiry_delta(const struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * The difference in CLTV values that you must have when routing through this channel.
  */
-void DirectionalChannelInfo_set_cltv_expiry_delta(struct LDKDirectionalChannelInfo *this_ptr, uint16_t val);
+void DirectionalChannelInfo_set_cltv_expiry_delta(struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr, uint16_t val);
 
 /**
  * The minimum value, which must be relayed to the next hop via the channel
  */
-uint64_t DirectionalChannelInfo_get_htlc_minimum_msat(const struct LDKDirectionalChannelInfo *this_ptr);
+uint64_t DirectionalChannelInfo_get_htlc_minimum_msat(const struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * The minimum value, which must be relayed to the next hop via the channel
  */
-void DirectionalChannelInfo_set_htlc_minimum_msat(struct LDKDirectionalChannelInfo *this_ptr, uint64_t val);
+void DirectionalChannelInfo_set_htlc_minimum_msat(struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr, uint64_t val);
 
 /**
  * Fees charged when the channel is used for routing
  */
-struct LDKRoutingFees DirectionalChannelInfo_get_fees(const struct LDKDirectionalChannelInfo *this_ptr);
+struct LDKRoutingFees DirectionalChannelInfo_get_fees(const struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * Fees charged when the channel is used for routing
  */
-void DirectionalChannelInfo_set_fees(struct LDKDirectionalChannelInfo *this_ptr, struct LDKRoutingFees val);
+void DirectionalChannelInfo_set_fees(struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr, struct LDKRoutingFees val);
 
 /**
  * Most recent update for the channel received from the network
@@ -7921,7 +7921,7 @@ void DirectionalChannelInfo_set_fees(struct LDKDirectionalChannelInfo *this_ptr,
  * Everything else is useful only for sending out for initial routing sync.
  * Not stored if contains excess data to prevent DoS.
  */
-struct LDKChannelUpdate DirectionalChannelInfo_get_last_update_message(const struct LDKDirectionalChannelInfo *this_ptr);
+struct LDKChannelUpdate DirectionalChannelInfo_get_last_update_message(const struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * Most recent update for the channel received from the network
@@ -7929,7 +7929,7 @@ struct LDKChannelUpdate DirectionalChannelInfo_get_last_update_message(const str
  * Everything else is useful only for sending out for initial routing sync.
  * Not stored if contains excess data to prevent DoS.
  */
-void DirectionalChannelInfo_set_last_update_message(struct LDKDirectionalChannelInfo *this_ptr, struct LDKChannelUpdate val);
+void DirectionalChannelInfo_set_last_update_message(struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr, struct LDKChannelUpdate val);
 
 LDKCVec_u8Z DirectionalChannelInfo_write(const struct LDKDirectionalChannelInfo *obj);
 
@@ -7940,52 +7940,52 @@ void ChannelInfo_free(struct LDKChannelInfo this_ptr);
 /**
  * Protocol features of a channel communicated during its announcement
  */
-struct LDKChannelFeatures ChannelInfo_get_features(const struct LDKChannelInfo *this_ptr);
+struct LDKChannelFeatures ChannelInfo_get_features(const struct LDKChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * Protocol features of a channel communicated during its announcement
  */
-void ChannelInfo_set_features(struct LDKChannelInfo *this_ptr, struct LDKChannelFeatures val);
+void ChannelInfo_set_features(struct LDKChannelInfo *NONNULL_PTR this_ptr, struct LDKChannelFeatures val);
 
 /**
  * Source node of the first direction of a channel
  */
-struct LDKPublicKey ChannelInfo_get_node_one(const struct LDKChannelInfo *this_ptr);
+struct LDKPublicKey ChannelInfo_get_node_one(const struct LDKChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * Source node of the first direction of a channel
  */
-void ChannelInfo_set_node_one(struct LDKChannelInfo *this_ptr, struct LDKPublicKey val);
+void ChannelInfo_set_node_one(struct LDKChannelInfo *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Details about the first direction of a channel
  */
-struct LDKDirectionalChannelInfo ChannelInfo_get_one_to_two(const struct LDKChannelInfo *this_ptr);
+struct LDKDirectionalChannelInfo ChannelInfo_get_one_to_two(const struct LDKChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * Details about the first direction of a channel
  */
-void ChannelInfo_set_one_to_two(struct LDKChannelInfo *this_ptr, struct LDKDirectionalChannelInfo val);
+void ChannelInfo_set_one_to_two(struct LDKChannelInfo *NONNULL_PTR this_ptr, struct LDKDirectionalChannelInfo val);
 
 /**
  * Source node of the second direction of a channel
  */
-struct LDKPublicKey ChannelInfo_get_node_two(const struct LDKChannelInfo *this_ptr);
+struct LDKPublicKey ChannelInfo_get_node_two(const struct LDKChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * Source node of the second direction of a channel
  */
-void ChannelInfo_set_node_two(struct LDKChannelInfo *this_ptr, struct LDKPublicKey val);
+void ChannelInfo_set_node_two(struct LDKChannelInfo *NONNULL_PTR this_ptr, struct LDKPublicKey val);
 
 /**
  * Details about the second direction of a channel
  */
-struct LDKDirectionalChannelInfo ChannelInfo_get_two_to_one(const struct LDKChannelInfo *this_ptr);
+struct LDKDirectionalChannelInfo ChannelInfo_get_two_to_one(const struct LDKChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * Details about the second direction of a channel
  */
-void ChannelInfo_set_two_to_one(struct LDKChannelInfo *this_ptr, struct LDKDirectionalChannelInfo val);
+void ChannelInfo_set_two_to_one(struct LDKChannelInfo *NONNULL_PTR this_ptr, struct LDKDirectionalChannelInfo val);
 
 /**
  * An initial announcement of the channel
@@ -7993,7 +7993,7 @@ void ChannelInfo_set_two_to_one(struct LDKChannelInfo *this_ptr, struct LDKDirec
  * Everything else is useful only for sending out for initial routing sync.
  * Not stored if contains excess data to prevent DoS.
  */
-struct LDKChannelAnnouncement ChannelInfo_get_announcement_message(const struct LDKChannelInfo *this_ptr);
+struct LDKChannelAnnouncement ChannelInfo_get_announcement_message(const struct LDKChannelInfo *NONNULL_PTR this_ptr);
 
 /**
  * An initial announcement of the channel
@@ -8001,7 +8001,7 @@ struct LDKChannelAnnouncement ChannelInfo_get_announcement_message(const struct 
  * Everything else is useful only for sending out for initial routing sync.
  * Not stored if contains excess data to prevent DoS.
  */
-void ChannelInfo_set_announcement_message(struct LDKChannelInfo *this_ptr, struct LDKChannelAnnouncement val);
+void ChannelInfo_set_announcement_message(struct LDKChannelInfo *NONNULL_PTR this_ptr, struct LDKChannelAnnouncement val);
 
 LDKCVec_u8Z ChannelInfo_write(const struct LDKChannelInfo *obj);
 
@@ -8009,29 +8009,29 @@ struct LDKChannelInfo ChannelInfo_read(struct LDKu8slice ser);
 
 void RoutingFees_free(struct LDKRoutingFees this_ptr);
 
-struct LDKRoutingFees RoutingFees_clone(const struct LDKRoutingFees *orig);
+struct LDKRoutingFees RoutingFees_clone(const struct LDKRoutingFees *NONNULL_PTR orig);
 
 /**
  * Flat routing fee in satoshis
  */
-uint32_t RoutingFees_get_base_msat(const struct LDKRoutingFees *this_ptr);
+uint32_t RoutingFees_get_base_msat(const struct LDKRoutingFees *NONNULL_PTR this_ptr);
 
 /**
  * Flat routing fee in satoshis
  */
-void RoutingFees_set_base_msat(struct LDKRoutingFees *this_ptr, uint32_t val);
+void RoutingFees_set_base_msat(struct LDKRoutingFees *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * Liquidity-based routing fee in millionths of a routed amount.
  * In other words, 10000 is 1%.
  */
-uint32_t RoutingFees_get_proportional_millionths(const struct LDKRoutingFees *this_ptr);
+uint32_t RoutingFees_get_proportional_millionths(const struct LDKRoutingFees *NONNULL_PTR this_ptr);
 
 /**
  * Liquidity-based routing fee in millionths of a routed amount.
  * In other words, 10000 is 1%.
  */
-void RoutingFees_set_proportional_millionths(struct LDKRoutingFees *this_ptr, uint32_t val);
+void RoutingFees_set_proportional_millionths(struct LDKRoutingFees *NONNULL_PTR this_ptr, uint32_t val);
 
 MUST_USE_RES struct LDKRoutingFees RoutingFees_new(uint32_t base_msat_arg, uint32_t proportional_millionths_arg);
 
@@ -8044,53 +8044,53 @@ void NodeAnnouncementInfo_free(struct LDKNodeAnnouncementInfo this_ptr);
 /**
  * Protocol features the node announced support for
  */
-struct LDKNodeFeatures NodeAnnouncementInfo_get_features(const struct LDKNodeAnnouncementInfo *this_ptr);
+struct LDKNodeFeatures NodeAnnouncementInfo_get_features(const struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr);
 
 /**
  * Protocol features the node announced support for
  */
-void NodeAnnouncementInfo_set_features(struct LDKNodeAnnouncementInfo *this_ptr, struct LDKNodeFeatures val);
+void NodeAnnouncementInfo_set_features(struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr, struct LDKNodeFeatures val);
 
 /**
  * When the last known update to the node state was issued.
  * Value is opaque, as set in the announcement.
  */
-uint32_t NodeAnnouncementInfo_get_last_update(const struct LDKNodeAnnouncementInfo *this_ptr);
+uint32_t NodeAnnouncementInfo_get_last_update(const struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr);
 
 /**
  * When the last known update to the node state was issued.
  * Value is opaque, as set in the announcement.
  */
-void NodeAnnouncementInfo_set_last_update(struct LDKNodeAnnouncementInfo *this_ptr, uint32_t val);
+void NodeAnnouncementInfo_set_last_update(struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr, uint32_t val);
 
 /**
  * Color assigned to the node
  */
-const uint8_t (*NodeAnnouncementInfo_get_rgb(const struct LDKNodeAnnouncementInfo *this_ptr))[3];
+const uint8_t (*NodeAnnouncementInfo_get_rgb(const struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr))[3];
 
 /**
  * Color assigned to the node
  */
-void NodeAnnouncementInfo_set_rgb(struct LDKNodeAnnouncementInfo *this_ptr, struct LDKThreeBytes val);
+void NodeAnnouncementInfo_set_rgb(struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr, struct LDKThreeBytes val);
 
 /**
  * Moniker assigned to the node.
  * May be invalid or malicious (eg control chars),
  * should not be exposed to the user.
  */
-const uint8_t (*NodeAnnouncementInfo_get_alias(const struct LDKNodeAnnouncementInfo *this_ptr))[32];
+const uint8_t (*NodeAnnouncementInfo_get_alias(const struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr))[32];
 
 /**
  * Moniker assigned to the node.
  * May be invalid or malicious (eg control chars),
  * should not be exposed to the user.
  */
-void NodeAnnouncementInfo_set_alias(struct LDKNodeAnnouncementInfo *this_ptr, struct LDKThirtyTwoBytes val);
+void NodeAnnouncementInfo_set_alias(struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
 /**
  * Internet-level addresses via which one can connect to the node
  */
-void NodeAnnouncementInfo_set_addresses(struct LDKNodeAnnouncementInfo *this_ptr, LDKCVec_NetAddressZ val);
+void NodeAnnouncementInfo_set_addresses(struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr, LDKCVec_NetAddressZ val);
 
 /**
  * An initial announcement of the node
@@ -8098,7 +8098,7 @@ void NodeAnnouncementInfo_set_addresses(struct LDKNodeAnnouncementInfo *this_ptr
  * Everything else is useful only for sending out for initial routing sync.
  * Not stored if contains excess data to prevent DoS.
  */
-struct LDKNodeAnnouncement NodeAnnouncementInfo_get_announcement_message(const struct LDKNodeAnnouncementInfo *this_ptr);
+struct LDKNodeAnnouncement NodeAnnouncementInfo_get_announcement_message(const struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr);
 
 /**
  * An initial announcement of the node
@@ -8106,7 +8106,7 @@ struct LDKNodeAnnouncement NodeAnnouncementInfo_get_announcement_message(const s
  * Everything else is useful only for sending out for initial routing sync.
  * Not stored if contains excess data to prevent DoS.
  */
-void NodeAnnouncementInfo_set_announcement_message(struct LDKNodeAnnouncementInfo *this_ptr, struct LDKNodeAnnouncement val);
+void NodeAnnouncementInfo_set_announcement_message(struct LDKNodeAnnouncementInfo *NONNULL_PTR this_ptr, struct LDKNodeAnnouncement val);
 
 MUST_USE_RES struct LDKNodeAnnouncementInfo NodeAnnouncementInfo_new(struct LDKNodeFeatures features_arg, uint32_t last_update_arg, struct LDKThreeBytes rgb_arg, struct LDKThirtyTwoBytes alias_arg, LDKCVec_NetAddressZ addresses_arg, struct LDKNodeAnnouncement announcement_message_arg);
 
@@ -8119,35 +8119,35 @@ void NodeInfo_free(struct LDKNodeInfo this_ptr);
 /**
  * All valid channels a node has announced
  */
-void NodeInfo_set_channels(struct LDKNodeInfo *this_ptr, LDKCVec_u64Z val);
+void NodeInfo_set_channels(struct LDKNodeInfo *NONNULL_PTR this_ptr, LDKCVec_u64Z val);
 
 /**
  * Lowest fees enabling routing via any of the enabled, known channels to a node.
  * The two fields (flat and proportional fee) are independent,
  * meaning they don't have to refer to the same channel.
  */
-struct LDKRoutingFees NodeInfo_get_lowest_inbound_channel_fees(const struct LDKNodeInfo *this_ptr);
+struct LDKRoutingFees NodeInfo_get_lowest_inbound_channel_fees(const struct LDKNodeInfo *NONNULL_PTR this_ptr);
 
 /**
  * Lowest fees enabling routing via any of the enabled, known channels to a node.
  * The two fields (flat and proportional fee) are independent,
  * meaning they don't have to refer to the same channel.
  */
-void NodeInfo_set_lowest_inbound_channel_fees(struct LDKNodeInfo *this_ptr, struct LDKRoutingFees val);
+void NodeInfo_set_lowest_inbound_channel_fees(struct LDKNodeInfo *NONNULL_PTR this_ptr, struct LDKRoutingFees val);
 
 /**
  * More information about a node from node_announcement.
  * Optional because we store a Node entry after learning about it from
  * a channel announcement, but before receiving a node announcement.
  */
-struct LDKNodeAnnouncementInfo NodeInfo_get_announcement_info(const struct LDKNodeInfo *this_ptr);
+struct LDKNodeAnnouncementInfo NodeInfo_get_announcement_info(const struct LDKNodeInfo *NONNULL_PTR this_ptr);
 
 /**
  * More information about a node from node_announcement.
  * Optional because we store a Node entry after learning about it from
  * a channel announcement, but before receiving a node announcement.
  */
-void NodeInfo_set_announcement_info(struct LDKNodeInfo *this_ptr, struct LDKNodeAnnouncementInfo val);
+void NodeInfo_set_announcement_info(struct LDKNodeInfo *NONNULL_PTR this_ptr, struct LDKNodeAnnouncementInfo val);
 
 MUST_USE_RES struct LDKNodeInfo NodeInfo_new(LDKCVec_u64Z channels_arg, struct LDKRoutingFees lowest_inbound_channel_fees_arg, struct LDKNodeAnnouncementInfo announcement_info_arg);
 
@@ -8172,7 +8172,7 @@ MUST_USE_RES struct LDKNetworkGraph NetworkGraph_new(struct LDKThirtyTwoBytes ge
  * RoutingMessageHandler implementation to call it indirectly. This may be useful to accept
  * routing messages from a source using a protocol other than the lightning P2P protocol.
  */
-MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_node_from_announcement(struct LDKNetworkGraph *this_arg, const struct LDKNodeAnnouncement *msg);
+MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_node_from_announcement(struct LDKNetworkGraph *NONNULL_PTR this_arg, const struct LDKNodeAnnouncement *NONNULL_PTR msg);
 
 /**
  * For an already known node (from channel announcements), update its stored properties from a
@@ -8180,7 +8180,7 @@ MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_node_from_announ
  * given the associated signatures here we cannot relay the node announcement to any of our
  * peers.
  */
-MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_node_from_unsigned_announcement(struct LDKNetworkGraph *this_arg, const struct LDKUnsignedNodeAnnouncement *msg);
+MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_node_from_unsigned_announcement(struct LDKNetworkGraph *NONNULL_PTR this_arg, const struct LDKUnsignedNodeAnnouncement *NONNULL_PTR msg);
 
 /**
  * Store or update channel info from a channel announcement.
@@ -8192,7 +8192,7 @@ MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_node_from_unsign
  * If a `chain::Access` object is provided via `chain_access`, it will be called to verify
  * the corresponding UTXO exists on chain and is correctly-formatted.
  */
-MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_channel_from_announcement(struct LDKNetworkGraph *this_arg, const struct LDKChannelAnnouncement *msg, struct LDKAccess *chain_access);
+MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_channel_from_announcement(struct LDKNetworkGraph *NONNULL_PTR this_arg, const struct LDKChannelAnnouncement *NONNULL_PTR msg, struct LDKAccess *chain_access);
 
 /**
  * Store or update channel info from a channel announcement without verifying the associated
@@ -8202,7 +8202,7 @@ MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_channel_from_ann
  * If a `chain::Access` object is provided via `chain_access`, it will be called to verify
  * the corresponding UTXO exists on chain and is correctly-formatted.
  */
-MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_channel_from_unsigned_announcement(struct LDKNetworkGraph *this_arg, const struct LDKUnsignedChannelAnnouncement *msg, struct LDKAccess *chain_access);
+MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_channel_from_unsigned_announcement(struct LDKNetworkGraph *NONNULL_PTR this_arg, const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR msg, struct LDKAccess *chain_access);
 
 /**
  * Close a channel if a corresponding HTLC fail was sent.
@@ -8210,7 +8210,7 @@ MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_channel_from_uns
  * May cause the removal of nodes too, if this was their last channel.
  * If not permanent, makes channels unavailable for routing.
  */
-void NetworkGraph_close_channel_from_update(struct LDKNetworkGraph *this_arg, uint64_t short_channel_id, bool is_permanent);
+void NetworkGraph_close_channel_from_update(struct LDKNetworkGraph *NONNULL_PTR this_arg, uint64_t short_channel_id, bool is_permanent);
 
 /**
  * For an already known (from announcement) channel, update info about one of the directions
@@ -8220,13 +8220,13 @@ void NetworkGraph_close_channel_from_update(struct LDKNetworkGraph *this_arg, ui
  * RoutingMessageHandler implementation to call it indirectly. This may be useful to accept
  * routing messages from a source using a protocol other than the lightning P2P protocol.
  */
-MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_channel(struct LDKNetworkGraph *this_arg, const struct LDKChannelUpdate *msg);
+MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_channel(struct LDKNetworkGraph *NONNULL_PTR this_arg, const struct LDKChannelUpdate *NONNULL_PTR msg);
 
 /**
  * For an already known (from announcement) channel, update info about one of the directions
  * of the channel without verifying the associated signatures. Because we aren't given the
  * associated signatures here we cannot relay the channel update to any of our peers.
  */
-MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_channel_unsigned(struct LDKNetworkGraph *this_arg, const struct LDKUnsignedChannelUpdate *msg);
+MUST_USE_RES LDKCResult_NoneLightningErrorZ NetworkGraph_update_channel_unsigned(struct LDKNetworkGraph *NONNULL_PTR this_arg, const struct LDKUnsignedChannelUpdate *NONNULL_PTR msg);
 
 /* Text to put at the end of the generated file */
