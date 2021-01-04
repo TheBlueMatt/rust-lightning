@@ -614,12 +614,12 @@ use lightning::chain::channelmonitor::Persist as rustPersist;
 impl rustPersist<crate::chain::keysinterface::ChannelKeys> for Persist {
 	fn persist_new_channel(&self, id: lightning::chain::transaction::OutPoint, data: &lightning::chain::channelmonitor::ChannelMonitor<crate::chain::keysinterface::ChannelKeys>) -> Result<(), lightning::chain::channelmonitor::ChannelMonitorUpdateErr> {
 		let mut ret = (self.persist_new_channel)(self.this_arg, crate::chain::transaction::OutPoint { inner: Box::into_raw(Box::new(id)), is_owned: true }, &crate::chain::channelmonitor::ChannelMonitor { inner: unsafe { (data as *const _) as *mut _ }, is_owned: false });
-		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { (*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).into_native() })};
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) })*/ }), false => Err( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) }).into_native() })};
 		local_ret
 	}
 	fn update_persisted_channel(&self, id: lightning::chain::transaction::OutPoint, update: &lightning::chain::channelmonitor::ChannelMonitorUpdate, data: &lightning::chain::channelmonitor::ChannelMonitor<crate::chain::keysinterface::ChannelKeys>) -> Result<(), lightning::chain::channelmonitor::ChannelMonitorUpdateErr> {
 		let mut ret = (self.update_persisted_channel)(self.this_arg, crate::chain::transaction::OutPoint { inner: Box::into_raw(Box::new(id)), is_owned: true }, &crate::chain::channelmonitor::ChannelMonitorUpdate { inner: unsafe { (update as *const _) as *mut _ }, is_owned: false }, &crate::chain::channelmonitor::ChannelMonitor { inner: unsafe { (data as *const _) as *mut _ }, is_owned: false });
-		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { (*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).into_native() })};
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) })*/ }), false => Err( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) }).into_native() })};
 		local_ret
 	}
 }

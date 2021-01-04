@@ -425,41 +425,41 @@ impl rustChannelKeys for ChannelKeys {
 	}
 	fn sign_counterparty_commitment<T:bitcoin::secp256k1::Signing + bitcoin::secp256k1::Verification>(&self, commitment_tx: &lightning::ln::chan_utils::CommitmentTransaction, _secp_ctx: &bitcoin::secp256k1::Secp256k1<T>) -> Result<(bitcoin::secp256k1::Signature, Vec<bitcoin::secp256k1::Signature>), ()> {
 		let mut ret = (self.sign_counterparty_commitment)(self.this_arg, &crate::ln::chan_utils::CommitmentTransaction { inner: unsafe { (commitment_tx as *const _) as *mut _ }, is_owned: false });
-		let mut local_ret = match ret.result_ok { true => Ok( { let (mut orig_ret_0_0, mut orig_ret_0_1) = (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }).to_rust(); let mut local_orig_ret_0_1 = Vec::new(); for mut item in orig_ret_0_1.into_rust().drain(..) { local_orig_ret_0_1.push( { item.into_rust() }); }; let mut local_ret_0 = (orig_ret_0_0.into_rust(), local_orig_ret_0_1); local_ret_0 }), false => Err( { () /*(*unsafe { Box::from_raw(ret.contents.err.take_ptr()) })*/ })};
+		let mut local_ret = match ret.result_ok { true => Ok( { let (mut orig_ret_0_0, mut orig_ret_0_1) = (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) }).to_rust(); let mut local_orig_ret_0_1 = Vec::new(); for mut item in orig_ret_0_1.into_rust().drain(..) { local_orig_ret_0_1.push( { item.into_rust() }); }; let mut local_ret_0 = (orig_ret_0_0.into_rust(), local_orig_ret_0_1); local_ret_0 }), false => Err( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) })*/ })};
 		local_ret
 	}
 	fn sign_holder_commitment<T:bitcoin::secp256k1::Signing + bitcoin::secp256k1::Verification>(&self, commitment_tx: &lightning::ln::chan_utils::HolderCommitmentTransaction, _secp_ctx: &bitcoin::secp256k1::Secp256k1<T>) -> Result<bitcoin::secp256k1::Signature, ()> {
 		let mut ret = (self.sign_holder_commitment)(self.this_arg, &crate::ln::chan_utils::HolderCommitmentTransaction { inner: unsafe { (commitment_tx as *const _) as *mut _ }, is_owned: false });
-		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }).into_rust() }), false => Err( { () /*(*unsafe { Box::from_raw(ret.contents.err.take_ptr()) })*/ })};
+		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) }).into_rust() }), false => Err( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) })*/ })};
 		local_ret
 	}
 	fn sign_holder_commitment_htlc_transactions<T:bitcoin::secp256k1::Signing + bitcoin::secp256k1::Verification>(&self, commitment_tx: &lightning::ln::chan_utils::HolderCommitmentTransaction, _secp_ctx: &bitcoin::secp256k1::Secp256k1<T>) -> Result<Vec<bitcoin::secp256k1::Signature>, ()> {
 		let mut ret = (self.sign_holder_commitment_htlc_transactions)(self.this_arg, &crate::ln::chan_utils::HolderCommitmentTransaction { inner: unsafe { (commitment_tx as *const _) as *mut _ }, is_owned: false });
-		let mut local_ret = match ret.result_ok { true => Ok( { let mut local_ret_0 = Vec::new(); for mut item in (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }).into_rust().drain(..) { local_ret_0.push( { item.into_rust() }); }; local_ret_0 }), false => Err( { () /*(*unsafe { Box::from_raw(ret.contents.err.take_ptr()) })*/ })};
+		let mut local_ret = match ret.result_ok { true => Ok( { let mut local_ret_0 = Vec::new(); for mut item in (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) }).into_rust().drain(..) { local_ret_0.push( { item.into_rust() }); }; local_ret_0 }), false => Err( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) })*/ })};
 		local_ret
 	}
 	fn sign_justice_transaction<T:bitcoin::secp256k1::Signing + bitcoin::secp256k1::Verification>(&self, justice_tx: &bitcoin::blockdata::transaction::Transaction, input: usize, amount: u64, per_commitment_key: &bitcoin::secp256k1::key::SecretKey, htlc: &Option<lightning::ln::chan_utils::HTLCOutputInCommitment>, _secp_ctx: &bitcoin::secp256k1::Secp256k1<T>) -> Result<bitcoin::secp256k1::Signature, ()> {
 		let mut local_justice_tx = ::bitcoin::consensus::encode::serialize(justice_tx);
 		let mut local_htlc = &crate::ln::chan_utils::HTLCOutputInCommitment { inner: unsafe { (if htlc.is_none() { std::ptr::null() } else {  { (htlc.as_ref().unwrap()) } } as *const _) as *mut _ }, is_owned: false };
 		let mut ret = (self.sign_justice_transaction)(self.this_arg, crate::c_types::Transaction::from_vec(local_justice_tx), input, amount, per_commitment_key.as_ref(), local_htlc);
-		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }).into_rust() }), false => Err( { () /*(*unsafe { Box::from_raw(ret.contents.err.take_ptr()) })*/ })};
+		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) }).into_rust() }), false => Err( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) })*/ })};
 		local_ret
 	}
 	fn sign_counterparty_htlc_transaction<T:bitcoin::secp256k1::Signing + bitcoin::secp256k1::Verification>(&self, htlc_tx: &bitcoin::blockdata::transaction::Transaction, input: usize, amount: u64, per_commitment_point: &bitcoin::secp256k1::key::PublicKey, htlc: &lightning::ln::chan_utils::HTLCOutputInCommitment, _secp_ctx: &bitcoin::secp256k1::Secp256k1<T>) -> Result<bitcoin::secp256k1::Signature, ()> {
 		let mut local_htlc_tx = ::bitcoin::consensus::encode::serialize(htlc_tx);
 		let mut ret = (self.sign_counterparty_htlc_transaction)(self.this_arg, crate::c_types::Transaction::from_vec(local_htlc_tx), input, amount, crate::c_types::PublicKey::from_rust(&per_commitment_point), &crate::ln::chan_utils::HTLCOutputInCommitment { inner: unsafe { (htlc as *const _) as *mut _ }, is_owned: false });
-		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }).into_rust() }), false => Err( { () /*(*unsafe { Box::from_raw(ret.contents.err.take_ptr()) })*/ })};
+		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) }).into_rust() }), false => Err( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) })*/ })};
 		local_ret
 	}
 	fn sign_closing_transaction<T:bitcoin::secp256k1::Signing>(&self, closing_tx: &bitcoin::blockdata::transaction::Transaction, _secp_ctx: &bitcoin::secp256k1::Secp256k1<T>) -> Result<bitcoin::secp256k1::Signature, ()> {
 		let mut local_closing_tx = ::bitcoin::consensus::encode::serialize(closing_tx);
 		let mut ret = (self.sign_closing_transaction)(self.this_arg, crate::c_types::Transaction::from_vec(local_closing_tx));
-		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }).into_rust() }), false => Err( { () /*(*unsafe { Box::from_raw(ret.contents.err.take_ptr()) })*/ })};
+		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) }).into_rust() }), false => Err( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) })*/ })};
 		local_ret
 	}
 	fn sign_channel_announcement<T:bitcoin::secp256k1::Signing>(&self, msg: &lightning::ln::msgs::UnsignedChannelAnnouncement, _secp_ctx: &bitcoin::secp256k1::Secp256k1<T>) -> Result<bitcoin::secp256k1::Signature, ()> {
 		let mut ret = (self.sign_channel_announcement)(self.this_arg, &crate::ln::msgs::UnsignedChannelAnnouncement { inner: unsafe { (msg as *const _) as *mut _ }, is_owned: false });
-		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }).into_rust() }), false => Err( { () /*(*unsafe { Box::from_raw(ret.contents.err.take_ptr()) })*/ })};
+		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) }).into_rust() }), false => Err( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) })*/ })};
 		local_ret
 	}
 	fn ready_channel(&mut self, channel_parameters: &lightning::ln::chan_utils::ChannelTransactionParameters) {
@@ -546,7 +546,7 @@ impl rustKeysInterface for KeysInterface {
 	fn read_chan_signer(&self, reader: &[u8]) -> Result<crate::chain::keysinterface::ChannelKeys, lightning::ln::msgs::DecodeError> {
 		let mut local_reader = crate::c_types::u8slice::from_slice(reader);
 		let mut ret = (self.read_chan_signer)(self.this_arg, local_reader);
-		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }) }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).take_inner()) } })};
+		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) }) }), false => Err( { *unsafe { Box::from_raw((*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) }).take_inner()) } })};
 		local_ret
 	}
 }

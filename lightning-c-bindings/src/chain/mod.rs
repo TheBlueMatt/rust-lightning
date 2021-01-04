@@ -77,7 +77,7 @@ use lightning::chain::Access as rustAccess;
 impl rustAccess for Access {
 	fn get_utxo(&self, genesis_hash: &bitcoin::hash_types::BlockHash, short_channel_id: u64) -> Result<bitcoin::blockdata::transaction::TxOut, lightning::chain::AccessError> {
 		let mut ret = (self.get_utxo)(self.this_arg, genesis_hash.as_inner(), short_channel_id);
-		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(ret.contents.result.take_ptr()) }).into_rust() }), false => Err( { (*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).into_native() })};
+		let mut local_ret = match ret.result_ok { true => Ok( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) }).into_rust() }), false => Err( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) }).into_native() })};
 		local_ret
 	}
 }
@@ -158,12 +158,12 @@ impl rustWatch for Watch {
 	type Keys = crate::chain::keysinterface::ChannelKeys;
 	fn watch_channel(&self, funding_txo: lightning::chain::transaction::OutPoint, monitor: lightning::chain::channelmonitor::ChannelMonitor<crate::chain::keysinterface::ChannelKeys>) -> Result<(), lightning::chain::channelmonitor::ChannelMonitorUpdateErr> {
 		let mut ret = (self.watch_channel)(self.this_arg, crate::chain::transaction::OutPoint { inner: Box::into_raw(Box::new(funding_txo)), is_owned: true }, crate::chain::channelmonitor::ChannelMonitor { inner: Box::into_raw(Box::new(monitor)), is_owned: true });
-		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { (*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).into_native() })};
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) })*/ }), false => Err( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) }).into_native() })};
 		local_ret
 	}
 	fn update_channel(&self, funding_txo: lightning::chain::transaction::OutPoint, update: lightning::chain::channelmonitor::ChannelMonitorUpdate) -> Result<(), lightning::chain::channelmonitor::ChannelMonitorUpdateErr> {
 		let mut ret = (self.update_channel)(self.this_arg, crate::chain::transaction::OutPoint { inner: Box::into_raw(Box::new(funding_txo)), is_owned: true }, crate::chain::channelmonitor::ChannelMonitorUpdate { inner: Box::into_raw(Box::new(update)), is_owned: true });
-		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(ret.contents.result.take_ptr()) })*/ }), false => Err( { (*unsafe { Box::from_raw(ret.contents.err.take_ptr()) }).into_native() })};
+		let mut local_ret = match ret.result_ok { true => Ok( { () /*(*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.result)) })*/ }), false => Err( { (*unsafe { Box::from_raw(<*mut _>::take_ptr(&mut ret.contents.err)) }).into_native() })};
 		local_ret
 	}
 	fn release_pending_monitor_events(&self) -> Vec<lightning::chain::channelmonitor::MonitorEvent> {
