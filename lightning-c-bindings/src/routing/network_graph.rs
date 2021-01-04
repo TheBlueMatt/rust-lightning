@@ -647,12 +647,10 @@ pub extern "C" fn RoutingFees_new(mut base_msat_arg: u32, mut proportional_milli
 	})), is_owned: true }
 }
 #[no_mangle]
-pub extern "C" fn RoutingFees_read(ser: crate::c_types::u8slice) -> RoutingFees {
-	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
-		RoutingFees { inner: Box::into_raw(Box::new(res)), is_owned: true }
-	} else {
-		RoutingFees { inner: std::ptr::null_mut(), is_owned: true }
-	}
+pub extern "C" fn RoutingFees_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_RoutingFeesDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::RoutingFees { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	local_res
 }
 #[no_mangle]
 pub extern "C" fn RoutingFees_write(obj: *const RoutingFees) -> crate::c_types::derived::CVec_u8Z {
@@ -798,12 +796,10 @@ pub(crate) extern "C" fn NodeAnnouncementInfo_write_void(obj: *const c_void) -> 
 	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeNodeAnnouncementInfo) })
 }
 #[no_mangle]
-pub extern "C" fn NodeAnnouncementInfo_read(ser: crate::c_types::u8slice) -> NodeAnnouncementInfo {
-	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
-		NodeAnnouncementInfo { inner: Box::into_raw(Box::new(res)), is_owned: true }
-	} else {
-		NodeAnnouncementInfo { inner: std::ptr::null_mut(), is_owned: true }
-	}
+pub extern "C" fn NodeAnnouncementInfo_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_NodeAnnouncementInfoDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::NodeAnnouncementInfo { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	local_res
 }
 
 use lightning::routing::network_graph::NodeInfo as nativeNodeInfoImport;
@@ -904,12 +900,10 @@ pub(crate) extern "C" fn NodeInfo_write_void(obj: *const c_void) -> crate::c_typ
 	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeNodeInfo) })
 }
 #[no_mangle]
-pub extern "C" fn NodeInfo_read(ser: crate::c_types::u8slice) -> NodeInfo {
-	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
-		NodeInfo { inner: Box::into_raw(Box::new(res)), is_owned: true }
-	} else {
-		NodeInfo { inner: std::ptr::null_mut(), is_owned: true }
-	}
+pub extern "C" fn NodeInfo_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_NodeInfoDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::NodeInfo { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	local_res
 }
 #[no_mangle]
 pub extern "C" fn NetworkGraph_write(obj: *const NetworkGraph) -> crate::c_types::derived::CVec_u8Z {
@@ -920,12 +914,10 @@ pub(crate) extern "C" fn NetworkGraph_write_void(obj: *const c_void) -> crate::c
 	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeNetworkGraph) })
 }
 #[no_mangle]
-pub extern "C" fn NetworkGraph_read(ser: crate::c_types::u8slice) -> NetworkGraph {
-	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
-		NetworkGraph { inner: Box::into_raw(Box::new(res)), is_owned: true }
-	} else {
-		NetworkGraph { inner: std::ptr::null_mut(), is_owned: true }
-	}
+pub extern "C" fn NetworkGraph_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_NetworkGraphDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::network_graph::NetworkGraph { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	local_res
 }
 /// Creates a new, empty, network graph.
 #[must_use]

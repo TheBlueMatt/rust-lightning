@@ -230,12 +230,10 @@ pub(crate) extern "C" fn Route_write_void(obj: *const c_void) -> crate::c_types:
 	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeRoute) })
 }
 #[no_mangle]
-pub extern "C" fn Route_read(ser: crate::c_types::u8slice) -> Route {
-	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
-		Route { inner: Box::into_raw(Box::new(res)), is_owned: true }
-	} else {
-		Route { inner: std::ptr::null_mut(), is_owned: true }
-	}
+pub extern "C" fn Route_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_RouteDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::routing::router::Route { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	local_res
 }
 
 use lightning::routing::router::RouteHint as nativeRouteHintImport;

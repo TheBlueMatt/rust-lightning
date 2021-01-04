@@ -880,12 +880,10 @@ pub(crate) extern "C" fn InMemoryChannelKeys_write_void(obj: *const c_void) -> c
 	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeInMemoryChannelKeys) })
 }
 #[no_mangle]
-pub extern "C" fn InMemoryChannelKeys_read(ser: crate::c_types::u8slice) -> InMemoryChannelKeys {
-	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
-		InMemoryChannelKeys { inner: Box::into_raw(Box::new(res)), is_owned: true }
-	} else {
-		InMemoryChannelKeys { inner: std::ptr::null_mut(), is_owned: true }
-	}
+pub extern "C" fn InMemoryChannelKeys_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_InMemoryChannelKeysDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::chain::keysinterface::InMemoryChannelKeys { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	local_res
 }
 
 use lightning::chain::keysinterface::KeysManager as nativeKeysManagerImport;
