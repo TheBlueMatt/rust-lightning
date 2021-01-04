@@ -567,7 +567,7 @@ impl From<nativeChannelManager> for crate::util::events::MessageSendEventsProvid
 	}
 }
 #[no_mangle]
-pub extern "C" fn ChannelManager_as_MessageSendEventsProvider(this_arg: *const ChannelManager) -> crate::util::events::MessageSendEventsProvider {
+pub extern "C" fn ChannelManager_as_MessageSendEventsProvider(this_arg: &ChannelManager) -> crate::util::events::MessageSendEventsProvider {
 	crate::util::events::MessageSendEventsProvider {
 		this_arg: unsafe { (*this_arg).inner as *mut c_void },
 		free: None,
@@ -593,7 +593,7 @@ impl From<nativeChannelManager> for crate::util::events::EventsProvider {
 	}
 }
 #[no_mangle]
-pub extern "C" fn ChannelManager_as_EventsProvider(this_arg: *const ChannelManager) -> crate::util::events::EventsProvider {
+pub extern "C" fn ChannelManager_as_EventsProvider(this_arg: &ChannelManager) -> crate::util::events::EventsProvider {
 	crate::util::events::EventsProvider {
 		this_arg: unsafe { (*this_arg).inner as *mut c_void },
 		free: None,
@@ -635,7 +635,7 @@ impl From<nativeChannelManager> for crate::ln::msgs::ChannelMessageHandler {
 	}
 }
 #[no_mangle]
-pub extern "C" fn ChannelManager_as_ChannelMessageHandler(this_arg: *const ChannelManager) -> crate::ln::msgs::ChannelMessageHandler {
+pub extern "C" fn ChannelManager_as_ChannelMessageHandler(this_arg: &ChannelManager) -> crate::ln::msgs::ChannelMessageHandler {
 	crate::ln::msgs::ChannelMessageHandler {
 		this_arg: unsafe { (*this_arg).inner as *mut c_void },
 		free: None,
@@ -732,7 +732,7 @@ extern "C" fn ChannelManager_ChannelMessageHandler_get_and_clear_pending_msg_eve
 }
 
 #[no_mangle]
-pub extern "C" fn ChannelManager_write(obj: *const ChannelManager) -> crate::c_types::derived::CVec_u8Z {
+pub extern "C" fn ChannelManager_write(obj: &ChannelManager) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]

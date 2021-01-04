@@ -222,7 +222,7 @@ pub extern "C" fn Route_new(mut paths_arg: crate::c_types::derived::CVec_CVec_Ro
 	})), is_owned: true }
 }
 #[no_mangle]
-pub extern "C" fn Route_write(obj: *const Route) -> crate::c_types::derived::CVec_u8Z {
+pub extern "C" fn Route_write(obj: &Route) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
 }
 #[no_mangle]

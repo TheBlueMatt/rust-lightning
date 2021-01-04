@@ -3962,7 +3962,7 @@ void Event_free(struct LDKEvent this_ptr);
 
 struct LDKEvent Event_clone(const struct LDKEvent *NONNULL_PTR orig);
 
-LDKCVec_u8Z Event_write(const struct LDKEvent *obj);
+LDKCVec_u8Z Event_write(const struct LDKEvent *NONNULL_PTR obj);
 
 void MessageSendEvent_free(struct LDKMessageSendEvent this_ptr);
 
@@ -4354,7 +4354,7 @@ MUST_USE_RES struct LDKChannelConfig ChannelConfig_new(uint32_t fee_proportional
 
 MUST_USE_RES struct LDKChannelConfig ChannelConfig_default(void);
 
-LDKCVec_u8Z ChannelConfig_write(const struct LDKChannelConfig *obj);
+LDKCVec_u8Z ChannelConfig_write(const struct LDKChannelConfig *NONNULL_PTR obj);
 
 struct LDKChannelConfig ChannelConfig_read(struct LDKu8slice ser);
 
@@ -4466,9 +4466,9 @@ void ChainMonitor_block_disconnected(const struct LDKChainMonitor *NONNULL_PTR t
  */
 MUST_USE_RES struct LDKChainMonitor ChainMonitor_new(struct LDKFilter *chain_source, struct LDKBroadcasterInterface broadcaster, struct LDKLogger logger, struct LDKFeeEstimator feeest, struct LDKPersist persister);
 
-struct LDKWatch ChainMonitor_as_Watch(const struct LDKChainMonitor *this_arg);
+struct LDKWatch ChainMonitor_as_Watch(const struct LDKChainMonitor *NONNULL_PTR this_arg);
 
-struct LDKEventsProvider ChainMonitor_as_EventsProvider(const struct LDKChainMonitor *this_arg);
+struct LDKEventsProvider ChainMonitor_as_EventsProvider(const struct LDKChainMonitor *NONNULL_PTR this_arg);
 
 void ChannelMonitorUpdate_free(struct LDKChannelMonitorUpdate this_ptr);
 
@@ -4508,7 +4508,7 @@ uint64_t ChannelMonitorUpdate_get_update_id(const struct LDKChannelMonitorUpdate
  */
 void ChannelMonitorUpdate_set_update_id(struct LDKChannelMonitorUpdate *NONNULL_PTR this_ptr, uint64_t val);
 
-LDKCVec_u8Z ChannelMonitorUpdate_write(const struct LDKChannelMonitorUpdate *obj);
+LDKCVec_u8Z ChannelMonitorUpdate_write(const struct LDKChannelMonitorUpdate *NONNULL_PTR obj);
 
 LDKCResult_ChannelMonitorUpdateDecodeErrorZ ChannelMonitorUpdate_read(struct LDKu8slice ser);
 
@@ -4524,13 +4524,13 @@ void HTLCUpdate_free(struct LDKHTLCUpdate this_ptr);
 
 struct LDKHTLCUpdate HTLCUpdate_clone(const struct LDKHTLCUpdate *NONNULL_PTR orig);
 
-LDKCVec_u8Z HTLCUpdate_write(const struct LDKHTLCUpdate *obj);
+LDKCVec_u8Z HTLCUpdate_write(const struct LDKHTLCUpdate *NONNULL_PTR obj);
 
 struct LDKHTLCUpdate HTLCUpdate_read(struct LDKu8slice ser);
 
 void ChannelMonitor_free(struct LDKChannelMonitor this_ptr);
 
-LDKCVec_u8Z ChannelMonitor_write(const struct LDKChannelMonitor *obj);
+LDKCVec_u8Z ChannelMonitor_write(const struct LDKChannelMonitor *NONNULL_PTR obj);
 
 /**
  * Updates a ChannelMonitor on the basis of some new information provided by the Channel
@@ -4641,7 +4641,7 @@ MUST_USE_RES struct LDKOutPoint OutPoint_new(struct LDKThirtyTwoBytes txid_arg, 
  */
 MUST_USE_RES struct LDKThirtyTwoBytes OutPoint_to_channel_id(const struct LDKOutPoint *NONNULL_PTR this_arg);
 
-LDKCVec_u8Z OutPoint_write(const struct LDKOutPoint *obj);
+LDKCVec_u8Z OutPoint_write(const struct LDKOutPoint *NONNULL_PTR obj);
 
 struct LDKOutPoint OutPoint_read(struct LDKu8slice ser);
 
@@ -4649,7 +4649,7 @@ void SpendableOutputDescriptor_free(struct LDKSpendableOutputDescriptor this_ptr
 
 struct LDKSpendableOutputDescriptor SpendableOutputDescriptor_clone(const struct LDKSpendableOutputDescriptor *NONNULL_PTR orig);
 
-LDKCVec_u8Z SpendableOutputDescriptor_write(const struct LDKSpendableOutputDescriptor *obj);
+LDKCVec_u8Z SpendableOutputDescriptor_write(const struct LDKSpendableOutputDescriptor *NONNULL_PTR obj);
 
 LDKCResult_SpendableOutputDescriptorDecodeErrorZ SpendableOutputDescriptor_read(struct LDKu8slice ser);
 
@@ -4776,9 +4776,9 @@ MUST_USE_RES struct LDKOutPoint InMemoryChannelKeys_funding_outpoint(const struc
  */
 MUST_USE_RES struct LDKChannelTransactionParameters InMemoryChannelKeys_get_channel_parameters(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_arg);
 
-struct LDKChannelKeys InMemoryChannelKeys_as_ChannelKeys(const struct LDKInMemoryChannelKeys *this_arg);
+struct LDKChannelKeys InMemoryChannelKeys_as_ChannelKeys(const struct LDKInMemoryChannelKeys *NONNULL_PTR this_arg);
 
-LDKCVec_u8Z InMemoryChannelKeys_write(const struct LDKInMemoryChannelKeys *obj);
+LDKCVec_u8Z InMemoryChannelKeys_write(const struct LDKInMemoryChannelKeys *NONNULL_PTR obj);
 
 LDKCResult_InMemoryChannelKeysDecodeErrorZ InMemoryChannelKeys_read(struct LDKu8slice ser);
 
@@ -4816,7 +4816,7 @@ MUST_USE_RES struct LDKKeysManager KeysManager_new(const uint8_t (*seed)[32], en
  */
 MUST_USE_RES struct LDKInMemoryChannelKeys KeysManager_derive_channel_keys(const struct LDKKeysManager *NONNULL_PTR this_arg, uint64_t channel_value_satoshis, uint64_t params_1, uint64_t params_2);
 
-struct LDKKeysInterface KeysManager_as_KeysInterface(const struct LDKKeysManager *this_arg);
+struct LDKKeysInterface KeysManager_as_KeysInterface(const struct LDKKeysManager *NONNULL_PTR this_arg);
 
 void ChannelManager_free(struct LDKChannelManager this_ptr);
 
@@ -5149,9 +5149,9 @@ MUST_USE_RES struct LDKPublicKey ChannelManager_get_our_node_id(const struct LDK
  */
 void ChannelManager_channel_monitor_updated(const struct LDKChannelManager *NONNULL_PTR this_arg, const struct LDKOutPoint *NONNULL_PTR funding_txo, uint64_t highest_applied_update_id);
 
-struct LDKMessageSendEventsProvider ChannelManager_as_MessageSendEventsProvider(const struct LDKChannelManager *this_arg);
+struct LDKMessageSendEventsProvider ChannelManager_as_MessageSendEventsProvider(const struct LDKChannelManager *NONNULL_PTR this_arg);
 
-struct LDKEventsProvider ChannelManager_as_EventsProvider(const struct LDKChannelManager *this_arg);
+struct LDKEventsProvider ChannelManager_as_EventsProvider(const struct LDKChannelManager *NONNULL_PTR this_arg);
 
 /**
  * Updates channel state based on transactions seen in a connected block.
@@ -5166,9 +5166,9 @@ void ChannelManager_block_connected(const struct LDKChannelManager *NONNULL_PTR 
  */
 void ChannelManager_block_disconnected(const struct LDKChannelManager *NONNULL_PTR this_arg, const uint8_t (*header)[80]);
 
-struct LDKChannelMessageHandler ChannelManager_as_ChannelMessageHandler(const struct LDKChannelManager *this_arg);
+struct LDKChannelMessageHandler ChannelManager_as_ChannelMessageHandler(const struct LDKChannelManager *NONNULL_PTR this_arg);
 
-LDKCVec_u8Z ChannelManager_write(const struct LDKChannelManager *obj);
+LDKCVec_u8Z ChannelManager_write(const struct LDKChannelManager *NONNULL_PTR obj);
 
 void ChannelManagerReadArgs_free(struct LDKChannelManagerReadArgs this_ptr);
 
@@ -6192,7 +6192,7 @@ void NetAddress_free(struct LDKNetAddress this_ptr);
 
 struct LDKNetAddress NetAddress_clone(const struct LDKNetAddress *NONNULL_PTR orig);
 
-LDKCVec_u8Z NetAddress_write(const struct LDKNetAddress *obj);
+LDKCVec_u8Z NetAddress_write(const struct LDKNetAddress *NONNULL_PTR obj);
 
 LDKCResult_CResult_NetAddressu8ZDecodeErrorZ Result_read(struct LDKu8slice ser);
 
@@ -6787,129 +6787,129 @@ void ChannelMessageHandler_free(struct LDKChannelMessageHandler this_ptr);
  */
 void RoutingMessageHandler_free(struct LDKRoutingMessageHandler this_ptr);
 
-LDKCVec_u8Z AcceptChannel_write(const struct LDKAcceptChannel *obj);
+LDKCVec_u8Z AcceptChannel_write(const struct LDKAcceptChannel *NONNULL_PTR obj);
 
 struct LDKAcceptChannel AcceptChannel_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z AnnouncementSignatures_write(const struct LDKAnnouncementSignatures *obj);
+LDKCVec_u8Z AnnouncementSignatures_write(const struct LDKAnnouncementSignatures *NONNULL_PTR obj);
 
 struct LDKAnnouncementSignatures AnnouncementSignatures_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z ChannelReestablish_write(const struct LDKChannelReestablish *obj);
+LDKCVec_u8Z ChannelReestablish_write(const struct LDKChannelReestablish *NONNULL_PTR obj);
 
 LDKCResult_ChannelReestablishDecodeErrorZ ChannelReestablish_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z ClosingSigned_write(const struct LDKClosingSigned *obj);
+LDKCVec_u8Z ClosingSigned_write(const struct LDKClosingSigned *NONNULL_PTR obj);
 
 struct LDKClosingSigned ClosingSigned_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z CommitmentSigned_write(const struct LDKCommitmentSigned *obj);
+LDKCVec_u8Z CommitmentSigned_write(const struct LDKCommitmentSigned *NONNULL_PTR obj);
 
 struct LDKCommitmentSigned CommitmentSigned_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z FundingCreated_write(const struct LDKFundingCreated *obj);
+LDKCVec_u8Z FundingCreated_write(const struct LDKFundingCreated *NONNULL_PTR obj);
 
 struct LDKFundingCreated FundingCreated_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z FundingSigned_write(const struct LDKFundingSigned *obj);
+LDKCVec_u8Z FundingSigned_write(const struct LDKFundingSigned *NONNULL_PTR obj);
 
 struct LDKFundingSigned FundingSigned_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z FundingLocked_write(const struct LDKFundingLocked *obj);
+LDKCVec_u8Z FundingLocked_write(const struct LDKFundingLocked *NONNULL_PTR obj);
 
 struct LDKFundingLocked FundingLocked_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z Init_write(const struct LDKInit *obj);
+LDKCVec_u8Z Init_write(const struct LDKInit *NONNULL_PTR obj);
 
 LDKCResult_InitDecodeErrorZ Init_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z OpenChannel_write(const struct LDKOpenChannel *obj);
+LDKCVec_u8Z OpenChannel_write(const struct LDKOpenChannel *NONNULL_PTR obj);
 
 struct LDKOpenChannel OpenChannel_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z RevokeAndACK_write(const struct LDKRevokeAndACK *obj);
+LDKCVec_u8Z RevokeAndACK_write(const struct LDKRevokeAndACK *NONNULL_PTR obj);
 
 struct LDKRevokeAndACK RevokeAndACK_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z Shutdown_write(const struct LDKShutdown *obj);
+LDKCVec_u8Z Shutdown_write(const struct LDKShutdown *NONNULL_PTR obj);
 
 struct LDKShutdown Shutdown_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z UpdateFailHTLC_write(const struct LDKUpdateFailHTLC *obj);
+LDKCVec_u8Z UpdateFailHTLC_write(const struct LDKUpdateFailHTLC *NONNULL_PTR obj);
 
 struct LDKUpdateFailHTLC UpdateFailHTLC_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z UpdateFailMalformedHTLC_write(const struct LDKUpdateFailMalformedHTLC *obj);
+LDKCVec_u8Z UpdateFailMalformedHTLC_write(const struct LDKUpdateFailMalformedHTLC *NONNULL_PTR obj);
 
 struct LDKUpdateFailMalformedHTLC UpdateFailMalformedHTLC_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z UpdateFee_write(const struct LDKUpdateFee *obj);
+LDKCVec_u8Z UpdateFee_write(const struct LDKUpdateFee *NONNULL_PTR obj);
 
 struct LDKUpdateFee UpdateFee_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z UpdateFulfillHTLC_write(const struct LDKUpdateFulfillHTLC *obj);
+LDKCVec_u8Z UpdateFulfillHTLC_write(const struct LDKUpdateFulfillHTLC *NONNULL_PTR obj);
 
 struct LDKUpdateFulfillHTLC UpdateFulfillHTLC_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z UpdateAddHTLC_write(const struct LDKUpdateAddHTLC *obj);
+LDKCVec_u8Z UpdateAddHTLC_write(const struct LDKUpdateAddHTLC *NONNULL_PTR obj);
 
 struct LDKUpdateAddHTLC UpdateAddHTLC_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z Ping_write(const struct LDKPing *obj);
+LDKCVec_u8Z Ping_write(const struct LDKPing *NONNULL_PTR obj);
 
 LDKCResult_PingDecodeErrorZ Ping_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z Pong_write(const struct LDKPong *obj);
+LDKCVec_u8Z Pong_write(const struct LDKPong *NONNULL_PTR obj);
 
 LDKCResult_PongDecodeErrorZ Pong_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z UnsignedChannelAnnouncement_write(const struct LDKUnsignedChannelAnnouncement *obj);
+LDKCVec_u8Z UnsignedChannelAnnouncement_write(const struct LDKUnsignedChannelAnnouncement *NONNULL_PTR obj);
 
 LDKCResult_UnsignedChannelAnnouncementDecodeErrorZ UnsignedChannelAnnouncement_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z ChannelAnnouncement_write(const struct LDKChannelAnnouncement *obj);
+LDKCVec_u8Z ChannelAnnouncement_write(const struct LDKChannelAnnouncement *NONNULL_PTR obj);
 
 struct LDKChannelAnnouncement ChannelAnnouncement_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z UnsignedChannelUpdate_write(const struct LDKUnsignedChannelUpdate *obj);
+LDKCVec_u8Z UnsignedChannelUpdate_write(const struct LDKUnsignedChannelUpdate *NONNULL_PTR obj);
 
 LDKCResult_UnsignedChannelUpdateDecodeErrorZ UnsignedChannelUpdate_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z ChannelUpdate_write(const struct LDKChannelUpdate *obj);
+LDKCVec_u8Z ChannelUpdate_write(const struct LDKChannelUpdate *NONNULL_PTR obj);
 
 struct LDKChannelUpdate ChannelUpdate_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z ErrorMessage_write(const struct LDKErrorMessage *obj);
+LDKCVec_u8Z ErrorMessage_write(const struct LDKErrorMessage *NONNULL_PTR obj);
 
 LDKCResult_ErrorMessageDecodeErrorZ ErrorMessage_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z UnsignedNodeAnnouncement_write(const struct LDKUnsignedNodeAnnouncement *obj);
+LDKCVec_u8Z UnsignedNodeAnnouncement_write(const struct LDKUnsignedNodeAnnouncement *NONNULL_PTR obj);
 
 LDKCResult_UnsignedNodeAnnouncementDecodeErrorZ UnsignedNodeAnnouncement_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z NodeAnnouncement_write(const struct LDKNodeAnnouncement *obj);
+LDKCVec_u8Z NodeAnnouncement_write(const struct LDKNodeAnnouncement *NONNULL_PTR obj);
 
 struct LDKNodeAnnouncement NodeAnnouncement_read(struct LDKu8slice ser);
 
 LDKCResult_QueryShortChannelIdsDecodeErrorZ QueryShortChannelIds_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z QueryShortChannelIds_write(const struct LDKQueryShortChannelIds *obj);
+LDKCVec_u8Z QueryShortChannelIds_write(const struct LDKQueryShortChannelIds *NONNULL_PTR obj);
 
 LDKCResult_ReplyShortChannelIdsEndDecodeErrorZ ReplyShortChannelIdsEnd_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z ReplyShortChannelIdsEnd_write(const struct LDKReplyShortChannelIdsEnd *obj);
+LDKCVec_u8Z ReplyShortChannelIdsEnd_write(const struct LDKReplyShortChannelIdsEnd *NONNULL_PTR obj);
 
 LDKCResult_QueryChannelRangeDecodeErrorZ QueryChannelRange_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z QueryChannelRange_write(const struct LDKQueryChannelRange *obj);
+LDKCVec_u8Z QueryChannelRange_write(const struct LDKQueryChannelRange *NONNULL_PTR obj);
 
 LDKCResult_ReplyChannelRangeDecodeErrorZ ReplyChannelRange_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z ReplyChannelRange_write(const struct LDKReplyChannelRange *obj);
+LDKCVec_u8Z ReplyChannelRange_write(const struct LDKReplyChannelRange *NONNULL_PTR obj);
 
 LDKCResult_GossipTimestampFilterDecodeErrorZ GossipTimestampFilter_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z GossipTimestampFilter_write(const struct LDKGossipTimestampFilter *obj);
+LDKCVec_u8Z GossipTimestampFilter_write(const struct LDKGossipTimestampFilter *NONNULL_PTR obj);
 
 void MessageHandler_free(struct LDKMessageHandler this_ptr);
 
@@ -7173,7 +7173,7 @@ void TxCreationKeys_set_broadcaster_delayed_payment_key(struct LDKTxCreationKeys
 
 MUST_USE_RES struct LDKTxCreationKeys TxCreationKeys_new(struct LDKPublicKey per_commitment_point_arg, struct LDKPublicKey revocation_key_arg, struct LDKPublicKey broadcaster_htlc_key_arg, struct LDKPublicKey countersignatory_htlc_key_arg, struct LDKPublicKey broadcaster_delayed_payment_key_arg);
 
-LDKCVec_u8Z TxCreationKeys_write(const struct LDKTxCreationKeys *obj);
+LDKCVec_u8Z TxCreationKeys_write(const struct LDKTxCreationKeys *NONNULL_PTR obj);
 
 struct LDKTxCreationKeys TxCreationKeys_read(struct LDKu8slice ser);
 
@@ -7251,7 +7251,7 @@ void ChannelPublicKeys_set_htlc_basepoint(struct LDKChannelPublicKeys *NONNULL_P
 
 MUST_USE_RES struct LDKChannelPublicKeys ChannelPublicKeys_new(struct LDKPublicKey funding_pubkey_arg, struct LDKPublicKey revocation_basepoint_arg, struct LDKPublicKey payment_point_arg, struct LDKPublicKey delayed_payment_basepoint_arg, struct LDKPublicKey htlc_basepoint_arg);
 
-LDKCVec_u8Z ChannelPublicKeys_write(const struct LDKChannelPublicKeys *obj);
+LDKCVec_u8Z ChannelPublicKeys_write(const struct LDKChannelPublicKeys *NONNULL_PTR obj);
 
 struct LDKChannelPublicKeys ChannelPublicKeys_read(struct LDKu8slice ser);
 
@@ -7326,7 +7326,7 @@ const uint8_t (*HTLCOutputInCommitment_get_payment_hash(const struct LDKHTLCOutp
  */
 void HTLCOutputInCommitment_set_payment_hash(struct LDKHTLCOutputInCommitment *NONNULL_PTR this_ptr, struct LDKThirtyTwoBytes val);
 
-LDKCVec_u8Z HTLCOutputInCommitment_write(const struct LDKHTLCOutputInCommitment *obj);
+LDKCVec_u8Z HTLCOutputInCommitment_write(const struct LDKHTLCOutputInCommitment *NONNULL_PTR obj);
 
 struct LDKHTLCOutputInCommitment HTLCOutputInCommitment_read(struct LDKu8slice ser);
 
@@ -7454,11 +7454,11 @@ MUST_USE_RES struct LDKDirectedChannelTransactionParameters ChannelTransactionPa
  */
 MUST_USE_RES struct LDKDirectedChannelTransactionParameters ChannelTransactionParameters_as_counterparty_broadcastable(const struct LDKChannelTransactionParameters *NONNULL_PTR this_arg);
 
-LDKCVec_u8Z CounterpartyChannelTransactionParameters_write(const struct LDKCounterpartyChannelTransactionParameters *obj);
+LDKCVec_u8Z CounterpartyChannelTransactionParameters_write(const struct LDKCounterpartyChannelTransactionParameters *NONNULL_PTR obj);
 
 struct LDKCounterpartyChannelTransactionParameters CounterpartyChannelTransactionParameters_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z ChannelTransactionParameters_write(const struct LDKChannelTransactionParameters *obj);
+LDKCVec_u8Z ChannelTransactionParameters_write(const struct LDKChannelTransactionParameters *NONNULL_PTR obj);
 
 struct LDKChannelTransactionParameters ChannelTransactionParameters_read(struct LDKu8slice ser);
 
@@ -7512,7 +7512,7 @@ void HolderCommitmentTransaction_set_counterparty_sig(struct LDKHolderCommitment
  */
 void HolderCommitmentTransaction_set_counterparty_htlc_sigs(struct LDKHolderCommitmentTransaction *NONNULL_PTR this_ptr, LDKCVec_SignatureZ val);
 
-LDKCVec_u8Z HolderCommitmentTransaction_write(const struct LDKHolderCommitmentTransaction *obj);
+LDKCVec_u8Z HolderCommitmentTransaction_write(const struct LDKHolderCommitmentTransaction *NONNULL_PTR obj);
 
 struct LDKHolderCommitmentTransaction HolderCommitmentTransaction_read(struct LDKu8slice ser);
 
@@ -7554,7 +7554,7 @@ void BuiltCommitmentTransaction_set_txid(struct LDKBuiltCommitmentTransaction *N
 
 MUST_USE_RES struct LDKBuiltCommitmentTransaction BuiltCommitmentTransaction_new(struct LDKTransaction transaction_arg, struct LDKThirtyTwoBytes txid_arg);
 
-LDKCVec_u8Z BuiltCommitmentTransaction_write(const struct LDKBuiltCommitmentTransaction *obj);
+LDKCVec_u8Z BuiltCommitmentTransaction_write(const struct LDKBuiltCommitmentTransaction *NONNULL_PTR obj);
 
 struct LDKBuiltCommitmentTransaction BuiltCommitmentTransaction_read(struct LDKu8slice ser);
 
@@ -7575,7 +7575,7 @@ void CommitmentTransaction_free(struct LDKCommitmentTransaction this_ptr);
 
 struct LDKCommitmentTransaction CommitmentTransaction_clone(const struct LDKCommitmentTransaction *NONNULL_PTR orig);
 
-LDKCVec_u8Z CommitmentTransaction_write(const struct LDKCommitmentTransaction *obj);
+LDKCVec_u8Z CommitmentTransaction_write(const struct LDKCommitmentTransaction *NONNULL_PTR obj);
 
 struct LDKCommitmentTransaction CommitmentTransaction_read(struct LDKu8slice ser);
 
@@ -7743,7 +7743,7 @@ void Route_set_paths(struct LDKRoute *NONNULL_PTR this_ptr, LDKCVec_CVec_RouteHo
 
 MUST_USE_RES struct LDKRoute Route_new(LDKCVec_CVec_RouteHopZZ paths_arg);
 
-LDKCVec_u8Z Route_write(const struct LDKRoute *obj);
+LDKCVec_u8Z Route_write(const struct LDKRoute *NONNULL_PTR obj);
 
 LDKCResult_RouteDecodeErrorZ Route_read(struct LDKu8slice ser);
 
@@ -7857,9 +7857,9 @@ MUST_USE_RES struct LDKLockedNetworkGraph NetGraphMsgHandler_read_locked_graph(c
  */
 MUST_USE_RES struct LDKNetworkGraph LockedNetworkGraph_graph(const struct LDKLockedNetworkGraph *NONNULL_PTR this_arg);
 
-struct LDKRoutingMessageHandler NetGraphMsgHandler_as_RoutingMessageHandler(const struct LDKNetGraphMsgHandler *this_arg);
+struct LDKRoutingMessageHandler NetGraphMsgHandler_as_RoutingMessageHandler(const struct LDKNetGraphMsgHandler *NONNULL_PTR this_arg);
 
-struct LDKMessageSendEventsProvider NetGraphMsgHandler_as_MessageSendEventsProvider(const struct LDKNetGraphMsgHandler *this_arg);
+struct LDKMessageSendEventsProvider NetGraphMsgHandler_as_MessageSendEventsProvider(const struct LDKNetGraphMsgHandler *NONNULL_PTR this_arg);
 
 void DirectionalChannelInfo_free(struct LDKDirectionalChannelInfo this_ptr);
 
@@ -7931,7 +7931,7 @@ struct LDKChannelUpdate DirectionalChannelInfo_get_last_update_message(const str
  */
 void DirectionalChannelInfo_set_last_update_message(struct LDKDirectionalChannelInfo *NONNULL_PTR this_ptr, struct LDKChannelUpdate val);
 
-LDKCVec_u8Z DirectionalChannelInfo_write(const struct LDKDirectionalChannelInfo *obj);
+LDKCVec_u8Z DirectionalChannelInfo_write(const struct LDKDirectionalChannelInfo *NONNULL_PTR obj);
 
 struct LDKDirectionalChannelInfo DirectionalChannelInfo_read(struct LDKu8slice ser);
 
@@ -8003,7 +8003,7 @@ struct LDKChannelAnnouncement ChannelInfo_get_announcement_message(const struct 
  */
 void ChannelInfo_set_announcement_message(struct LDKChannelInfo *NONNULL_PTR this_ptr, struct LDKChannelAnnouncement val);
 
-LDKCVec_u8Z ChannelInfo_write(const struct LDKChannelInfo *obj);
+LDKCVec_u8Z ChannelInfo_write(const struct LDKChannelInfo *NONNULL_PTR obj);
 
 struct LDKChannelInfo ChannelInfo_read(struct LDKu8slice ser);
 
@@ -8037,7 +8037,7 @@ MUST_USE_RES struct LDKRoutingFees RoutingFees_new(uint32_t base_msat_arg, uint3
 
 LDKCResult_RoutingFeesDecodeErrorZ RoutingFees_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z RoutingFees_write(const struct LDKRoutingFees *obj);
+LDKCVec_u8Z RoutingFees_write(const struct LDKRoutingFees *NONNULL_PTR obj);
 
 void NodeAnnouncementInfo_free(struct LDKNodeAnnouncementInfo this_ptr);
 
@@ -8110,7 +8110,7 @@ void NodeAnnouncementInfo_set_announcement_message(struct LDKNodeAnnouncementInf
 
 MUST_USE_RES struct LDKNodeAnnouncementInfo NodeAnnouncementInfo_new(struct LDKNodeFeatures features_arg, uint32_t last_update_arg, struct LDKThreeBytes rgb_arg, struct LDKThirtyTwoBytes alias_arg, LDKCVec_NetAddressZ addresses_arg, struct LDKNodeAnnouncement announcement_message_arg);
 
-LDKCVec_u8Z NodeAnnouncementInfo_write(const struct LDKNodeAnnouncementInfo *obj);
+LDKCVec_u8Z NodeAnnouncementInfo_write(const struct LDKNodeAnnouncementInfo *NONNULL_PTR obj);
 
 LDKCResult_NodeAnnouncementInfoDecodeErrorZ NodeAnnouncementInfo_read(struct LDKu8slice ser);
 
@@ -8151,11 +8151,11 @@ void NodeInfo_set_announcement_info(struct LDKNodeInfo *NONNULL_PTR this_ptr, st
 
 MUST_USE_RES struct LDKNodeInfo NodeInfo_new(LDKCVec_u64Z channels_arg, struct LDKRoutingFees lowest_inbound_channel_fees_arg, struct LDKNodeAnnouncementInfo announcement_info_arg);
 
-LDKCVec_u8Z NodeInfo_write(const struct LDKNodeInfo *obj);
+LDKCVec_u8Z NodeInfo_write(const struct LDKNodeInfo *NONNULL_PTR obj);
 
 LDKCResult_NodeInfoDecodeErrorZ NodeInfo_read(struct LDKu8slice ser);
 
-LDKCVec_u8Z NetworkGraph_write(const struct LDKNetworkGraph *obj);
+LDKCVec_u8Z NetworkGraph_write(const struct LDKNetworkGraph *NONNULL_PTR obj);
 
 LDKCResult_NetworkGraphDecodeErrorZ NetworkGraph_read(struct LDKu8slice ser);
 
