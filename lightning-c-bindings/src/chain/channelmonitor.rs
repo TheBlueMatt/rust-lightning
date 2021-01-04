@@ -120,12 +120,10 @@ pub(crate) extern "C" fn ChannelMonitorUpdate_write_void(obj: *const c_void) -> 
 	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeChannelMonitorUpdate) })
 }
 #[no_mangle]
-pub extern "C" fn ChannelMonitorUpdate_read(ser: crate::c_types::u8slice) -> ChannelMonitorUpdate {
-	if let Ok(res) = crate::c_types::deserialize_obj(ser) {
-		ChannelMonitorUpdate { inner: Box::into_raw(Box::new(res)), is_owned: true }
-	} else {
-		ChannelMonitorUpdate { inner: std::ptr::null_mut(), is_owned: true }
-	}
+pub extern "C" fn ChannelMonitorUpdate_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_ChannelMonitorUpdateDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::chain::channelmonitor::ChannelMonitorUpdate { inner: Box::into_raw(Box::new(o)), is_owned: true } }), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }) };
+	local_res
 }
 /// An error enum representing a failure to persist a channel monitor update.
 #[must_use]

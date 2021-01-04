@@ -2055,6 +2055,32 @@ typedef struct LDKCVecTempl_C2TupleTempl_usize__Transaction LDKCVec_C2Tuple_usiz
 
 
 /**
+ * An error in decoding a message or struct.
+ */
+typedef struct MUST_USE_STRUCT LDKDecodeError {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeDecodeError *inner;
+   bool is_owned;
+} LDKDecodeError;
+
+typedef union LDKCResultPtr_ChannelMonitorUpdate__DecodeError {
+   struct LDKChannelMonitorUpdate *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_ChannelMonitorUpdate__DecodeError;
+
+typedef struct LDKCResultTempl_ChannelMonitorUpdate__DecodeError {
+   union LDKCResultPtr_ChannelMonitorUpdate__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_ChannelMonitorUpdate__DecodeError;
+
+typedef struct LDKCResultTempl_ChannelMonitorUpdate__DecodeError LDKCResult_ChannelMonitorUpdateDecodeErrorZ;
+
+
+
+/**
  * Simple structure sent back by `chain::Watch` when an HTLC from a forward channel is detected on
  * chain. Used to update the corresponding HTLC in the backward channel. Failing to pass the
  * preimage claim backward will lead to loss of funds.
@@ -2087,20 +2113,6 @@ typedef struct LDKCVecTempl_C2TupleTempl_ThirtyTwoBytes__CVecTempl_C2TupleTempl_
 typedef struct LDKSecretKey {
    uint8_t bytes[32];
 } LDKSecretKey;
-
-
-
-/**
- * An error in decoding a message or struct.
- */
-typedef struct MUST_USE_STRUCT LDKDecodeError {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeDecodeError *inner;
-   bool is_owned;
-} LDKDecodeError;
 
 typedef union LDKCResultPtr_ChannelKeys__DecodeError {
    struct LDKChannelKeys *result;
@@ -2170,6 +2182,18 @@ typedef struct MUST_USE_STRUCT LDKInMemoryChannelKeys {
    LDKnativeInMemoryChannelKeys *inner;
    bool is_owned;
 } LDKInMemoryChannelKeys;
+
+typedef union LDKCResultPtr_InMemoryChannelKeys__DecodeError {
+   struct LDKInMemoryChannelKeys *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_InMemoryChannelKeys__DecodeError;
+
+typedef struct LDKCResultTempl_InMemoryChannelKeys__DecodeError {
+   union LDKCResultPtr_InMemoryChannelKeys__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_InMemoryChannelKeys__DecodeError;
+
+typedef struct LDKCResultTempl_InMemoryChannelKeys__DecodeError LDKCResult_InMemoryChannelKeysDecodeErrorZ;
 
 
 
@@ -2887,6 +2911,162 @@ typedef struct LDKRoutingMessageHandler {
    void (*free)(void *this_arg);
 } LDKRoutingMessageHandler;
 
+typedef union LDKCResultPtr_ChannelReestablish__DecodeError {
+   struct LDKChannelReestablish *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_ChannelReestablish__DecodeError;
+
+typedef struct LDKCResultTempl_ChannelReestablish__DecodeError {
+   union LDKCResultPtr_ChannelReestablish__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_ChannelReestablish__DecodeError;
+
+typedef struct LDKCResultTempl_ChannelReestablish__DecodeError LDKCResult_ChannelReestablishDecodeErrorZ;
+
+typedef union LDKCResultPtr_Init__DecodeError {
+   struct LDKInit *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_Init__DecodeError;
+
+typedef struct LDKCResultTempl_Init__DecodeError {
+   union LDKCResultPtr_Init__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_Init__DecodeError;
+
+typedef struct LDKCResultTempl_Init__DecodeError LDKCResult_InitDecodeErrorZ;
+
+typedef union LDKCResultPtr_Ping__DecodeError {
+   struct LDKPing *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_Ping__DecodeError;
+
+typedef struct LDKCResultTempl_Ping__DecodeError {
+   union LDKCResultPtr_Ping__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_Ping__DecodeError;
+
+typedef struct LDKCResultTempl_Ping__DecodeError LDKCResult_PingDecodeErrorZ;
+
+typedef union LDKCResultPtr_Pong__DecodeError {
+   struct LDKPong *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_Pong__DecodeError;
+
+typedef struct LDKCResultTempl_Pong__DecodeError {
+   union LDKCResultPtr_Pong__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_Pong__DecodeError;
+
+typedef struct LDKCResultTempl_Pong__DecodeError LDKCResult_PongDecodeErrorZ;
+
+typedef union LDKCResultPtr_UnsignedChannelAnnouncement__DecodeError {
+   struct LDKUnsignedChannelAnnouncement *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_UnsignedChannelAnnouncement__DecodeError;
+
+typedef struct LDKCResultTempl_UnsignedChannelAnnouncement__DecodeError {
+   union LDKCResultPtr_UnsignedChannelAnnouncement__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_UnsignedChannelAnnouncement__DecodeError;
+
+typedef struct LDKCResultTempl_UnsignedChannelAnnouncement__DecodeError LDKCResult_UnsignedChannelAnnouncementDecodeErrorZ;
+
+typedef union LDKCResultPtr_UnsignedChannelUpdate__DecodeError {
+   struct LDKUnsignedChannelUpdate *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_UnsignedChannelUpdate__DecodeError;
+
+typedef struct LDKCResultTempl_UnsignedChannelUpdate__DecodeError {
+   union LDKCResultPtr_UnsignedChannelUpdate__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_UnsignedChannelUpdate__DecodeError;
+
+typedef struct LDKCResultTempl_UnsignedChannelUpdate__DecodeError LDKCResult_UnsignedChannelUpdateDecodeErrorZ;
+
+typedef union LDKCResultPtr_ErrorMessage__DecodeError {
+   struct LDKErrorMessage *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_ErrorMessage__DecodeError;
+
+typedef struct LDKCResultTempl_ErrorMessage__DecodeError {
+   union LDKCResultPtr_ErrorMessage__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_ErrorMessage__DecodeError;
+
+typedef struct LDKCResultTempl_ErrorMessage__DecodeError LDKCResult_ErrorMessageDecodeErrorZ;
+
+typedef union LDKCResultPtr_UnsignedNodeAnnouncement__DecodeError {
+   struct LDKUnsignedNodeAnnouncement *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_UnsignedNodeAnnouncement__DecodeError;
+
+typedef struct LDKCResultTempl_UnsignedNodeAnnouncement__DecodeError {
+   union LDKCResultPtr_UnsignedNodeAnnouncement__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_UnsignedNodeAnnouncement__DecodeError;
+
+typedef struct LDKCResultTempl_UnsignedNodeAnnouncement__DecodeError LDKCResult_UnsignedNodeAnnouncementDecodeErrorZ;
+
+typedef union LDKCResultPtr_QueryShortChannelIds__DecodeError {
+   struct LDKQueryShortChannelIds *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_QueryShortChannelIds__DecodeError;
+
+typedef struct LDKCResultTempl_QueryShortChannelIds__DecodeError {
+   union LDKCResultPtr_QueryShortChannelIds__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_QueryShortChannelIds__DecodeError;
+
+typedef struct LDKCResultTempl_QueryShortChannelIds__DecodeError LDKCResult_QueryShortChannelIdsDecodeErrorZ;
+
+typedef union LDKCResultPtr_ReplyShortChannelIdsEnd__DecodeError {
+   struct LDKReplyShortChannelIdsEnd *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_ReplyShortChannelIdsEnd__DecodeError;
+
+typedef struct LDKCResultTempl_ReplyShortChannelIdsEnd__DecodeError {
+   union LDKCResultPtr_ReplyShortChannelIdsEnd__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_ReplyShortChannelIdsEnd__DecodeError;
+
+typedef struct LDKCResultTempl_ReplyShortChannelIdsEnd__DecodeError LDKCResult_ReplyShortChannelIdsEndDecodeErrorZ;
+
+typedef union LDKCResultPtr_QueryChannelRange__DecodeError {
+   struct LDKQueryChannelRange *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_QueryChannelRange__DecodeError;
+
+typedef struct LDKCResultTempl_QueryChannelRange__DecodeError {
+   union LDKCResultPtr_QueryChannelRange__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_QueryChannelRange__DecodeError;
+
+typedef struct LDKCResultTempl_QueryChannelRange__DecodeError LDKCResult_QueryChannelRangeDecodeErrorZ;
+
+typedef union LDKCResultPtr_ReplyChannelRange__DecodeError {
+   struct LDKReplyChannelRange *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_ReplyChannelRange__DecodeError;
+
+typedef struct LDKCResultTempl_ReplyChannelRange__DecodeError {
+   union LDKCResultPtr_ReplyChannelRange__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_ReplyChannelRange__DecodeError;
+
+typedef struct LDKCResultTempl_ReplyChannelRange__DecodeError LDKCResult_ReplyChannelRangeDecodeErrorZ;
+
+typedef union LDKCResultPtr_GossipTimestampFilter__DecodeError {
+   struct LDKGossipTimestampFilter *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_GossipTimestampFilter__DecodeError;
+
+typedef struct LDKCResultTempl_GossipTimestampFilter__DecodeError {
+   union LDKCResultPtr_GossipTimestampFilter__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_GossipTimestampFilter__DecodeError;
+
+typedef struct LDKCResultTempl_GossipTimestampFilter__DecodeError LDKCResult_GossipTimestampFilterDecodeErrorZ;
+
 
 
 /**
@@ -3131,6 +3311,18 @@ typedef struct LDKCVecTempl_CVecTempl_RouteHop {
 
 typedef struct LDKCVecTempl_CVecTempl_RouteHop LDKCVec_CVec_RouteHopZZ;
 
+typedef union LDKCResultPtr_Route__DecodeError {
+   struct LDKRoute *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_Route__DecodeError;
+
+typedef struct LDKCResultTempl_Route__DecodeError {
+   union LDKCResultPtr_Route__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_Route__DecodeError;
+
+typedef struct LDKCResultTempl_Route__DecodeError LDKCResult_RouteDecodeErrorZ;
+
 
 
 /**
@@ -3256,6 +3448,18 @@ typedef struct MUST_USE_STRUCT LDKChannelInfo {
    bool is_owned;
 } LDKChannelInfo;
 
+typedef union LDKCResultPtr_RoutingFees__DecodeError {
+   struct LDKRoutingFees *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_RoutingFees__DecodeError;
+
+typedef struct LDKCResultTempl_RoutingFees__DecodeError {
+   union LDKCResultPtr_RoutingFees__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_RoutingFees__DecodeError;
+
+typedef struct LDKCResultTempl_RoutingFees__DecodeError LDKCResult_RoutingFeesDecodeErrorZ;
+
 
 
 /**
@@ -3270,6 +3474,18 @@ typedef struct MUST_USE_STRUCT LDKNodeAnnouncementInfo {
    bool is_owned;
 } LDKNodeAnnouncementInfo;
 
+typedef union LDKCResultPtr_NodeAnnouncementInfo__DecodeError {
+   struct LDKNodeAnnouncementInfo *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_NodeAnnouncementInfo__DecodeError;
+
+typedef struct LDKCResultTempl_NodeAnnouncementInfo__DecodeError {
+   union LDKCResultPtr_NodeAnnouncementInfo__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_NodeAnnouncementInfo__DecodeError;
+
+typedef struct LDKCResultTempl_NodeAnnouncementInfo__DecodeError LDKCResult_NodeAnnouncementInfoDecodeErrorZ;
+
 
 
 /**
@@ -3283,6 +3499,30 @@ typedef struct MUST_USE_STRUCT LDKNodeInfo {
    LDKnativeNodeInfo *inner;
    bool is_owned;
 } LDKNodeInfo;
+
+typedef union LDKCResultPtr_NodeInfo__DecodeError {
+   struct LDKNodeInfo *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_NodeInfo__DecodeError;
+
+typedef struct LDKCResultTempl_NodeInfo__DecodeError {
+   union LDKCResultPtr_NodeInfo__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_NodeInfo__DecodeError;
+
+typedef struct LDKCResultTempl_NodeInfo__DecodeError LDKCResult_NodeInfoDecodeErrorZ;
+
+typedef union LDKCResultPtr_NetworkGraph__DecodeError {
+   struct LDKNetworkGraph *result;
+   struct LDKDecodeError *err;
+} LDKCResultPtr_NetworkGraph__DecodeError;
+
+typedef struct LDKCResultTempl_NetworkGraph__DecodeError {
+   union LDKCResultPtr_NetworkGraph__DecodeError contents;
+   bool result_ok;
+} LDKCResultTempl_NetworkGraph__DecodeError;
+
+typedef struct LDKCResultTempl_NetworkGraph__DecodeError LDKCResult_NetworkGraphDecodeErrorZ;
 
 typedef struct LDKCVecTempl_RouteHop LDKCVec_RouteHopZ;
 
@@ -3301,6 +3541,12 @@ extern const void (*CResult_NoneChannelMonitorUpdateErrZ_free)(LDKCResult_NoneCh
 extern const LDKCResult_NoneChannelMonitorUpdateErrZ (*CResult_NoneChannelMonitorUpdateErrZ_err)(enum LDKChannelMonitorUpdateErr);
 
 extern const void (*CVec_MonitorEventZ_free)(LDKCVec_MonitorEventZ);
+
+extern const void (*CResult_ChannelMonitorUpdateDecodeErrorZ_free)(LDKCResult_ChannelMonitorUpdateDecodeErrorZ);
+
+extern const LDKCResult_ChannelMonitorUpdateDecodeErrorZ (*CResult_ChannelMonitorUpdateDecodeErrorZ_ok)(struct LDKChannelMonitorUpdate);
+
+extern const LDKCResult_ChannelMonitorUpdateDecodeErrorZ (*CResult_ChannelMonitorUpdateDecodeErrorZ_err)(struct LDKDecodeError);
 
 extern const void (*CResult_NoneMonitorUpdateErrorZ_free)(LDKCResult_NoneMonitorUpdateErrorZ);
 
@@ -3341,6 +3587,12 @@ extern const void (*CResult_ChanKeySignerDecodeErrorZ_free)(LDKCResult_ChanKeySi
 extern const LDKCResult_ChanKeySignerDecodeErrorZ (*CResult_ChanKeySignerDecodeErrorZ_ok)(struct LDKChannelKeys);
 
 extern const LDKCResult_ChanKeySignerDecodeErrorZ (*CResult_ChanKeySignerDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_InMemoryChannelKeysDecodeErrorZ_free)(LDKCResult_InMemoryChannelKeysDecodeErrorZ);
+
+extern const LDKCResult_InMemoryChannelKeysDecodeErrorZ (*CResult_InMemoryChannelKeysDecodeErrorZ_ok)(struct LDKInMemoryChannelKeys);
+
+extern const LDKCResult_InMemoryChannelKeysDecodeErrorZ (*CResult_InMemoryChannelKeysDecodeErrorZ_err)(struct LDKDecodeError);
 
 extern const void (*CResult_TxOutAccessErrorZ_free)(LDKCResult_TxOutAccessErrorZ);
 
@@ -3388,6 +3640,84 @@ extern const void (*CResult_NoneLightningErrorZ_free)(LDKCResult_NoneLightningEr
 
 extern const LDKCResult_NoneLightningErrorZ (*CResult_NoneLightningErrorZ_err)(struct LDKLightningError);
 
+extern const void (*CResult_ChannelReestablishDecodeErrorZ_free)(LDKCResult_ChannelReestablishDecodeErrorZ);
+
+extern const LDKCResult_ChannelReestablishDecodeErrorZ (*CResult_ChannelReestablishDecodeErrorZ_ok)(struct LDKChannelReestablish);
+
+extern const LDKCResult_ChannelReestablishDecodeErrorZ (*CResult_ChannelReestablishDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_InitDecodeErrorZ_free)(LDKCResult_InitDecodeErrorZ);
+
+extern const LDKCResult_InitDecodeErrorZ (*CResult_InitDecodeErrorZ_ok)(struct LDKInit);
+
+extern const LDKCResult_InitDecodeErrorZ (*CResult_InitDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_PingDecodeErrorZ_free)(LDKCResult_PingDecodeErrorZ);
+
+extern const LDKCResult_PingDecodeErrorZ (*CResult_PingDecodeErrorZ_ok)(struct LDKPing);
+
+extern const LDKCResult_PingDecodeErrorZ (*CResult_PingDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_PongDecodeErrorZ_free)(LDKCResult_PongDecodeErrorZ);
+
+extern const LDKCResult_PongDecodeErrorZ (*CResult_PongDecodeErrorZ_ok)(struct LDKPong);
+
+extern const LDKCResult_PongDecodeErrorZ (*CResult_PongDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_UnsignedChannelAnnouncementDecodeErrorZ_free)(LDKCResult_UnsignedChannelAnnouncementDecodeErrorZ);
+
+extern const LDKCResult_UnsignedChannelAnnouncementDecodeErrorZ (*CResult_UnsignedChannelAnnouncementDecodeErrorZ_ok)(struct LDKUnsignedChannelAnnouncement);
+
+extern const LDKCResult_UnsignedChannelAnnouncementDecodeErrorZ (*CResult_UnsignedChannelAnnouncementDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_UnsignedChannelUpdateDecodeErrorZ_free)(LDKCResult_UnsignedChannelUpdateDecodeErrorZ);
+
+extern const LDKCResult_UnsignedChannelUpdateDecodeErrorZ (*CResult_UnsignedChannelUpdateDecodeErrorZ_ok)(struct LDKUnsignedChannelUpdate);
+
+extern const LDKCResult_UnsignedChannelUpdateDecodeErrorZ (*CResult_UnsignedChannelUpdateDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_ErrorMessageDecodeErrorZ_free)(LDKCResult_ErrorMessageDecodeErrorZ);
+
+extern const LDKCResult_ErrorMessageDecodeErrorZ (*CResult_ErrorMessageDecodeErrorZ_ok)(struct LDKErrorMessage);
+
+extern const LDKCResult_ErrorMessageDecodeErrorZ (*CResult_ErrorMessageDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_UnsignedNodeAnnouncementDecodeErrorZ_free)(LDKCResult_UnsignedNodeAnnouncementDecodeErrorZ);
+
+extern const LDKCResult_UnsignedNodeAnnouncementDecodeErrorZ (*CResult_UnsignedNodeAnnouncementDecodeErrorZ_ok)(struct LDKUnsignedNodeAnnouncement);
+
+extern const LDKCResult_UnsignedNodeAnnouncementDecodeErrorZ (*CResult_UnsignedNodeAnnouncementDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_QueryShortChannelIdsDecodeErrorZ_free)(LDKCResult_QueryShortChannelIdsDecodeErrorZ);
+
+extern const LDKCResult_QueryShortChannelIdsDecodeErrorZ (*CResult_QueryShortChannelIdsDecodeErrorZ_ok)(struct LDKQueryShortChannelIds);
+
+extern const LDKCResult_QueryShortChannelIdsDecodeErrorZ (*CResult_QueryShortChannelIdsDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_ReplyShortChannelIdsEndDecodeErrorZ_free)(LDKCResult_ReplyShortChannelIdsEndDecodeErrorZ);
+
+extern const LDKCResult_ReplyShortChannelIdsEndDecodeErrorZ (*CResult_ReplyShortChannelIdsEndDecodeErrorZ_ok)(struct LDKReplyShortChannelIdsEnd);
+
+extern const LDKCResult_ReplyShortChannelIdsEndDecodeErrorZ (*CResult_ReplyShortChannelIdsEndDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_QueryChannelRangeDecodeErrorZ_free)(LDKCResult_QueryChannelRangeDecodeErrorZ);
+
+extern const LDKCResult_QueryChannelRangeDecodeErrorZ (*CResult_QueryChannelRangeDecodeErrorZ_ok)(struct LDKQueryChannelRange);
+
+extern const LDKCResult_QueryChannelRangeDecodeErrorZ (*CResult_QueryChannelRangeDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_ReplyChannelRangeDecodeErrorZ_free)(LDKCResult_ReplyChannelRangeDecodeErrorZ);
+
+extern const LDKCResult_ReplyChannelRangeDecodeErrorZ (*CResult_ReplyChannelRangeDecodeErrorZ_ok)(struct LDKReplyChannelRange);
+
+extern const LDKCResult_ReplyChannelRangeDecodeErrorZ (*CResult_ReplyChannelRangeDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_GossipTimestampFilterDecodeErrorZ_free)(LDKCResult_GossipTimestampFilterDecodeErrorZ);
+
+extern const LDKCResult_GossipTimestampFilterDecodeErrorZ (*CResult_GossipTimestampFilterDecodeErrorZ_ok)(struct LDKGossipTimestampFilter);
+
+extern const LDKCResult_GossipTimestampFilterDecodeErrorZ (*CResult_GossipTimestampFilterDecodeErrorZ_err)(struct LDKDecodeError);
+
 extern const void (*CVec_PublicKeyZ_free)(LDKCVec_PublicKeyZ);
 
 extern const void (*CVec_u8Z_free)(LDKCVec_u8Z);
@@ -3434,6 +3764,12 @@ extern const void (*CVec_RouteHopZ_free)(LDKCVec_RouteHopZ);
 
 extern const void (*CVec_CVec_RouteHopZZ_free)(LDKCVec_CVec_RouteHopZZ);
 
+extern const void (*CResult_RouteDecodeErrorZ_free)(LDKCResult_RouteDecodeErrorZ);
+
+extern const LDKCResult_RouteDecodeErrorZ (*CResult_RouteDecodeErrorZ_ok)(struct LDKRoute);
+
+extern const LDKCResult_RouteDecodeErrorZ (*CResult_RouteDecodeErrorZ_err)(struct LDKDecodeError);
+
 extern const void (*CVec_RouteHintZ_free)(LDKCVec_RouteHintZ);
 
 extern const void (*CResult_RouteLightningErrorZ_free)(LDKCResult_RouteLightningErrorZ);
@@ -3441,6 +3777,30 @@ extern const void (*CResult_RouteLightningErrorZ_free)(LDKCResult_RouteLightning
 extern const LDKCResult_RouteLightningErrorZ (*CResult_RouteLightningErrorZ_ok)(struct LDKRoute);
 
 extern const LDKCResult_RouteLightningErrorZ (*CResult_RouteLightningErrorZ_err)(struct LDKLightningError);
+
+extern const void (*CResult_RoutingFeesDecodeErrorZ_free)(LDKCResult_RoutingFeesDecodeErrorZ);
+
+extern const LDKCResult_RoutingFeesDecodeErrorZ (*CResult_RoutingFeesDecodeErrorZ_ok)(struct LDKRoutingFees);
+
+extern const LDKCResult_RoutingFeesDecodeErrorZ (*CResult_RoutingFeesDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_NodeAnnouncementInfoDecodeErrorZ_free)(LDKCResult_NodeAnnouncementInfoDecodeErrorZ);
+
+extern const LDKCResult_NodeAnnouncementInfoDecodeErrorZ (*CResult_NodeAnnouncementInfoDecodeErrorZ_ok)(struct LDKNodeAnnouncementInfo);
+
+extern const LDKCResult_NodeAnnouncementInfoDecodeErrorZ (*CResult_NodeAnnouncementInfoDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_NodeInfoDecodeErrorZ_free)(LDKCResult_NodeInfoDecodeErrorZ);
+
+extern const LDKCResult_NodeInfoDecodeErrorZ (*CResult_NodeInfoDecodeErrorZ_ok)(struct LDKNodeInfo);
+
+extern const LDKCResult_NodeInfoDecodeErrorZ (*CResult_NodeInfoDecodeErrorZ_err)(struct LDKDecodeError);
+
+extern const void (*CResult_NetworkGraphDecodeErrorZ_free)(LDKCResult_NetworkGraphDecodeErrorZ);
+
+extern const LDKCResult_NetworkGraphDecodeErrorZ (*CResult_NetworkGraphDecodeErrorZ_ok)(struct LDKNetworkGraph);
+
+extern const LDKCResult_NetworkGraphDecodeErrorZ (*CResult_NetworkGraphDecodeErrorZ_err)(struct LDKDecodeError);
 
 extern const uintptr_t MAX_BUF_SIZE;
 
@@ -4036,7 +4396,7 @@ void ChannelMonitorUpdate_set_update_id(struct LDKChannelMonitorUpdate *this_ptr
 
 LDKCVec_u8Z ChannelMonitorUpdate_write(const struct LDKChannelMonitorUpdate *obj);
 
-struct LDKChannelMonitorUpdate ChannelMonitorUpdate_read(struct LDKu8slice ser);
+LDKCResult_ChannelMonitorUpdateDecodeErrorZ ChannelMonitorUpdate_read(struct LDKu8slice ser);
 
 enum LDKChannelMonitorUpdateErr ChannelMonitorUpdateErr_clone(const enum LDKChannelMonitorUpdateErr *orig);
 
@@ -4298,7 +4658,7 @@ struct LDKChannelKeys InMemoryChannelKeys_as_ChannelKeys(const struct LDKInMemor
 
 LDKCVec_u8Z InMemoryChannelKeys_write(const struct LDKInMemoryChannelKeys *obj);
 
-struct LDKInMemoryChannelKeys InMemoryChannelKeys_read(struct LDKu8slice ser);
+LDKCResult_InMemoryChannelKeysDecodeErrorZ InMemoryChannelKeys_read(struct LDKu8slice ser);
 
 void KeysManager_free(struct LDKKeysManager this_ptr);
 
@@ -6307,7 +6667,7 @@ struct LDKAnnouncementSignatures AnnouncementSignatures_read(struct LDKu8slice s
 
 LDKCVec_u8Z ChannelReestablish_write(const struct LDKChannelReestablish *obj);
 
-struct LDKChannelReestablish ChannelReestablish_read(struct LDKu8slice ser);
+LDKCResult_ChannelReestablishDecodeErrorZ ChannelReestablish_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z ClosingSigned_write(const struct LDKClosingSigned *obj);
 
@@ -6331,7 +6691,7 @@ struct LDKFundingLocked FundingLocked_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z Init_write(const struct LDKInit *obj);
 
-struct LDKInit Init_read(struct LDKu8slice ser);
+LDKCResult_InitDecodeErrorZ Init_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z OpenChannel_write(const struct LDKOpenChannel *obj);
 
@@ -6367,15 +6727,15 @@ struct LDKUpdateAddHTLC UpdateAddHTLC_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z Ping_write(const struct LDKPing *obj);
 
-struct LDKPing Ping_read(struct LDKu8slice ser);
+LDKCResult_PingDecodeErrorZ Ping_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z Pong_write(const struct LDKPong *obj);
 
-struct LDKPong Pong_read(struct LDKu8slice ser);
+LDKCResult_PongDecodeErrorZ Pong_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z UnsignedChannelAnnouncement_write(const struct LDKUnsignedChannelAnnouncement *obj);
 
-struct LDKUnsignedChannelAnnouncement UnsignedChannelAnnouncement_read(struct LDKu8slice ser);
+LDKCResult_UnsignedChannelAnnouncementDecodeErrorZ UnsignedChannelAnnouncement_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z ChannelAnnouncement_write(const struct LDKChannelAnnouncement *obj);
 
@@ -6383,7 +6743,7 @@ struct LDKChannelAnnouncement ChannelAnnouncement_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z UnsignedChannelUpdate_write(const struct LDKUnsignedChannelUpdate *obj);
 
-struct LDKUnsignedChannelUpdate UnsignedChannelUpdate_read(struct LDKu8slice ser);
+LDKCResult_UnsignedChannelUpdateDecodeErrorZ UnsignedChannelUpdate_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z ChannelUpdate_write(const struct LDKChannelUpdate *obj);
 
@@ -6391,33 +6751,33 @@ struct LDKChannelUpdate ChannelUpdate_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z ErrorMessage_write(const struct LDKErrorMessage *obj);
 
-struct LDKErrorMessage ErrorMessage_read(struct LDKu8slice ser);
+LDKCResult_ErrorMessageDecodeErrorZ ErrorMessage_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z UnsignedNodeAnnouncement_write(const struct LDKUnsignedNodeAnnouncement *obj);
 
-struct LDKUnsignedNodeAnnouncement UnsignedNodeAnnouncement_read(struct LDKu8slice ser);
+LDKCResult_UnsignedNodeAnnouncementDecodeErrorZ UnsignedNodeAnnouncement_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z NodeAnnouncement_write(const struct LDKNodeAnnouncement *obj);
 
 struct LDKNodeAnnouncement NodeAnnouncement_read(struct LDKu8slice ser);
 
-struct LDKQueryShortChannelIds QueryShortChannelIds_read(struct LDKu8slice ser);
+LDKCResult_QueryShortChannelIdsDecodeErrorZ QueryShortChannelIds_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z QueryShortChannelIds_write(const struct LDKQueryShortChannelIds *obj);
 
-struct LDKReplyShortChannelIdsEnd ReplyShortChannelIdsEnd_read(struct LDKu8slice ser);
+LDKCResult_ReplyShortChannelIdsEndDecodeErrorZ ReplyShortChannelIdsEnd_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z ReplyShortChannelIdsEnd_write(const struct LDKReplyShortChannelIdsEnd *obj);
 
-struct LDKQueryChannelRange QueryChannelRange_read(struct LDKu8slice ser);
+LDKCResult_QueryChannelRangeDecodeErrorZ QueryChannelRange_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z QueryChannelRange_write(const struct LDKQueryChannelRange *obj);
 
-struct LDKReplyChannelRange ReplyChannelRange_read(struct LDKu8slice ser);
+LDKCResult_ReplyChannelRangeDecodeErrorZ ReplyChannelRange_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z ReplyChannelRange_write(const struct LDKReplyChannelRange *obj);
 
-struct LDKGossipTimestampFilter GossipTimestampFilter_read(struct LDKu8slice ser);
+LDKCResult_GossipTimestampFilterDecodeErrorZ GossipTimestampFilter_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z GossipTimestampFilter_write(const struct LDKGossipTimestampFilter *obj);
 
@@ -7255,7 +7615,7 @@ MUST_USE_RES struct LDKRoute Route_new(LDKCVec_CVec_RouteHopZZ paths_arg);
 
 LDKCVec_u8Z Route_write(const struct LDKRoute *obj);
 
-struct LDKRoute Route_read(struct LDKu8slice ser);
+LDKCResult_RouteDecodeErrorZ Route_read(struct LDKu8slice ser);
 
 void RouteHint_free(struct LDKRouteHint this_ptr);
 
@@ -7545,7 +7905,7 @@ void RoutingFees_set_proportional_millionths(struct LDKRoutingFees *this_ptr, ui
 
 MUST_USE_RES struct LDKRoutingFees RoutingFees_new(uint32_t base_msat_arg, uint32_t proportional_millionths_arg);
 
-struct LDKRoutingFees RoutingFees_read(struct LDKu8slice ser);
+LDKCResult_RoutingFeesDecodeErrorZ RoutingFees_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z RoutingFees_write(const struct LDKRoutingFees *obj);
 
@@ -7622,7 +7982,7 @@ MUST_USE_RES struct LDKNodeAnnouncementInfo NodeAnnouncementInfo_new(struct LDKN
 
 LDKCVec_u8Z NodeAnnouncementInfo_write(const struct LDKNodeAnnouncementInfo *obj);
 
-struct LDKNodeAnnouncementInfo NodeAnnouncementInfo_read(struct LDKu8slice ser);
+LDKCResult_NodeAnnouncementInfoDecodeErrorZ NodeAnnouncementInfo_read(struct LDKu8slice ser);
 
 void NodeInfo_free(struct LDKNodeInfo this_ptr);
 
@@ -7663,11 +8023,11 @@ MUST_USE_RES struct LDKNodeInfo NodeInfo_new(LDKCVec_u64Z channels_arg, struct L
 
 LDKCVec_u8Z NodeInfo_write(const struct LDKNodeInfo *obj);
 
-struct LDKNodeInfo NodeInfo_read(struct LDKu8slice ser);
+LDKCResult_NodeInfoDecodeErrorZ NodeInfo_read(struct LDKu8slice ser);
 
 LDKCVec_u8Z NetworkGraph_write(const struct LDKNetworkGraph *obj);
 
-struct LDKNetworkGraph NetworkGraph_read(struct LDKu8slice ser);
+LDKCResult_NetworkGraphDecodeErrorZ NetworkGraph_read(struct LDKu8slice ser);
 
 /**
  * Creates a new, empty, network graph.
