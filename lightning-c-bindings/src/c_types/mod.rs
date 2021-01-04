@@ -283,7 +283,6 @@ impl<O, E> CResultTempl<O, E> {
 		}
 	}
 }
-pub extern "C" fn CResultTempl_free<O, E>(_res: CResultTempl<O, E>) { }
 impl<O, E> Drop for CResultTempl<O, E> {
 	fn drop(&mut self) {
 		if self.result_ok {
