@@ -1714,26 +1714,7 @@ impl<'a, 'c: 'a> TypeResolver<'a, 'c> {
 	// *** C Container Type Equivalent and alias Printing ***
 	// ******************************************************
 
-	fn write_template_constructor<W: std::io::Write>(&mut self, w: &mut W, container_type: &str, mangled_container: &str, args: &Vec<&syn::Type>, generics: Option<&GenericTypes>, is_ref: bool) -> bool {
-		if container_type.ends_with("Tuple") {
-			write!(w, "#[no_mangle]\npub extern \"C\" fn {}_new(", mangled_container).unwrap();
-			for (idx, gen) in args.iter().enumerate() {
-				write!(w, "{}{}: ", if idx != 0 { ", " } else { "" }, ('a' as u8 + idx as u8) as char).unwrap();
-				if !self.write_c_type_intern(w, gen, None, false, false, false) { return false; }
-			}
-			writeln!(w, ") -> {} {{", mangled_container).unwrap();
-			write!(w, "\t{} {{ ", mangled_container).unwrap();
-			for idx in 0..args.len() {
-				write!(w, "{}, ", ('a' as u8 + idx as u8) as char).unwrap();
-			}
-			writeln!(w, "}}\n}}\n").unwrap();
-		} else {
-			writeln!(w, "").unwrap();
-		}
-		true
-	}
-
-	fn write_template_generics<'b, W: std::io::Write>(&mut self, w: &mut W, args: &mut dyn Iterator<Item=&'b syn::Type>, generics: Option<&GenericTypes>, is_ref: bool, in_crate: bool) {
+	fn write_template_generics<'b, W: std::io::Write>(&mut self, w: &mut W, args: &mut dyn Iterator<Item=&'b syn::Type>, generics: Option<&GenericTypes>, is_ref: bool) {
 		for (idx, t) in args.enumerate() {
 			if idx != 0 {
 				write!(w, ", ").unwrap();
@@ -1766,28 +1747,13 @@ impl<'a, 'c: 'a> TypeResolver<'a, 'c> {
 						if let syn::PathArguments::AngleBracketed(args) = &p_arg.path.segments.iter().next().unwrap().arguments {
 							self.write_template_generics(w, &mut args.args.iter().map(|gen|
 								if let syn::GenericArgument::Type(t) = gen { t } else { unimplemented!() }),
-								generics, is_ref, in_crate);
+								generics, is_ref);
 						} else { unimplemented!(); }
-					} else if in_crate {
-						write!(w, "{}", c_type).unwrap();
 					} else {
-						self.write_rust_type(w, generics, &t);
+						write!(w, "{}", c_type).unwrap();
 					}
 				} else {
-					// If we just write out resolved_generic, it may mostly work, however for
-					// original types which are generic, we need the template args. We could
-					// figure them out and write them out, too, but its much easier to just
-					// reference the native{} type alias which exists at least for opaque types.
-					if in_crate {
-						write!(w, "crate::{}", resolved_generic).unwrap();
-					} else {
-						let path_name: Vec<&str> = resolved_generic.rsplitn(2, "::").collect();
-						if path_name.len() > 1 {
-							write!(w, "crate::{}::native{}", path_name[1], path_name[0]).unwrap();
-						} else {
-							write!(w, "crate::native{}", path_name[0]).unwrap();
-						}
-					}
+					write!(w, "crate::{}", resolved_generic).unwrap();
 				}
 			} else if let syn::Type::Reference(r_arg) = t {
 				if let syn::Type::Path(p_arg) = &*r_arg.elem {
@@ -1821,10 +1787,10 @@ impl<'a, 'c: 'a> TypeResolver<'a, 'c> {
 					if tup.elems.is_empty() {
 						write!(&mut a_ty, "()").unwrap();
 					} else {
-						self.write_template_generics(&mut a_ty, &mut args.iter().map(|t| *t).take(1), generics, is_ref, true);
+						self.write_template_generics(&mut a_ty, &mut args.iter().map(|t| *t).take(1), generics, is_ref);
 					}
 				} else {
-					self.write_template_generics(&mut a_ty, &mut args.iter().map(|t| *t).take(1), generics, is_ref, true);
+					self.write_template_generics(&mut a_ty, &mut args.iter().map(|t| *t).take(1), generics, is_ref);
 				}
 
 				let mut b_ty: Vec<u8> = Vec::new();
@@ -1832,22 +1798,22 @@ impl<'a, 'c: 'a> TypeResolver<'a, 'c> {
 					if tup.elems.is_empty() {
 						write!(&mut b_ty, "()").unwrap();
 					} else {
-						self.write_template_generics(&mut b_ty, &mut args.iter().map(|t| *t).skip(1), generics, is_ref, true);
+						self.write_template_generics(&mut b_ty, &mut args.iter().map(|t| *t).skip(1), generics, is_ref);
 					}
 				} else {
-					self.write_template_generics(&mut b_ty, &mut args.iter().map(|t| *t).skip(1), generics, is_ref, true);
+					self.write_template_generics(&mut b_ty, &mut args.iter().map(|t| *t).skip(1), generics, is_ref);
 				}
 
 				write_result_block(&mut created_container, &mangled_container, &String::from_utf8(a_ty).unwrap(), &String::from_utf8(b_ty).unwrap());
 			} else if container_type == "Vec" {
 				let mut a_ty: Vec<u8> = Vec::new();
-				self.write_template_generics(&mut a_ty, &mut args.iter().map(|t| *t), generics, is_ref, true);
+				self.write_template_generics(&mut a_ty, &mut args.iter().map(|t| *t), generics, is_ref);
 				write_vec_block(&mut created_container, &mangled_container, &String::from_utf8(a_ty).unwrap());
 			} else if container_type.ends_with("Tuple") {
 				let mut tuple_args = Vec::new();
 				for arg in args.iter() {
 					let mut ty: Vec<u8> = Vec::new();
-					self.write_template_generics(&mut ty, &mut [arg].iter().map(|t| **t), generics, is_ref, true);
+					self.write_template_generics(&mut ty, &mut [arg].iter().map(|t| **t), generics, is_ref);
 					tuple_args.push(String::from_utf8(ty).unwrap());
 				}
 				write_tuple_block(&mut created_container, &mangled_container, &tuple_args);
