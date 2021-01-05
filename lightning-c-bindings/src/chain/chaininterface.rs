@@ -47,9 +47,9 @@ impl Drop for BroadcasterInterface {
 }
 /// An enum that represents the speed at which we want a transaction to confirm used for feerate
 /// estimation.
-#[repr(C)]
 #[must_use]
 #[derive(Clone)]
+#[repr(C)]
 pub enum ConfirmationTarget {
 	/// We are happy with this transaction confirming slowly when feerate drops some.
 	Background,
