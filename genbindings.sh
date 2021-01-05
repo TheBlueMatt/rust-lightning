@@ -8,24 +8,40 @@ set -x
 # First build the latest c-bindings-gen binary
 cd c-bindings-gen && cargo build && cd ..
 
-# Then wipe all the existing C bindings (because we're being run in the right directory)
-# note that we keep the few manually-generated files first:
-mv lightning-c-bindings/src/c_types/mod.rs ./
-mv lightning-c-bindings/src/bitcoin ./
+for FOLDER in "lightning-c-bindings" "lightning-wasm-bindings"; do
+	# Then wipe all the existing C bindings (because we're being run in the right directory)
+	# note that we keep the few manually-generated files first:
+	mv $FOLDER/src/c_types/mod.rs ./
+	mv $FOLDER/src/bitcoin ./
 
-rm -rf lightning-c-bindings/src
+	rm -rf $FOLDER/src
 
-mkdir -p lightning-c-bindings/src/c_types/
-mv ./mod.rs lightning-c-bindings/src/c_types/
-mv ./bitcoin lightning-c-bindings/src/
+	mkdir -p $FOLDER/src/c_types/
+	mv ./mod.rs $FOLDER/src/c_types/
+	mv ./bitcoin $FOLDER/src/
 
-# Finally, run the c-bindings-gen binary, building fresh bindings.
-SRC="$(pwd)/lightning/src"
-OUT="$(pwd)/lightning-c-bindings/src"
-OUT_TEMPL="$(pwd)/lightning-c-bindings/src/c_types/derived.rs"
-OUT_F="$(pwd)/lightning-c-bindings/include/rust_types.h"
-OUT_CPP="$(pwd)/lightning-c-bindings/include/lightningpp.hpp"
-RUST_BACKTRACE=1 ./c-bindings-gen/target/debug/c-bindings-gen $SRC/ $OUT/ lightning $OUT_TEMPL $OUT_F $OUT_CPP "#[no_mangle]" "#[repr(C)]"
+	# Finally, run the c-bindings-gen binary, building fresh bindings.
+	SRC="$(pwd)/lightning/src"
+	OUT="$(pwd)/$FOLDER/src"
+	OUT_TEMPL="$(pwd)/$FOLDER/src/c_types/derived.rs"
+	if [ "$FOLDER" = "lightning-c-bindings" ]; then
+		OUT_F="$(pwd)/$FOLDER/include/rust_types.h"
+		OUT_CPP="$(pwd)/$FOLDER/include/lightningpp.hpp"
+		FN_ATTR="#[no_mangle]"
+		STRUCT_ATTR="#[repr(C)]"
+	else
+		# WASM bindings don't care about C++ headers
+		OUT_F="/dev/null"
+		OUT_CPP="/dev/null"
+		FN_ATTR="#[wasm_bindgen::prelude::wasm_bindgen]"
+		STRUCT_ATTR="#[wasm_bindgen::prelude::wasm_bindgen]"
+	fi
+	RUST_BACKTRACE=1 ./c-bindings-gen/target/debug/c-bindings-gen $SRC/ $OUT/ lightning $OUT_TEMPL $OUT_F $OUT_CPP "$FN_ATTR" "$STRUCT_ATTR"
+
+	pushd $FOLDER
+	cargo build
+	popd
+done
 
 # Now cd to lightning-c-bindings, build the generated bindings, and call cbindgen to build a C header file
 PATH="$PATH:~/.cargo/bin"

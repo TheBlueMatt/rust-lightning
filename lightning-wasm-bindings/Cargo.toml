@@ -1,0 +1,23 @@
+[package]
+name = "lightning-wasm-bindings"
+version = "0.0.1"
+authors = ["Matt Corallo"]
+license = "Apache-2.0"
+edition = "2018"
+description = """
+Utilities to fetch the chain from Bitcoin Core REST/RPC Interfaces and feed them into Rust Lightning.
+"""
+
+[lib]
+name = "ldk"
+crate-type = ["cdylib"]
+
+[dependencies]
+bitcoin = "0.24"
+lightning = { version = "0.0.12", path = "../lightning" }
+wasm-bindgen = "0.2"
+
+# We eventually want to join the root workspace, but for now, the bindings generation is
+# a bit brittle and we don't want to hold up other developers from making changes just
+# because they break the bindings
+[workspace]
