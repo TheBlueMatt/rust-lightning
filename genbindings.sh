@@ -25,7 +25,7 @@ OUT="$(pwd)/lightning-c-bindings/src"
 OUT_TEMPL="$(pwd)/lightning-c-bindings/src/c_types/derived.rs"
 OUT_F="$(pwd)/lightning-c-bindings/include/rust_types.h"
 OUT_CPP="$(pwd)/lightning-c-bindings/include/lightningpp.hpp"
-RUST_BACKTRACE=1 ./c-bindings-gen/target/debug/c-bindings-gen $SRC/ $OUT/ lightning $OUT_TEMPL $OUT_F $OUT_CPP "#[no_mangle]"
+RUST_BACKTRACE=1 ./c-bindings-gen/target/debug/c-bindings-gen $SRC/ $OUT/ lightning $OUT_TEMPL $OUT_F $OUT_CPP "#[no_mangle]" "#[repr(C)]"
 
 # Now cd to lightning-c-bindings, build the generated bindings, and call cbindgen to build a C header file
 PATH="$PATH:~/.cargo/bin"

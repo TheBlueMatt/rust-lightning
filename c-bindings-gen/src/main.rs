@@ -269,7 +269,8 @@ fn writeln_trait<'a, 'b, W: std::io::Write>(w: &mut W, t: &'a syn::ItemTrait, ty
 	assert!(gen_types.learn_generics(&t.generics, types));
 	gen_types.learn_associated_types(&t, types);
 
-	writeln!(w, "#[repr(C)]\npub struct {} {{", trait_name).unwrap();
+	writeln!(w, "{}", types.opts.struct_attributes).unwrap();
+	writeln!(w, "pub struct {} {{", trait_name).unwrap();
 	writeln!(w, "\tpub this_arg: *mut c_void,").unwrap();
 	let mut generated_fields = Vec::new(); // Every field's name except this_arg, used in Clone generation
 	for item in t.items.iter() {
@@ -530,7 +531,8 @@ fn writeln_opaque<W: std::io::Write>(w: &mut W, ident: &syn::Ident, struct_name:
 	writeln!(w, ";\n").unwrap();
 	writeln!(extra_headers, "struct native{}Opaque;\ntypedef struct native{}Opaque LDKnative{};", ident, ident, ident).unwrap();
 	writeln_docs(w, &attrs, "");
-	writeln!(w, "#[must_use]\n#[repr(C)]\npub struct {} {{\n\t/// Nearly everywhere, inner must be non-null, however in places where", struct_name).unwrap();
+	writeln!(w, "{}", types.opts.struct_attributes).unwrap();
+	writeln!(w, "#[must_use]\npub struct {} {{\n\t/// Nearly everywhere, inner must be non-null, however in places where", struct_name).unwrap();
 	writeln!(w, "\t/// the Rust equivalent takes an Option, it may be set to null to indicate None.").unwrap();
 	writeln!(w, "\tpub inner: *mut native{},\n\tpub is_owned: bool,\n}}\n", ident).unwrap();
 	writeln!(w, "impl Drop for {} {{\n\tfn drop(&mut self) {{", struct_name).unwrap();
@@ -1082,7 +1084,8 @@ fn writeln_enum<'a, 'b, W: std::io::Write>(w: &mut W, e: &'a syn::ItemEnum, type
 
 	let mut needs_free = false;
 
-	writeln!(w, "#[must_use]\n#[derive(Clone)]\n#[repr(C)]\npub enum {} {{", e.ident).unwrap();
+	writeln!(w, "{}", types.opts.struct_attributes).unwrap();
+	writeln!(w, "#[must_use]\n#[derive(Clone)]\npub enum {} {{", e.ident).unwrap();
 	for var in e.variants.iter() {
 		assert_eq!(export_status(&var.attrs), ExportStatus::Export); // We can't partially-export a mirrored enum
 		writeln_docs(w, &var.attrs, "\t");
@@ -1554,12 +1557,13 @@ fn walk_ast<'a>(in_dir: &str, path: &str, module: String, ast_storage: &'a FullL
 pub struct GlobalOpts<'a> {
 	orig_crate: &'a str,
 	fn_attributes: &'a str,
+	struct_attributes: &'a str,
 }
 
 fn main() {
 	let args: Vec<String> = env::args().collect();
-	if args.len() != 8 {
-		eprintln!("Usage: source/dir target/dir source_crate_name derived_templates.rs extra/includes.h extra/cpp/includes.hpp fn_attribute");
+	if args.len() != 9 {
+		eprintln!("Usage: source/dir target/dir source_crate_name derived_templates.rs extra/includes.h extra/cpp/includes.hpp fn_attribute struct_attribute");
 		process::exit(1);
 	}
 
@@ -1587,6 +1591,7 @@ fn main() {
 	let opts = GlobalOpts {
 		orig_crate: &args[3],
 		fn_attributes: &args[7],
+		struct_attributes: &args[8],
 	};
 
 	// First parse the full crate's ASTs, caching them so that we can hold references to the AST

@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::Write;
 use proc_macro2::{TokenTree, Span};
 
+use crate::GlobalOpts;
 use crate::types::*;
 
 /// Writes out a C++ wrapper class for the given type, which contains various utilities to access
@@ -33,7 +34,7 @@ pub fn write_cpp_wrapper(cpp_header_file: &mut File, ty: &str, has_destructor: b
 }
 
 /// Writes out a C-callable concrete Result<A, B> struct and utility methods
-pub fn write_result_block<W: std::io::Write>(w: &mut W, mangled_container: &str, ok_type: &str, err_type: &str) {
+pub fn write_result_block<W: std::io::Write>(w: &mut W, opts: &GlobalOpts, mangled_container: &str, ok_type: &str, err_type: &str) {
 	writeln!(w, "#[repr(C)]").unwrap();
 	writeln!(w, "pub union {}Ptr {{", mangled_container).unwrap();
 	if ok_type != "()" {
@@ -49,7 +50,7 @@ pub fn write_result_block<W: std::io::Write>(w: &mut W, mangled_container: &str,
 		writeln!(w, "\tpub err: *mut std::ffi::c_void,").unwrap();
 	}
 	writeln!(w, "}}").unwrap();
-	writeln!(w, "#[repr(C)]").unwrap();
+	writeln!(w, "{}", opts.struct_attributes).unwrap();
 	writeln!(w, "pub struct {} {{", mangled_container).unwrap();
 	writeln!(w, "\tpub contents: {}Ptr,", mangled_container).unwrap();
 	writeln!(w, "\tpub result_ok: bool,").unwrap();
@@ -147,8 +148,8 @@ pub fn write_result_block<W: std::io::Write>(w: &mut W, mangled_container: &str,
 }
 
 /// Writes out a C-callable concrete Vec<A> struct and utility methods
-pub fn write_vec_block<W: std::io::Write>(w: &mut W, mangled_container: &str, inner_type: &str) {
-	writeln!(w, "#[repr(C)]").unwrap();
+pub fn write_vec_block<W: std::io::Write>(w: &mut W, opts: &GlobalOpts, mangled_container: &str, inner_type: &str) {
+	writeln!(w, "{}", opts.struct_attributes).unwrap();
 	writeln!(w, "pub struct {} {{", mangled_container).unwrap();
 	writeln!(w, "\tpub data: *mut {},", inner_type).unwrap();
 	writeln!(w, "\tpub datalen: usize").unwrap();
@@ -196,8 +197,8 @@ pub fn write_vec_block<W: std::io::Write>(w: &mut W, mangled_container: &str, in
 }
 
 /// Writes out a C-callable concrete (A, B, ...) struct and utility methods
-pub fn write_tuple_block<W: std::io::Write>(w: &mut W, mangled_container: &str, types: &[String]) {
-	writeln!(w, "#[repr(C)]").unwrap();
+pub fn write_tuple_block<W: std::io::Write>(w: &mut W, opts: &GlobalOpts, mangled_container: &str, types: &[String]) {
+	writeln!(w, "{}", opts.struct_attributes).unwrap();
 	writeln!(w, "pub struct {} {{", mangled_container).unwrap();
 	for (idx, ty) in types.iter().enumerate() {
 		writeln!(w, "\tpub {}: {},", ('a' as u8 + idx as u8) as char, ty).unwrap();

@@ -1805,11 +1805,11 @@ impl<'a, 'c: 'a> TypeResolver<'a, 'c> {
 					self.write_template_generics(&mut b_ty, &mut args.iter().map(|t| *t).skip(1), generics, is_ref);
 				}
 
-				write_result_block(&mut created_container, &mangled_container, &String::from_utf8(a_ty).unwrap(), &String::from_utf8(b_ty).unwrap());
+				write_result_block(&mut created_container, &self.opts, &mangled_container, &String::from_utf8(a_ty).unwrap(), &String::from_utf8(b_ty).unwrap());
 			} else if container_type == "Vec" {
 				let mut a_ty: Vec<u8> = Vec::new();
 				self.write_template_generics(&mut a_ty, &mut args.iter().map(|t| *t), generics, is_ref);
-				write_vec_block(&mut created_container, &mangled_container, &String::from_utf8(a_ty).unwrap());
+				write_vec_block(&mut created_container, &self.opts, &mangled_container, &String::from_utf8(a_ty).unwrap());
 			} else if container_type.ends_with("Tuple") {
 				let mut tuple_args = Vec::new();
 				for arg in args.iter() {
@@ -1817,7 +1817,7 @@ impl<'a, 'c: 'a> TypeResolver<'a, 'c> {
 					self.write_template_generics(&mut ty, &mut [arg].iter().map(|t| **t), generics, is_ref);
 					tuple_args.push(String::from_utf8(ty).unwrap());
 				}
-				write_tuple_block(&mut created_container, &mangled_container, &tuple_args);
+				write_tuple_block(&mut created_container, &self.opts, &mangled_container, &tuple_args);
 
 				write!(&mut created_container, "{}\npub extern \"C\" fn {}_new(", self.opts.fn_attributes, mangled_container).unwrap();
 				for (idx, gen) in args.iter().enumerate() {
