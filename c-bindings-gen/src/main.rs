@@ -37,15 +37,15 @@ fn convert_macro<W: std::io::Write>(w: &mut W, macro_path: &syn::Path, stream: &
 			let struct_for = if let TokenTree::Ident(i) = stream.clone().into_iter().next().unwrap() { i } else { unimplemented!(); };
 			if let Some(s) = types.maybe_resolve_ident(&struct_for) {
 				if !types.crate_types.opaques.get(&s).is_some() { return; }
-				writeln!(w, "#[no_mangle]").unwrap();
+				writeln!(w, "{}", types.opts.fn_attributes).unwrap();
 				writeln!(w, "pub extern \"C\" fn {}_write(obj: &{}) -> crate::c_types::derived::CVec_u8Z {{", struct_for, struct_for).unwrap();
 				writeln!(w, "\tcrate::c_types::serialize_obj(unsafe {{ &(*(*obj).inner) }})").unwrap();
 				writeln!(w, "}}").unwrap();
-				writeln!(w, "#[no_mangle]").unwrap();
+				writeln!(w, "#[allow(unused)]").unwrap();
 				writeln!(w, "pub(crate) extern \"C\" fn {}_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {{", struct_for).unwrap();
 				writeln!(w, "\tcrate::c_types::serialize_obj(unsafe {{ &*(obj as *const native{}) }})", struct_for).unwrap();
 				writeln!(w, "}}").unwrap();
-				writeln!(w, "#[no_mangle]").unwrap();
+				writeln!(w, "{}", types.opts.fn_attributes).unwrap();
 				writeln!(w, "pub extern \"C\" fn {}_read(ser: crate::c_types::u8slice) -> {} {{", struct_for, struct_for).unwrap();
 				writeln!(w, "\tif let Ok(res) = crate::c_types::deserialize_obj(ser) {{").unwrap();
 				writeln!(w, "\t\t{} {{ inner: Box::into_raw(Box::new(res)), is_owned: true }}", struct_for).unwrap();
@@ -82,7 +82,7 @@ fn maybe_convert_trait_impl<W: std::io::Write>(w: &mut W, trait_path: &syn::Path
 
 		match &t as &str {
 			"util::ser::Writeable" => {
-				writeln!(w, "#[no_mangle]").unwrap();
+				writeln!(w, "{}", types.opts.fn_attributes).unwrap();
 				writeln!(w, "pub extern \"C\" fn {}_write(obj: &{}) -> crate::c_types::derived::CVec_u8Z {{", for_obj, full_obj_path).unwrap();
 
 				let ref_type = syn::Type::Reference(syn::TypeReference {
@@ -98,7 +98,7 @@ fn maybe_convert_trait_impl<W: std::io::Write>(w: &mut W, trait_path: &syn::Path
 
 				writeln!(w, "}}").unwrap();
 				if has_inner {
-					writeln!(w, "#[no_mangle]").unwrap();
+					writeln!(w, "#[allow(unused)]").unwrap();
 					writeln!(w, "pub(crate) extern \"C\" fn {}_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {{", for_obj).unwrap();
 					writeln!(w, "\tcrate::c_types::serialize_obj(unsafe {{ &*(obj as *const native{}) }})", for_obj).unwrap();
 					writeln!(w, "}}").unwrap();
@@ -127,7 +127,7 @@ fn maybe_convert_trait_impl<W: std::io::Write>(w: &mut W, trait_path: &syn::Path
 				let res_ty = syn::Type::Path(syn::TypePath { qself: None, path: syn::Path {
 					leading_colon: None, segments: res_segs } });
 
-				writeln!(w, "#[no_mangle]").unwrap();
+				writeln!(w, "{}", types.opts.fn_attributes).unwrap();
 				write!(w, "pub extern \"C\" fn {}_read(ser: crate::c_types::u8slice", for_obj).unwrap();
 
 				let mut arg_conv = Vec::new();
@@ -381,7 +381,7 @@ fn writeln_trait<'a, 'b, W: std::io::Write>(w: &mut W, t: &'a syn::ItemTrait, ty
 			writeln!(w, "\tfn hash<H: std::hash::Hasher>(&self, hasher: &mut H) {{ hasher.write_u64((self.hash)(self.this_arg)) }}\n}}").unwrap();
 		},
 		("Clone", _) => {
-			writeln!(w, "#[no_mangle]").unwrap();
+			writeln!(w, "{}", types.opts.fn_attributes).unwrap();
 			writeln!(w, "pub extern \"C\" fn {}_clone(orig: &{}) -> {} {{", trait_name, trait_name, trait_name).unwrap();
 			writeln!(w, "\t{} {{", trait_name).unwrap();
 			writeln!(w, "\t\tthis_arg: if let Some(f) = orig.clone {{ (f)(orig.this_arg) }} else {{ orig.this_arg }},").unwrap();
@@ -400,7 +400,7 @@ fn writeln_trait<'a, 'b, W: std::io::Write>(w: &mut W, t: &'a syn::ItemTrait, ty
 	) );
 
 	// Finally, implement the original Rust trait for the newly created mapped trait.
-	writeln!(w, "\nuse {}::{}::{} as rust{};", types.orig_crate, types.module_path, t.ident, trait_name).unwrap();
+	writeln!(w, "\nuse {}::{}::{} as rust{};", types.opts.orig_crate, types.module_path, t.ident, trait_name).unwrap();
 	write!(w, "impl rust{}", t.ident).unwrap();
 	maybe_write_generics(w, &t.generics, types, false);
 	writeln!(w, " for {} {{", trait_name).unwrap();
@@ -505,7 +505,8 @@ fn writeln_trait<'a, 'b, W: std::io::Write>(w: &mut W, t: &'a syn::ItemTrait, ty
 	writeln!(w, "\tfn deref(&self) -> &Self {{\n\t\tself\n\t}}\n}}").unwrap();
 
 	writeln!(w, "/// Calls the free function if one is set").unwrap();
-	writeln!(w, "#[no_mangle]\npub extern \"C\" fn {}_free(this_ptr: {}) {{ }}", trait_name, trait_name).unwrap();
+	writeln!(w, "{}", types.opts.fn_attributes).unwrap();
+	writeln!(w, "pub extern \"C\" fn {}_free(this_ptr: {}) {{ }}", trait_name, trait_name).unwrap();
 	writeln!(w, "impl Drop for {} {{", trait_name).unwrap();
 	writeln!(w, "\tfn drop(&mut self) {{").unwrap();
 	writeln!(w, "\t\tif let Some(f) = self.free {{").unwrap();
@@ -524,7 +525,7 @@ fn writeln_opaque<W: std::io::Write>(w: &mut W, ident: &syn::Ident, struct_name:
 	// If we directly read the original type by its original name, cbindgen hits
 	// https://github.com/eqrion/cbindgen/issues/286 Thus, instead, we import it as a temporary
 	// name and then reference it by that name, which works around the issue.
-	write!(w, "\nuse {}::{}::{} as native{}Import;\ntype native{} = native{}Import", types.orig_crate, types.module_path, ident, ident, ident, ident).unwrap();
+	write!(w, "\nuse {}::{}::{} as native{}Import;\ntype native{} = native{}Import", types.opts.orig_crate, types.module_path, ident, ident, ident, ident).unwrap();
 	maybe_write_generics(w, &generics, &types, true);
 	writeln!(w, ";\n").unwrap();
 	writeln!(extra_headers, "struct native{}Opaque;\ntypedef struct native{}Opaque LDKnative{};", ident, ident, ident).unwrap();
@@ -535,7 +536,8 @@ fn writeln_opaque<W: std::io::Write>(w: &mut W, ident: &syn::Ident, struct_name:
 	writeln!(w, "impl Drop for {} {{\n\tfn drop(&mut self) {{", struct_name).unwrap();
 	writeln!(w, "\t\tif self.is_owned && !self.inner.is_null() {{").unwrap();
 	writeln!(w, "\t\t\tlet _ = unsafe {{ Box::from_raw(self.inner) }};\n\t\t}}\n\t}}\n}}").unwrap();
-	writeln!(w, "#[no_mangle]\npub extern \"C\" fn {}_free(this_ptr: {}) {{ }}", struct_name, struct_name).unwrap();
+	writeln!(w, "{}", types.opts.fn_attributes).unwrap();
+	writeln!(w, "pub extern \"C\" fn {}_free(this_ptr: {}) {{ }}", struct_name, struct_name).unwrap();
 	writeln!(w, "#[allow(unused)]").unwrap();
 	writeln!(w, "/// Used only if an object of this type is returned as a trait impl by a method").unwrap();
 	writeln!(w, "extern \"C\" fn {}_free_void(this_ptr: *mut c_void) {{", struct_name).unwrap();
@@ -571,7 +573,7 @@ fn writeln_opaque<W: std::io::Write>(w: &mut W, ident: &syn::Ident, struct_name:
 									writeln!(w, "pub(crate) extern \"C\" fn {}_clone_void(this_ptr: *const c_void) -> *mut c_void {{", struct_name).unwrap();
 									writeln!(w, "\tBox::into_raw(Box::new(unsafe {{ (*(this_ptr as *mut native{})).clone() }})) as *mut c_void", struct_name).unwrap();
 									writeln!(w, "}}").unwrap();
-									writeln!(w, "#[no_mangle]").unwrap();
+									writeln!(w, "{}", types.opts.fn_attributes).unwrap();
 									writeln!(w, "pub extern \"C\" fn {}_clone(orig: &{}) -> {} {{", struct_name, struct_name, struct_name).unwrap();
 									writeln!(w, "\t{} {{ inner: Box::into_raw(Box::new(unsafe {{ &*orig.inner }}.clone())), is_owned: true }}", struct_name).unwrap();
 									writeln!(w, "}}").unwrap();
@@ -636,7 +638,8 @@ fn writeln_struct<'a, 'b, W: std::io::Write>(w: &mut W, s: &'a syn::ItemStruct, 
 						elem: Box::new(field.ty.clone()) });
 					if types.understood_c_type(&ref_type, Some(&gen_types)) {
 						writeln_docs(w, &field.attrs, "");
-						write!(w, "#[no_mangle]\npub extern \"C\" fn {}_get_{}(this_ptr: &{}) -> ", struct_name, ident, struct_name).unwrap();
+						writeln!(w, "{}", types.opts.fn_attributes).unwrap();
+						write!(w, "pub extern \"C\" fn {}_get_{}(this_ptr: &{}) -> ", struct_name, ident, struct_name).unwrap();
 						types.write_c_type(w, &ref_type, Some(&gen_types), true);
 						write!(w, " {{\n\tlet mut inner_val = &mut unsafe {{ &mut *this_ptr.inner }}.{};\n\t", ident).unwrap();
 						let local_var = types.write_to_c_conversion_new_var(w, &syn::Ident::new("inner_val", Span::call_site()), &ref_type, Some(&gen_types), true);
@@ -653,7 +656,8 @@ fn writeln_struct<'a, 'b, W: std::io::Write>(w: &mut W, s: &'a syn::ItemStruct, 
 
 					if types.understood_c_type(&field.ty, Some(&gen_types)) {
 						writeln_docs(w, &field.attrs, "");
-						write!(w, "#[no_mangle]\npub extern \"C\" fn {}_set_{}(this_ptr: &mut {}, mut val: ", struct_name, ident, struct_name).unwrap();
+						writeln!(w, "{}", types.opts.fn_attributes).unwrap();
+						write!(w, "pub extern \"C\" fn {}_set_{}(this_ptr: &mut {}, mut val: ", struct_name, ident, struct_name).unwrap();
 						types.write_c_type(w, &field.ty, Some(&gen_types), false);
 						write!(w, ") {{\n\t").unwrap();
 						let local_var = types.write_from_c_conversion_new_var(w, &syn::Ident::new("val", Span::call_site()), &field.ty, Some(&gen_types));
@@ -670,7 +674,8 @@ fn writeln_struct<'a, 'b, W: std::io::Write>(w: &mut W, s: &'a syn::ItemStruct, 
 
 		if all_fields_settable {
 			// Build a constructor!
-			write!(w, "#[must_use]\n#[no_mangle]\npub extern \"C\" fn {}_new(", struct_name).unwrap();
+			writeln!(w, "{}", types.opts.fn_attributes).unwrap();
+			write!(w, "#[must_use]\npub extern \"C\" fn {}_new(", struct_name).unwrap();
 			for (idx, field) in fields.named.iter().enumerate() {
 				if idx != 0 { write!(w, ", ").unwrap(); }
 				write!(w, "mut {}_arg: ", field.ident.as_ref().unwrap()).unwrap();
@@ -790,7 +795,8 @@ fn writeln_impl<W: std::io::Write>(w: &mut W, i: &syn::ItemImpl, types: &mut Typ
 						writeln!(w, "\t\tret.free = Some({}_free_void);", ident).unwrap();
 						writeln!(w, "\t\tret\n\t}}\n}}").unwrap();
 
-						write!(w, "#[no_mangle]\npub extern \"C\" fn {}_as_{}(this_arg: &{}) -> crate::{} {{\n", ident, trait_obj.ident, ident, full_trait_path).unwrap();
+						writeln!(w, "{}", types.opts.fn_attributes).unwrap();
+						write!(w, "pub extern \"C\" fn {}_as_{}(this_arg: &{}) -> crate::{} {{\n", ident, trait_obj.ident, ident, full_trait_path).unwrap();
 						writeln!(w, "\tcrate::{} {{", full_trait_path).unwrap();
 						writeln!(w, "\t\tthis_arg: unsafe {{ (*this_arg).inner as *mut c_void }},").unwrap();
 						writeln!(w, "\t\tfree: None,").unwrap();
@@ -856,7 +862,7 @@ fn writeln_impl<W: std::io::Write>(w: &mut W, i: &syn::ItemImpl, types: &mut Typ
 								}
 							}
 						) );
-						write!(w, "\t}}\n}}\nuse {}::{} as {}TraitImport;\n", types.orig_crate, full_trait_path, trait_obj.ident).unwrap();
+						write!(w, "\t}}\n}}\nuse {}::{} as {}TraitImport;\n", types.opts.orig_crate, full_trait_path, trait_obj.ident).unwrap();
 
 						macro_rules! impl_meth {
 							($m: expr, $trait: expr, $indent: expr) => {
@@ -886,7 +892,7 @@ fn writeln_impl<W: std::io::Write>(w: &mut W, i: &syn::ItemImpl, types: &mut Typ
 								if takes_self {
 									write!(w, "unsafe {{ &mut *(this_arg as *mut native{}) }}.{}(", ident, $m.sig.ident).unwrap();
 								} else {
-									write!(w, "{}::{}::{}(", types.orig_crate, resolved_path, $m.sig.ident).unwrap();
+									write!(w, "{}::{}::{}(", types.opts.orig_crate, resolved_path, $m.sig.ident).unwrap();
 								}
 
 								let mut real_type = "".to_string();
@@ -932,7 +938,7 @@ fn writeln_impl<W: std::io::Write>(w: &mut W, i: &syn::ItemImpl, types: &mut Typ
 						walk_supertraits!(trait_obj, types, (
 							(s, t) => {
 								if let Some(supertrait_obj) = types.crate_types.traits.get(s).cloned() {
-									writeln!(w, "use {}::{} as native{}Trait;", types.orig_crate, s, t).unwrap();
+									writeln!(w, "use {}::{} as native{}Trait;", types.opts.orig_crate, s, t).unwrap();
 									for item in supertrait_obj.items.iter() {
 										match item {
 											syn::TraitItem::Method(m) => {
@@ -950,7 +956,8 @@ fn writeln_impl<W: std::io::Write>(w: &mut W, i: &syn::ItemImpl, types: &mut Typ
 						match &format!("{}", trait_ident) as &str {
 							"From" => {},
 							"Default" => {
-								write!(w, "#[must_use]\n#[no_mangle]\npub extern \"C\" fn {}_default() -> {} {{\n", ident, ident).unwrap();
+								writeln!(w, "{}", types.opts.fn_attributes).unwrap();
+								write!(w, "#[must_use]\npub extern \"C\" fn {}_default() -> {} {{\n", ident, ident).unwrap();
 								write!(w, "\t{} {{ inner: Box::into_raw(Box::new(Default::default())), is_owned: true }}\n", ident).unwrap();
 								write!(w, "}}\n").unwrap();
 							},
@@ -977,7 +984,8 @@ fn writeln_impl<W: std::io::Write>(w: &mut W, i: &syn::ItemImpl, types: &mut Typ
 									if let syn::ReturnType::Type(_, _) = &m.sig.output {
 										writeln!(w, "#[must_use]").unwrap();
 									}
-									write!(w, "#[no_mangle]\npub extern \"C\" fn {}_{}(", ident, m.sig.ident).unwrap();
+									writeln!(w, "{}", types.opts.fn_attributes).unwrap();
+									write!(w, "pub extern \"C\" fn {}_{}(", ident, m.sig.ident).unwrap();
 									let ret_type = match &declared_type {
 										DeclType::MirroredEnum => format!("{}", ident),
 										DeclType::StructImported => format!("{}", ident),
@@ -1001,7 +1009,7 @@ fn writeln_impl<W: std::io::Write>(w: &mut W, i: &syn::ItemImpl, types: &mut Typ
 									} else if takes_self {
 										write!(w, "unsafe {{ &*this_arg.inner }}.{}(", m.sig.ident).unwrap();
 									} else {
-										write!(w, "{}::{}::{}(", types.orig_crate, resolved_path, m.sig.ident).unwrap();
+										write!(w, "{}::{}::{}(", types.opts.orig_crate, resolved_path, m.sig.ident).unwrap();
 									}
 									write_method_call_params(w, &m.sig, "", types, Some(&gen_types), &ret_type, false);
 									gen_types.pop_ctx();
@@ -1093,7 +1101,7 @@ fn writeln_enum<'a, 'b, W: std::io::Write>(w: &mut W, e: &'a syn::ItemEnum, type
 		if var.discriminant.is_some() { unimplemented!(); }
 		writeln!(w, ",").unwrap();
 	}
-	writeln!(w, "}}\nuse {}::{}::{} as native{};\nimpl {} {{", types.orig_crate, types.module_path, e.ident, e.ident, e.ident).unwrap();
+	writeln!(w, "}}\nuse {}::{}::{} as native{};\nimpl {} {{", types.opts.orig_crate, types.module_path, e.ident, e.ident, e.ident).unwrap();
 
 	macro_rules! write_conv {
 		($fn_sig: expr, $to_c: expr, $ref: expr) => {
@@ -1175,9 +1183,10 @@ fn writeln_enum<'a, 'b, W: std::io::Write>(w: &mut W, e: &'a syn::ItemEnum, type
 	writeln!(w, "}}").unwrap();
 
 	if needs_free {
-		writeln!(w, "#[no_mangle]\npub extern \"C\" fn {}_free(this_ptr: {}) {{ }}", e.ident, e.ident).unwrap();
+		writeln!(w, "{}", types.opts.fn_attributes).unwrap();
+		writeln!(w, "pub extern \"C\" fn {}_free(this_ptr: {}) {{ }}", e.ident, e.ident).unwrap();
 	}
-	writeln!(w, "#[no_mangle]").unwrap();
+	writeln!(w, "{}", types.opts.fn_attributes).unwrap();
 	writeln!(w, "pub extern \"C\" fn {}_clone(orig: &{}) -> {} {{", e.ident, e.ident, e.ident).unwrap();
 	writeln!(w, "\torig.clone()").unwrap();
 	writeln!(w, "}}").unwrap();
@@ -1194,11 +1203,12 @@ fn writeln_fn<'a, 'b, W: std::io::Write>(w: &mut W, f: &'a syn::ItemFn, types: &
 	let mut gen_types = GenericTypes::new();
 	if !gen_types.learn_generics(&f.sig.generics, types) { return; }
 
-	write!(w, "#[no_mangle]\npub extern \"C\" fn {}(", f.sig.ident).unwrap();
+	writeln!(w, "{}", types.opts.fn_attributes).unwrap();
+	write!(w, "pub extern \"C\" fn {}(", f.sig.ident).unwrap();
 	write_method_params(w, &f.sig, "", types, Some(&gen_types), false, true);
 	write!(w, " {{\n\t").unwrap();
 	write_method_var_decl_body(w, &f.sig, "", types, Some(&gen_types), false);
-	write!(w, "{}::{}::{}(", types.orig_crate, types.module_path, f.sig.ident).unwrap();
+	write!(w, "{}::{}::{}(", types.opts.orig_crate, types.module_path, f.sig.ident).unwrap();
 	write_method_call_params(w, &f.sig, "", types, Some(&gen_types), "", false);
 	writeln!(w, "\n}}\n").unwrap();
 }
@@ -1257,7 +1267,7 @@ struct FullLibraryAST {
 /// Do the Real Work of mapping an original file to C-callable wrappers. Creates a new file at
 /// `out_path` and fills it with wrapper structs/functions to allow calling the things in the AST
 /// at `module` from C.
-fn convert_file<'a, 'b>(libast: &'a FullLibraryAST, crate_types: &mut CrateTypes<'a>, in_dir: &str, out_dir: &str, path: &str, orig_crate: &str, module: &str, header_file: &mut File, cpp_header_file: &mut File) {
+fn convert_file<'a, 'b>(libast: &'a FullLibraryAST, crate_types: &mut CrateTypes<'a>, opts: &GlobalOpts, in_dir: &str, out_dir: &str, path: &str, module: &str, header_file: &mut File, cpp_header_file: &mut File) {
 	let syntax = if let Some(ast) = libast.files.get(module) { ast } else { return };
 
 	assert!(syntax.shebang.is_none()); // Not sure what this is, hope we dont have one
@@ -1291,13 +1301,13 @@ fn convert_file<'a, 'b>(libast: &'a FullLibraryAST, crate_types: &mut CrateTypes
 	for (path, new_mod, m) in file_iter(&syntax, in_dir, path, &module) {
 		writeln_docs(&mut out, &m.attrs, "");
 		writeln!(out, "pub mod {};", m.ident).unwrap();
-		convert_file(libast, crate_types, in_dir, out_dir, &path,
-			orig_crate, &new_mod, header_file, cpp_header_file);
+		convert_file(libast, crate_types, opts, in_dir, out_dir, &path,
+			&new_mod, header_file, cpp_header_file);
 	}
 
 	eprintln!("Converting {} entries...", path);
 
-	let mut type_resolver = TypeResolver::new(orig_crate, module, crate_types);
+	let mut type_resolver = TypeResolver::new(opts, module, crate_types);
 
 	// First pass over the items and fill in imports and file-declared objects in the type resolver
 	for item in syntax.items.iter() {
@@ -1347,7 +1357,7 @@ fn convert_file<'a, 'b>(libast: &'a FullLibraryAST, crate_types: &mut CrateTypes
 						let resolved_path = type_resolver.resolve_path(&p.path, None);
 						if type_resolver.is_primitive(&resolved_path) {
 							writeln!(out, "\n#[no_mangle]").unwrap();
-							writeln!(out, "pub static {}: {} = {}::{}::{};", c.ident, resolved_path, orig_crate, module, c.ident).unwrap();
+							writeln!(out, "pub static {}: {} = {}::{}::{};", c.ident, resolved_path, opts.orig_crate, module, c.ident).unwrap();
 						}
 					}
 				}
@@ -1541,10 +1551,15 @@ fn walk_ast<'a>(in_dir: &str, path: &str, module: String, ast_storage: &'a FullL
 	}
 }
 
+pub struct GlobalOpts<'a> {
+	orig_crate: &'a str,
+	fn_attributes: &'a str,
+}
+
 fn main() {
 	let args: Vec<String> = env::args().collect();
-	if args.len() != 7 {
-		eprintln!("Usage: source/dir target/dir source_crate_name derived_templates.rs extra/includes.h extra/cpp/includes.hpp");
+	if args.len() != 8 {
+		eprintln!("Usage: source/dir target/dir source_crate_name derived_templates.rs extra/includes.h extra/cpp/includes.hpp fn_attribute");
 		process::exit(1);
 	}
 
@@ -1569,6 +1584,11 @@ fn main() {
 	writeln!(header_file, "#endif").unwrap();
 	writeln!(cpp_header_file, "#include <string.h>\nnamespace LDK {{").unwrap();
 
+	let opts = GlobalOpts {
+		orig_crate: &args[3],
+		fn_attributes: &args[7],
+	};
+
 	// First parse the full crate's ASTs, caching them so that we can hold references to the AST
 	// objects in other datastructures:
 	let mut libast = FullLibraryAST { files: HashMap::new() };
@@ -1581,7 +1601,7 @@ fn main() {
 	walk_ast(&args[1], "/lib.rs", "".to_string(), &libast, &mut libtypes);
 
 	// ... finally, do the actual file conversion/mapping, writing out types as we go.
-	convert_file(&libast, &mut libtypes, &args[1], &args[2], "/lib.rs", &args[3], "", &mut header_file, &mut cpp_header_file);
+	convert_file(&libast, &mut libtypes, &opts, &args[1], &args[2], "/lib.rs", "", &mut header_file, &mut cpp_header_file);
 
 	// For container templates which we created while walking the crate, make sure we add C++
 	// mapped types so that C++ users can utilize the auto-destructors available.

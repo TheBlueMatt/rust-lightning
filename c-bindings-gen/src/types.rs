@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::Write;
 use std::hash;
 
+use crate::GlobalOpts;
 use crate::blocks::*;
 
 use proc_macro2::{TokenTree, Span};
@@ -292,7 +293,7 @@ pub struct CrateTypes<'a> {
 /// A struct which tracks resolving rust types into C-mapped equivalents, exists for one specific
 /// module but contains a reference to the overall CrateTypes tracking.
 pub struct TypeResolver<'mod_lifetime, 'crate_lft: 'mod_lifetime> {
-	pub orig_crate: &'mod_lifetime str,
+	pub opts: &'mod_lifetime GlobalOpts<'mod_lifetime>,
 	pub module_path: &'mod_lifetime str,
 	imports: HashMap<syn::Ident, String>,
 	// ident -> is-mirrored-enum
@@ -312,7 +313,7 @@ enum EmptyValExpectedTy {
 }
 
 impl<'a, 'c: 'a> TypeResolver<'a, 'c> {
-	pub fn new(orig_crate: &'a str, module_path: &'a str, crate_types: &'a mut CrateTypes<'c>) -> Self {
+	pub fn new(opts: &'a GlobalOpts, module_path: &'a str, crate_types: &'a mut CrateTypes<'c>) -> Self {
 		let mut imports = HashMap::new();
 		// Add primitives to the "imports" list:
 		imports.insert(syn::Ident::new("bool", Span::call_site()), "bool".to_string());
@@ -329,7 +330,7 @@ impl<'a, 'c: 'a> TypeResolver<'a, 'c> {
 		imports.insert(syn::Ident::new("Result", Span::call_site()), "Result".to_string());
 		imports.insert(syn::Ident::new("Vec", Span::call_site()), "Vec".to_string());
 		imports.insert(syn::Ident::new("Option", Span::call_site()), "Option".to_string());
-		Self { orig_crate, module_path, imports, declared: HashMap::new(), crate_types }
+		Self { opts, module_path, imports, declared: HashMap::new(), crate_types }
 	}
 
 	// *************************************************
@@ -992,7 +993,7 @@ impl<'a, 'c: 'a> TypeResolver<'a, 'c> {
 				// If we're printing a generic argument, it needs to reference the crate, otherwise
 				// the original crate:
 				} else if self.maybe_resolve_path(&path, None).as_ref() == Some(&resolved) {
-					write!(w, "{}::{}", self.orig_crate, resolved).unwrap();
+					write!(w, "{}::{}", self.opts.orig_crate, resolved).unwrap();
 				} else {
 					write!(w, "crate::{}", resolved).unwrap();
 				}
@@ -1818,7 +1819,7 @@ impl<'a, 'c: 'a> TypeResolver<'a, 'c> {
 				}
 				write_tuple_block(&mut created_container, &mangled_container, &tuple_args);
 
-				write!(&mut created_container, "#[no_mangle]\npub extern \"C\" fn {}_new(", mangled_container).unwrap();
+				write!(&mut created_container, "{}\npub extern \"C\" fn {}_new(", self.opts.fn_attributes, mangled_container).unwrap();
 				for (idx, gen) in args.iter().enumerate() {
 					write!(&mut created_container, "{}{}: ", if idx != 0 { ", " } else { "" }, ('a' as u8 + idx as u8) as char).unwrap();
 					if !self.write_c_type_intern(&mut created_container, gen, generics, false, false, false) { return false; }
