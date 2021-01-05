@@ -241,12 +241,10 @@ typedef struct LDKPublicKey {
    uint8_t compressed_form[33];
 } LDKPublicKey;
 
-typedef struct LDKC2TupleTempl_u64__u64 {
+typedef struct LDKC2Tuple_u64u64Z {
    uint64_t a;
    uint64_t b;
-} LDKC2TupleTempl_u64__u64;
-
-typedef struct LDKC2TupleTempl_u64__u64 LDKC2Tuple_u64u64Z;
+} LDKC2Tuple_u64u64Z;
 
 /**
  * When on-chain outputs are created by rust-lightning (which our counterparty is not able to
@@ -321,14 +319,14 @@ typedef struct LDKSpendableOutputDescriptor_LDKDynamicOutputP2WSH_Body {
    struct LDKPublicKey per_commitment_point;
    uint16_t to_self_delay;
    struct LDKTxOut output;
-   LDKC2Tuple_u64u64Z key_derivation_params;
+   struct LDKC2Tuple_u64u64Z key_derivation_params;
    struct LDKPublicKey revocation_pubkey;
 } LDKSpendableOutputDescriptor_LDKDynamicOutputP2WSH_Body;
 
 typedef struct LDKSpendableOutputDescriptor_LDKStaticOutputCounterpartyPayment_Body {
    struct LDKOutPoint outpoint;
    struct LDKTxOut output;
-   LDKC2Tuple_u64u64Z key_derivation_params;
+   struct LDKC2Tuple_u64u64Z key_derivation_params;
 } LDKSpendableOutputDescriptor_LDKStaticOutputCounterpartyPayment_Body;
 
 typedef struct MUST_USE_STRUCT LDKSpendableOutputDescriptor {
@@ -1019,15 +1017,13 @@ typedef struct LDKCVec_EventZ {
    uintptr_t datalen;
 } LDKCVec_EventZ;
 
-typedef struct LDKC2TupleTempl_usize__Transaction {
+typedef struct LDKC2Tuple_usizeTransactionZ {
    uintptr_t a;
    struct LDKTransaction b;
-} LDKC2TupleTempl_usize__Transaction;
-
-typedef struct LDKC2TupleTempl_usize__Transaction LDKC2Tuple_usizeTransactionZ;
+} LDKC2Tuple_usizeTransactionZ;
 
 typedef struct LDKCVec_C2Tuple_usizeTransactionZZ {
-   struct LDKC2TupleTempl_usize__Transaction *data;
+   struct LDKC2Tuple_usizeTransactionZ *data;
    uintptr_t datalen;
 } LDKCVec_C2Tuple_usizeTransactionZZ;
 
@@ -1133,39 +1129,33 @@ typedef struct LDKCResult_NoneMonitorUpdateErrorZ {
    bool result_ok;
 } LDKCResult_NoneMonitorUpdateErrorZ;
 
-typedef struct LDKC2TupleTempl_OutPoint__CVec_u8Z {
+typedef struct LDKC2Tuple_OutPointScriptZ {
    struct LDKOutPoint a;
    struct LDKCVec_u8Z b;
-} LDKC2TupleTempl_OutPoint__CVec_u8Z;
-
-typedef struct LDKC2TupleTempl_OutPoint__CVec_u8Z LDKC2Tuple_OutPointScriptZ;
+} LDKC2Tuple_OutPointScriptZ;
 
 typedef struct LDKCVec_TransactionZ {
    struct LDKTransaction *data;
    uintptr_t datalen;
 } LDKCVec_TransactionZ;
 
-typedef struct LDKC2TupleTempl_u32__TxOut {
+typedef struct LDKC2Tuple_u32TxOutZ {
    uint32_t a;
    struct LDKTxOut b;
-} LDKC2TupleTempl_u32__TxOut;
-
-typedef struct LDKC2TupleTempl_u32__TxOut LDKC2Tuple_u32TxOutZ;
+} LDKC2Tuple_u32TxOutZ;
 
 typedef struct LDKCVec_C2Tuple_u32TxOutZZ {
-   struct LDKC2TupleTempl_u32__TxOut *data;
+   struct LDKC2Tuple_u32TxOutZ *data;
    uintptr_t datalen;
 } LDKCVec_C2Tuple_u32TxOutZZ;
 
-typedef struct LDKC2TupleTempl_ThirtyTwoBytes__CVec_C2Tuple_u32TxOutZZ {
+typedef struct LDKC2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ {
    struct LDKThirtyTwoBytes a;
    struct LDKCVec_C2Tuple_u32TxOutZZ b;
-} LDKC2TupleTempl_ThirtyTwoBytes__CVec_C2Tuple_u32TxOutZZ;
-
-typedef struct LDKC2TupleTempl_ThirtyTwoBytes__CVec_C2Tuple_u32TxOutZZ LDKC2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ;
+} LDKC2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ;
 
 typedef struct LDKCVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ {
-   struct LDKC2TupleTempl_ThirtyTwoBytes__CVec_C2Tuple_u32TxOutZZ *data;
+   struct LDKC2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ *data;
    uintptr_t datalen;
 } LDKCVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ;
 
@@ -1192,13 +1182,13 @@ typedef struct LDKCVec_SignatureZ {
    uintptr_t datalen;
 } LDKCVec_SignatureZ;
 
-typedef struct LDKC2TupleTempl_Signature__CVec_SignatureZ {
+typedef struct LDKC2Tuple_SignatureCVec_SignatureZZ {
    struct LDKSignature a;
    struct LDKCVec_SignatureZ b;
-} LDKC2TupleTempl_Signature__CVec_SignatureZ;
+} LDKC2Tuple_SignatureCVec_SignatureZZ;
 
 typedef union LDKCResult_C2Tuple_SignatureCVec_SignatureZZNoneZPtr {
-   struct LDKC2TupleTempl_Signature__CVec_SignatureZ *result;
+   struct LDKC2Tuple_SignatureCVec_SignatureZZ *result;
    /**
     * Note that this value is always NULL, as there are no contents in the Err variant
     */
@@ -1376,7 +1366,7 @@ typedef struct LDKChannelKeys {
     * some SpendableOutputDescriptor types. These should be sufficient to identify this
     * ChannelKeys object uniquely and lookup or re-derive its keys.
     */
-   LDKC2Tuple_u64u64Z (*key_derivation_params)(const void *this_arg);
+   struct LDKC2Tuple_u64u64Z (*key_derivation_params)(const void *this_arg);
    /**
     * Create a signature for a counterparty's commitment transaction and associated HTLC transactions.
     *
@@ -1507,15 +1497,13 @@ typedef struct MUST_USE_STRUCT LDKChannelMonitor {
    bool is_owned;
 } LDKChannelMonitor;
 
-typedef struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelMonitor {
+typedef struct LDKC2Tuple_BlockHashChannelMonitorZ {
    struct LDKThirtyTwoBytes a;
    struct LDKChannelMonitor b;
-} LDKC2TupleTempl_ThirtyTwoBytes__ChannelMonitor;
-
-typedef struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelMonitor LDKC2Tuple_BlockHashChannelMonitorZ;
+} LDKC2Tuple_BlockHashChannelMonitorZ;
 
 typedef union LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZPtr {
-   struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelMonitor *result;
+   struct LDKC2Tuple_BlockHashChannelMonitorZ *result;
    struct LDKDecodeError *err;
 } LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZPtr;
 
@@ -1533,8 +1521,6 @@ typedef struct LDKCResult_SpendableOutputDescriptorDecodeErrorZ {
    union LDKCResult_SpendableOutputDescriptorDecodeErrorZPtr contents;
    bool result_ok;
 } LDKCResult_SpendableOutputDescriptorDecodeErrorZ;
-
-typedef struct LDKC2TupleTempl_Signature__CVec_SignatureZ LDKC2Tuple_SignatureCVec_SignatureZZ;
 
 typedef union LDKCResult_ChanKeySignerDecodeErrorZPtr {
    struct LDKChannelKeys *result;
@@ -2000,15 +1986,13 @@ typedef struct MUST_USE_STRUCT LDKChannelManager {
    bool is_owned;
 } LDKChannelManager;
 
-typedef struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelManager {
+typedef struct LDKC2Tuple_BlockHashChannelManagerZ {
    struct LDKThirtyTwoBytes a;
    struct LDKChannelManager b;
-} LDKC2TupleTempl_ThirtyTwoBytes__ChannelManager;
-
-typedef struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelManager LDKC2Tuple_BlockHashChannelManagerZ;
+} LDKC2Tuple_BlockHashChannelManagerZ;
 
 typedef union LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZPtr {
-   struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelManager *result;
+   struct LDKC2Tuple_BlockHashChannelManagerZ *result;
    struct LDKDecodeError *err;
 } LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZPtr;
 
@@ -2142,16 +2126,14 @@ typedef struct LDKCResult_boolLightningErrorZ {
    bool result_ok;
 } LDKCResult_boolLightningErrorZ;
 
-typedef struct LDKC3TupleTempl_ChannelAnnouncement__ChannelUpdate__ChannelUpdate {
+typedef struct LDKC3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ {
    struct LDKChannelAnnouncement a;
    struct LDKChannelUpdate b;
    struct LDKChannelUpdate c;
-} LDKC3TupleTempl_ChannelAnnouncement__ChannelUpdate__ChannelUpdate;
-
-typedef struct LDKC3TupleTempl_ChannelAnnouncement__ChannelUpdate__ChannelUpdate LDKC3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ;
+} LDKC3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ;
 
 typedef struct LDKCVec_C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZZ {
-   struct LDKC3TupleTempl_ChannelAnnouncement__ChannelUpdate__ChannelUpdate *data;
+   struct LDKC3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ *data;
    uintptr_t datalen;
 } LDKCVec_C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZZ;
 
@@ -3494,24 +3476,6 @@ typedef struct MUST_USE_STRUCT LDKChannelInfo {
    bool is_owned;
 } LDKChannelInfo;
 
-extern const void (*C2Tuple_usizeTransactionZ_free)(LDKC2Tuple_usizeTransactionZ);
-
-extern const void (*C2Tuple_OutPointScriptZ_free)(LDKC2Tuple_OutPointScriptZ);
-
-extern const void (*C2Tuple_u32TxOutZ_free)(LDKC2Tuple_u32TxOutZ);
-
-extern const void (*C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ_free)(LDKC2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ);
-
-extern const void (*C2Tuple_BlockHashChannelMonitorZ_free)(LDKC2Tuple_BlockHashChannelMonitorZ);
-
-extern const void (*C2Tuple_u64u64Z_free)(LDKC2Tuple_u64u64Z);
-
-extern const void (*C2Tuple_SignatureCVec_SignatureZZ_free)(LDKC2Tuple_SignatureCVec_SignatureZZ);
-
-extern const void (*C2Tuple_BlockHashChannelManagerZ_free)(LDKC2Tuple_BlockHashChannelManagerZ);
-
-extern const void (*C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ_free)(LDKC3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ);
-
 extern const uintptr_t MAX_BUF_SIZE;
 
 extern const uint64_t MIN_RELAY_FEE_SAT_PER_1000_WEIGHT;
@@ -3528,7 +3492,9 @@ void CVec_MessageSendEventZ_free(struct LDKCVec_MessageSendEventZ _res);
 
 void CVec_EventZ_free(struct LDKCVec_EventZ _res);
 
-LDKC2Tuple_usizeTransactionZ C2Tuple_usizeTransactionZ_new(uintptr_t a, struct LDKTransaction b);
+void C2Tuple_usizeTransactionZ_free(struct LDKC2Tuple_usizeTransactionZ _res);
+
+struct LDKC2Tuple_usizeTransactionZ C2Tuple_usizeTransactionZ_new(uintptr_t a, struct LDKTransaction b);
 
 void CVec_C2Tuple_usizeTransactionZZ_free(struct LDKCVec_C2Tuple_usizeTransactionZZ _res);
 
@@ -3552,27 +3518,37 @@ struct LDKCResult_NoneMonitorUpdateErrorZ CResult_NoneMonitorUpdateErrorZ_err(st
 
 void CResult_NoneMonitorUpdateErrorZ_free(struct LDKCResult_NoneMonitorUpdateErrorZ _res);
 
-LDKC2Tuple_OutPointScriptZ C2Tuple_OutPointScriptZ_new(struct LDKOutPoint a, struct LDKCVec_u8Z b);
+void C2Tuple_OutPointScriptZ_free(struct LDKC2Tuple_OutPointScriptZ _res);
+
+struct LDKC2Tuple_OutPointScriptZ C2Tuple_OutPointScriptZ_new(struct LDKOutPoint a, struct LDKCVec_u8Z b);
 
 void CVec_TransactionZ_free(struct LDKCVec_TransactionZ _res);
 
-LDKC2Tuple_u32TxOutZ C2Tuple_u32TxOutZ_new(uint32_t a, struct LDKTxOut b);
+void C2Tuple_u32TxOutZ_free(struct LDKC2Tuple_u32TxOutZ _res);
+
+struct LDKC2Tuple_u32TxOutZ C2Tuple_u32TxOutZ_new(uint32_t a, struct LDKTxOut b);
 
 void CVec_C2Tuple_u32TxOutZZ_free(struct LDKCVec_C2Tuple_u32TxOutZZ _res);
 
-LDKC2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ_new(struct LDKThirtyTwoBytes a, struct LDKCVec_C2Tuple_u32TxOutZZ b);
+void C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ_free(struct LDKC2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ _res);
+
+struct LDKC2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ_new(struct LDKThirtyTwoBytes a, struct LDKCVec_C2Tuple_u32TxOutZZ b);
 
 void CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ_free(struct LDKCVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ _res);
 
-LDKC2Tuple_BlockHashChannelMonitorZ C2Tuple_BlockHashChannelMonitorZ_new(struct LDKThirtyTwoBytes a, struct LDKChannelMonitor b);
+void C2Tuple_BlockHashChannelMonitorZ_free(struct LDKC2Tuple_BlockHashChannelMonitorZ _res);
 
-struct LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_ok(struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelMonitor o);
+struct LDKC2Tuple_BlockHashChannelMonitorZ C2Tuple_BlockHashChannelMonitorZ_new(struct LDKThirtyTwoBytes a, struct LDKChannelMonitor b);
+
+struct LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_ok(struct LDKC2Tuple_BlockHashChannelMonitorZ o);
 
 struct LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_err(struct LDKDecodeError e);
 
 void CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_free(struct LDKCResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ _res);
 
-LDKC2Tuple_u64u64Z C2Tuple_u64u64Z_new(uint64_t a, uint64_t b);
+void C2Tuple_u64u64Z_free(struct LDKC2Tuple_u64u64Z _res);
+
+struct LDKC2Tuple_u64u64Z C2Tuple_u64u64Z_new(uint64_t a, uint64_t b);
 
 struct LDKCResult_SpendableOutputDescriptorDecodeErrorZ CResult_SpendableOutputDescriptorDecodeErrorZ_ok(struct LDKSpendableOutputDescriptor o);
 
@@ -3582,9 +3558,11 @@ void CResult_SpendableOutputDescriptorDecodeErrorZ_free(struct LDKCResult_Spenda
 
 void CVec_SignatureZ_free(struct LDKCVec_SignatureZ _res);
 
-LDKC2Tuple_SignatureCVec_SignatureZZ C2Tuple_SignatureCVec_SignatureZZ_new(struct LDKSignature a, struct LDKCVec_SignatureZ b);
+void C2Tuple_SignatureCVec_SignatureZZ_free(struct LDKC2Tuple_SignatureCVec_SignatureZZ _res);
 
-struct LDKCResult_C2Tuple_SignatureCVec_SignatureZZNoneZ CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ_ok(struct LDKC2TupleTempl_Signature__CVec_SignatureZ o);
+struct LDKC2Tuple_SignatureCVec_SignatureZZ C2Tuple_SignatureCVec_SignatureZZ_new(struct LDKSignature a, struct LDKCVec_SignatureZ b);
+
+struct LDKCResult_C2Tuple_SignatureCVec_SignatureZZNoneZ CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ_ok(struct LDKC2Tuple_SignatureCVec_SignatureZZ o);
 
 struct LDKCResult_C2Tuple_SignatureCVec_SignatureZZNoneZ CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ_err(void);
 
@@ -3638,9 +3616,11 @@ void CVec_NetAddressZ_free(struct LDKCVec_NetAddressZ _res);
 
 void CVec_ChannelMonitorZ_free(struct LDKCVec_ChannelMonitorZ _res);
 
-LDKC2Tuple_BlockHashChannelManagerZ C2Tuple_BlockHashChannelManagerZ_new(struct LDKThirtyTwoBytes a, struct LDKChannelManager b);
+void C2Tuple_BlockHashChannelManagerZ_free(struct LDKC2Tuple_BlockHashChannelManagerZ _res);
 
-struct LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_ok(struct LDKC2TupleTempl_ThirtyTwoBytes__ChannelManager o);
+struct LDKC2Tuple_BlockHashChannelManagerZ C2Tuple_BlockHashChannelManagerZ_new(struct LDKThirtyTwoBytes a, struct LDKChannelManager b);
+
+struct LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_ok(struct LDKC2Tuple_BlockHashChannelManagerZ o);
 
 struct LDKCResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_err(struct LDKDecodeError e);
 
@@ -3674,7 +3654,9 @@ struct LDKCResult_boolLightningErrorZ CResult_boolLightningErrorZ_err(struct LDK
 
 void CResult_boolLightningErrorZ_free(struct LDKCResult_boolLightningErrorZ _res);
 
-LDKC3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ_new(struct LDKChannelAnnouncement a, struct LDKChannelUpdate b, struct LDKChannelUpdate c);
+void C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ_free(struct LDKC3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ _res);
+
+struct LDKC3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ_new(struct LDKChannelAnnouncement a, struct LDKChannelUpdate b, struct LDKChannelUpdate c);
 
 void CVec_C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZZ_free(struct LDKCVec_C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZZ _res);
 
@@ -4443,7 +4425,7 @@ MUST_USE_RES uint64_t ChannelMonitor_get_latest_update_id(const struct LDKChanne
 /**
  * Gets the funding transaction outpoint of the channel this ChannelMonitor is monitoring for.
  */
-MUST_USE_RES LDKC2Tuple_OutPointScriptZ ChannelMonitor_get_funding_txo(const struct LDKChannelMonitor *NONNULL_PTR this_arg);
+MUST_USE_RES struct LDKC2Tuple_OutPointScriptZ ChannelMonitor_get_funding_txo(const struct LDKChannelMonitor *NONNULL_PTR this_arg);
 
 /**
  * Get the list of HTLCs who's status has been updated on chain. This should be called by
@@ -4626,7 +4608,7 @@ void InMemoryChannelKeys_set_commitment_seed(struct LDKInMemoryChannelKeys *NONN
 /**
  * Create a new InMemoryChannelKeys
  */
-MUST_USE_RES struct LDKInMemoryChannelKeys InMemoryChannelKeys_new(struct LDKSecretKey funding_key, struct LDKSecretKey revocation_base_key, struct LDKSecretKey payment_key, struct LDKSecretKey delayed_payment_base_key, struct LDKSecretKey htlc_base_key, struct LDKThirtyTwoBytes commitment_seed, uint64_t channel_value_satoshis, LDKC2Tuple_u64u64Z key_derivation_params);
+MUST_USE_RES struct LDKInMemoryChannelKeys InMemoryChannelKeys_new(struct LDKSecretKey funding_key, struct LDKSecretKey revocation_base_key, struct LDKSecretKey payment_key, struct LDKSecretKey delayed_payment_base_key, struct LDKSecretKey htlc_base_key, struct LDKThirtyTwoBytes commitment_seed, uint64_t channel_value_satoshis, struct LDKC2Tuple_u64u64Z key_derivation_params);
 
 /**
  * Counterparty pubkeys.

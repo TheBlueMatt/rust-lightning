@@ -102,9 +102,26 @@ impl Drop for CVec_EventZ {
 		unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) };
 	}
 }
-pub type C2Tuple_usizeTransactionZ = crate::c_types::C2TupleTempl<usize, crate::c_types::Transaction>;
+#[repr(C)]
+pub struct C2Tuple_usizeTransactionZ {
+	pub a: usize,
+	pub b: crate::c_types::Transaction,
+}
+impl From<(usize, crate::c_types::Transaction)> for C2Tuple_usizeTransactionZ {
+	fn from (tup: (usize, crate::c_types::Transaction)) -> Self {
+		Self {
+			a: tup.0,
+			b: tup.1,
+		}
+	}
+}
+impl C2Tuple_usizeTransactionZ {
+	#[allow(unused)] pub(crate) fn to_rust(mut self) -> (usize, crate::c_types::Transaction) {
+		(self.a, self.b)
+	}
+}
 #[no_mangle]
-pub static C2Tuple_usizeTransactionZ_free: extern "C" fn(C2Tuple_usizeTransactionZ) = crate::c_types::C2TupleTempl_free::<usize, crate::c_types::Transaction>;
+pub extern "C" fn C2Tuple_usizeTransactionZ_free(_res: C2Tuple_usizeTransactionZ) { }
 #[no_mangle]
 pub extern "C" fn C2Tuple_usizeTransactionZ_new(a: usize, b: crate::c_types::Transaction) -> C2Tuple_usizeTransactionZ {
 	C2Tuple_usizeTransactionZ { a, b, }
@@ -112,23 +129,23 @@ pub extern "C" fn C2Tuple_usizeTransactionZ_new(a: usize, b: crate::c_types::Tra
 
 #[repr(C)]
 pub struct CVec_C2Tuple_usizeTransactionZZ {
-	pub data: *mut crate::c_types::C2TupleTempl<usize, crate::c_types::Transaction>,
+	pub data: *mut crate::c_types::derived::C2Tuple_usizeTransactionZ,
 	pub datalen: usize
 }
 impl CVec_C2Tuple_usizeTransactionZZ {
-	#[allow(unused)] pub(crate) fn into_rust(&mut self) -> Vec<crate::c_types::C2TupleTempl<usize, crate::c_types::Transaction>> {
+	#[allow(unused)] pub(crate) fn into_rust(&mut self) -> Vec<crate::c_types::derived::C2Tuple_usizeTransactionZ> {
 		if self.datalen == 0 { return Vec::new(); }
 		let ret = unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) }.into();
 		self.data = std::ptr::null_mut();
 		self.datalen = 0;
 		ret
 	}
-	#[allow(unused)] pub(crate) fn as_slice(&self) -> &[crate::c_types::C2TupleTempl<usize, crate::c_types::Transaction>] {
+	#[allow(unused)] pub(crate) fn as_slice(&self) -> &[crate::c_types::derived::C2Tuple_usizeTransactionZ] {
 		unsafe { std::slice::from_raw_parts_mut(self.data, self.datalen) }
 	}
 }
-impl From<Vec<crate::c_types::C2TupleTempl<usize, crate::c_types::Transaction>>> for CVec_C2Tuple_usizeTransactionZZ {
-	fn from(v: Vec<crate::c_types::C2TupleTempl<usize, crate::c_types::Transaction>>) -> Self {
+impl From<Vec<crate::c_types::derived::C2Tuple_usizeTransactionZ>> for CVec_C2Tuple_usizeTransactionZZ {
+	fn from(v: Vec<crate::c_types::derived::C2Tuple_usizeTransactionZ>) -> Self {
 		let datalen = v.len();
 		let data = Box::into_raw(v.into_boxed_slice());
 		Self { datalen, data: unsafe { (*data).as_mut_ptr() } }
@@ -350,9 +367,26 @@ impl From<crate::c_types::CResultTempl<u8, crate::chain::channelmonitor::Monitor
 		}
 	}
 }
-pub type C2Tuple_OutPointScriptZ = crate::c_types::C2TupleTempl<crate::chain::transaction::OutPoint, crate::c_types::derived::CVec_u8Z>;
+#[repr(C)]
+pub struct C2Tuple_OutPointScriptZ {
+	pub a: crate::chain::transaction::OutPoint,
+	pub b: crate::c_types::derived::CVec_u8Z,
+}
+impl From<(crate::chain::transaction::OutPoint, crate::c_types::derived::CVec_u8Z)> for C2Tuple_OutPointScriptZ {
+	fn from (tup: (crate::chain::transaction::OutPoint, crate::c_types::derived::CVec_u8Z)) -> Self {
+		Self {
+			a: tup.0,
+			b: tup.1,
+		}
+	}
+}
+impl C2Tuple_OutPointScriptZ {
+	#[allow(unused)] pub(crate) fn to_rust(mut self) -> (crate::chain::transaction::OutPoint, crate::c_types::derived::CVec_u8Z) {
+		(self.a, self.b)
+	}
+}
 #[no_mangle]
-pub static C2Tuple_OutPointScriptZ_free: extern "C" fn(C2Tuple_OutPointScriptZ) = crate::c_types::C2TupleTempl_free::<crate::chain::transaction::OutPoint, crate::c_types::derived::CVec_u8Z>;
+pub extern "C" fn C2Tuple_OutPointScriptZ_free(_res: C2Tuple_OutPointScriptZ) { }
 #[no_mangle]
 pub extern "C" fn C2Tuple_OutPointScriptZ_new(a: crate::chain::transaction::OutPoint, b: crate::c_types::derived::CVec_u8Z) -> C2Tuple_OutPointScriptZ {
 	C2Tuple_OutPointScriptZ { a, b, }
@@ -390,9 +424,26 @@ impl Drop for CVec_TransactionZ {
 		unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) };
 	}
 }
-pub type C2Tuple_u32TxOutZ = crate::c_types::C2TupleTempl<u32, crate::c_types::TxOut>;
+#[repr(C)]
+pub struct C2Tuple_u32TxOutZ {
+	pub a: u32,
+	pub b: crate::c_types::TxOut,
+}
+impl From<(u32, crate::c_types::TxOut)> for C2Tuple_u32TxOutZ {
+	fn from (tup: (u32, crate::c_types::TxOut)) -> Self {
+		Self {
+			a: tup.0,
+			b: tup.1,
+		}
+	}
+}
+impl C2Tuple_u32TxOutZ {
+	#[allow(unused)] pub(crate) fn to_rust(mut self) -> (u32, crate::c_types::TxOut) {
+		(self.a, self.b)
+	}
+}
 #[no_mangle]
-pub static C2Tuple_u32TxOutZ_free: extern "C" fn(C2Tuple_u32TxOutZ) = crate::c_types::C2TupleTempl_free::<u32, crate::c_types::TxOut>;
+pub extern "C" fn C2Tuple_u32TxOutZ_free(_res: C2Tuple_u32TxOutZ) { }
 #[no_mangle]
 pub extern "C" fn C2Tuple_u32TxOutZ_new(a: u32, b: crate::c_types::TxOut) -> C2Tuple_u32TxOutZ {
 	C2Tuple_u32TxOutZ { a, b, }
@@ -400,23 +451,23 @@ pub extern "C" fn C2Tuple_u32TxOutZ_new(a: u32, b: crate::c_types::TxOut) -> C2T
 
 #[repr(C)]
 pub struct CVec_C2Tuple_u32TxOutZZ {
-	pub data: *mut crate::c_types::C2TupleTempl<u32, crate::c_types::TxOut>,
+	pub data: *mut crate::c_types::derived::C2Tuple_u32TxOutZ,
 	pub datalen: usize
 }
 impl CVec_C2Tuple_u32TxOutZZ {
-	#[allow(unused)] pub(crate) fn into_rust(&mut self) -> Vec<crate::c_types::C2TupleTempl<u32, crate::c_types::TxOut>> {
+	#[allow(unused)] pub(crate) fn into_rust(&mut self) -> Vec<crate::c_types::derived::C2Tuple_u32TxOutZ> {
 		if self.datalen == 0 { return Vec::new(); }
 		let ret = unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) }.into();
 		self.data = std::ptr::null_mut();
 		self.datalen = 0;
 		ret
 	}
-	#[allow(unused)] pub(crate) fn as_slice(&self) -> &[crate::c_types::C2TupleTempl<u32, crate::c_types::TxOut>] {
+	#[allow(unused)] pub(crate) fn as_slice(&self) -> &[crate::c_types::derived::C2Tuple_u32TxOutZ] {
 		unsafe { std::slice::from_raw_parts_mut(self.data, self.datalen) }
 	}
 }
-impl From<Vec<crate::c_types::C2TupleTempl<u32, crate::c_types::TxOut>>> for CVec_C2Tuple_u32TxOutZZ {
-	fn from(v: Vec<crate::c_types::C2TupleTempl<u32, crate::c_types::TxOut>>) -> Self {
+impl From<Vec<crate::c_types::derived::C2Tuple_u32TxOutZ>> for CVec_C2Tuple_u32TxOutZZ {
+	fn from(v: Vec<crate::c_types::derived::C2Tuple_u32TxOutZ>) -> Self {
 		let datalen = v.len();
 		let data = Box::into_raw(v.into_boxed_slice());
 		Self { datalen, data: unsafe { (*data).as_mut_ptr() } }
@@ -430,9 +481,26 @@ impl Drop for CVec_C2Tuple_u32TxOutZZ {
 		unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) };
 	}
 }
-pub type C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ = crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ>;
+#[repr(C)]
+pub struct C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ {
+	pub a: crate::c_types::ThirtyTwoBytes,
+	pub b: crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ,
+}
+impl From<(crate::c_types::ThirtyTwoBytes, crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ)> for C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ {
+	fn from (tup: (crate::c_types::ThirtyTwoBytes, crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ)) -> Self {
+		Self {
+			a: tup.0,
+			b: tup.1,
+		}
+	}
+}
+impl C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ {
+	#[allow(unused)] pub(crate) fn to_rust(mut self) -> (crate::c_types::ThirtyTwoBytes, crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ) {
+		(self.a, self.b)
+	}
+}
 #[no_mangle]
-pub static C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ_free: extern "C" fn(C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ) = crate::c_types::C2TupleTempl_free::<crate::c_types::ThirtyTwoBytes, crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ>;
+pub extern "C" fn C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ_free(_res: C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ) { }
 #[no_mangle]
 pub extern "C" fn C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ_new(a: crate::c_types::ThirtyTwoBytes, b: crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ) -> C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ {
 	C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ { a, b, }
@@ -440,23 +508,23 @@ pub extern "C" fn C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ_new(a: crate::c_types::Th
 
 #[repr(C)]
 pub struct CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ {
-	pub data: *mut crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ>,
+	pub data: *mut crate::c_types::derived::C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ,
 	pub datalen: usize
 }
 impl CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ {
-	#[allow(unused)] pub(crate) fn into_rust(&mut self) -> Vec<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ>> {
+	#[allow(unused)] pub(crate) fn into_rust(&mut self) -> Vec<crate::c_types::derived::C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ> {
 		if self.datalen == 0 { return Vec::new(); }
 		let ret = unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) }.into();
 		self.data = std::ptr::null_mut();
 		self.datalen = 0;
 		ret
 	}
-	#[allow(unused)] pub(crate) fn as_slice(&self) -> &[crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ>] {
+	#[allow(unused)] pub(crate) fn as_slice(&self) -> &[crate::c_types::derived::C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ] {
 		unsafe { std::slice::from_raw_parts_mut(self.data, self.datalen) }
 	}
 }
-impl From<Vec<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ>>> for CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ {
-	fn from(v: Vec<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::c_types::derived::CVec_C2Tuple_u32TxOutZZ>>) -> Self {
+impl From<Vec<crate::c_types::derived::C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ>> for CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ {
+	fn from(v: Vec<crate::c_types::derived::C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZ>) -> Self {
 		let datalen = v.len();
 		let data = Box::into_raw(v.into_boxed_slice());
 		Self { datalen, data: unsafe { (*data).as_mut_ptr() } }
@@ -470,9 +538,26 @@ impl Drop for CVec_C2Tuple_TxidCVec_C2Tuple_u32TxOutZZZZ {
 		unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) };
 	}
 }
-pub type C2Tuple_BlockHashChannelMonitorZ = crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>;
+#[repr(C)]
+pub struct C2Tuple_BlockHashChannelMonitorZ {
+	pub a: crate::c_types::ThirtyTwoBytes,
+	pub b: crate::chain::channelmonitor::ChannelMonitor,
+}
+impl From<(crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor)> for C2Tuple_BlockHashChannelMonitorZ {
+	fn from (tup: (crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor)) -> Self {
+		Self {
+			a: tup.0,
+			b: tup.1,
+		}
+	}
+}
+impl C2Tuple_BlockHashChannelMonitorZ {
+	#[allow(unused)] pub(crate) fn to_rust(mut self) -> (crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor) {
+		(self.a, self.b)
+	}
+}
 #[no_mangle]
-pub static C2Tuple_BlockHashChannelMonitorZ_free: extern "C" fn(C2Tuple_BlockHashChannelMonitorZ) = crate::c_types::C2TupleTempl_free::<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>;
+pub extern "C" fn C2Tuple_BlockHashChannelMonitorZ_free(_res: C2Tuple_BlockHashChannelMonitorZ) { }
 #[no_mangle]
 pub extern "C" fn C2Tuple_BlockHashChannelMonitorZ_new(a: crate::c_types::ThirtyTwoBytes, b: crate::chain::channelmonitor::ChannelMonitor) -> C2Tuple_BlockHashChannelMonitorZ {
 	C2Tuple_BlockHashChannelMonitorZ { a, b, }
@@ -480,7 +565,7 @@ pub extern "C" fn C2Tuple_BlockHashChannelMonitorZ_new(a: crate::c_types::Thirty
 
 #[repr(C)]
 pub union CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZPtr {
-	pub result: *mut crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>,
+	pub result: *mut crate::c_types::derived::C2Tuple_BlockHashChannelMonitorZ,
 	pub err: *mut crate::ln::msgs::DecodeError,
 }
 #[repr(C)]
@@ -489,7 +574,7 @@ pub struct CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
 	pub result_ok: bool,
 }
 #[no_mangle]
-pub extern "C" fn CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_ok(o: crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>) -> CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
+pub extern "C" fn CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ_ok(o: crate::c_types::derived::C2Tuple_BlockHashChannelMonitorZ) -> CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
 	CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
 		contents: CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZPtr {
 			result: Box::into_raw(Box::new(o)),
@@ -521,8 +606,8 @@ impl Drop for CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
 		}
 	}
 }
-impl From<crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>> for CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
-	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::chain::channelmonitor::ChannelMonitor>, crate::ln::msgs::DecodeError>) -> Self {
+impl From<crate::c_types::CResultTempl<crate::c_types::derived::C2Tuple_BlockHashChannelMonitorZ, crate::ln::msgs::DecodeError>> for CResult_C2Tuple_BlockHashChannelMonitorZDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::derived::C2Tuple_BlockHashChannelMonitorZ, crate::ln::msgs::DecodeError>) -> Self {
 		let contents = if o.result_ok {
 			let result = unsafe { o.contents.result };
 			unsafe { o.contents.result = std::ptr::null_mut() };
@@ -538,9 +623,34 @@ impl From<crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_typ
 		}
 	}
 }
-pub type C2Tuple_u64u64Z = crate::c_types::C2TupleTempl<u64, u64>;
+#[repr(C)]
+pub struct C2Tuple_u64u64Z {
+	pub a: u64,
+	pub b: u64,
+}
+impl From<(u64, u64)> for C2Tuple_u64u64Z {
+	fn from (tup: (u64, u64)) -> Self {
+		Self {
+			a: tup.0,
+			b: tup.1,
+		}
+	}
+}
+impl C2Tuple_u64u64Z {
+	#[allow(unused)] pub(crate) fn to_rust(mut self) -> (u64, u64) {
+		(self.a, self.b)
+	}
+}
+impl Clone for C2Tuple_u64u64Z {
+	fn clone(&self) -> Self {
+		Self {
+			a: self.a.clone(),
+			b: self.b.clone(),
+		}
+	}
+}
 #[no_mangle]
-pub static C2Tuple_u64u64Z_free: extern "C" fn(C2Tuple_u64u64Z) = crate::c_types::C2TupleTempl_free::<u64, u64>;
+pub extern "C" fn C2Tuple_u64u64Z_free(_res: C2Tuple_u64u64Z) { }
 #[no_mangle]
 pub extern "C" fn C2Tuple_u64u64Z_new(a: u64, b: u64) -> C2Tuple_u64u64Z {
 	C2Tuple_u64u64Z { a, b, }
@@ -638,9 +748,26 @@ impl Drop for CVec_SignatureZ {
 		unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) };
 	}
 }
-pub type C2Tuple_SignatureCVec_SignatureZZ = crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::derived::CVec_SignatureZ>;
+#[repr(C)]
+pub struct C2Tuple_SignatureCVec_SignatureZZ {
+	pub a: crate::c_types::Signature,
+	pub b: crate::c_types::derived::CVec_SignatureZ,
+}
+impl From<(crate::c_types::Signature, crate::c_types::derived::CVec_SignatureZ)> for C2Tuple_SignatureCVec_SignatureZZ {
+	fn from (tup: (crate::c_types::Signature, crate::c_types::derived::CVec_SignatureZ)) -> Self {
+		Self {
+			a: tup.0,
+			b: tup.1,
+		}
+	}
+}
+impl C2Tuple_SignatureCVec_SignatureZZ {
+	#[allow(unused)] pub(crate) fn to_rust(mut self) -> (crate::c_types::Signature, crate::c_types::derived::CVec_SignatureZ) {
+		(self.a, self.b)
+	}
+}
 #[no_mangle]
-pub static C2Tuple_SignatureCVec_SignatureZZ_free: extern "C" fn(C2Tuple_SignatureCVec_SignatureZZ) = crate::c_types::C2TupleTempl_free::<crate::c_types::Signature, crate::c_types::derived::CVec_SignatureZ>;
+pub extern "C" fn C2Tuple_SignatureCVec_SignatureZZ_free(_res: C2Tuple_SignatureCVec_SignatureZZ) { }
 #[no_mangle]
 pub extern "C" fn C2Tuple_SignatureCVec_SignatureZZ_new(a: crate::c_types::Signature, b: crate::c_types::derived::CVec_SignatureZ) -> C2Tuple_SignatureCVec_SignatureZZ {
 	C2Tuple_SignatureCVec_SignatureZZ { a, b, }
@@ -648,7 +775,7 @@ pub extern "C" fn C2Tuple_SignatureCVec_SignatureZZ_new(a: crate::c_types::Signa
 
 #[repr(C)]
 pub union CResult_C2Tuple_SignatureCVec_SignatureZZNoneZPtr {
-	pub result: *mut crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::derived::CVec_SignatureZ>,
+	pub result: *mut crate::c_types::derived::C2Tuple_SignatureCVec_SignatureZZ,
 	/// Note that this value is always NULL, as there are no contents in the Err variant
 	pub err: *mut std::ffi::c_void,
 }
@@ -658,7 +785,7 @@ pub struct CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
 	pub result_ok: bool,
 }
 #[no_mangle]
-pub extern "C" fn CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ_ok(o: crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::derived::CVec_SignatureZ>) -> CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
+pub extern "C" fn CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ_ok(o: crate::c_types::derived::C2Tuple_SignatureCVec_SignatureZZ) -> CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
 	CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
 		contents: CResult_C2Tuple_SignatureCVec_SignatureZZNoneZPtr {
 			result: Box::into_raw(Box::new(o)),
@@ -687,8 +814,8 @@ impl Drop for CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
 		}
 	}
 }
-impl From<crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::derived::CVec_SignatureZ>, u8>> for CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
-	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::Signature, crate::c_types::derived::CVec_SignatureZ>, u8>) -> Self {
+impl From<crate::c_types::CResultTempl<crate::c_types::derived::C2Tuple_SignatureCVec_SignatureZZ, u8>> for CResult_C2Tuple_SignatureCVec_SignatureZZNoneZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::derived::C2Tuple_SignatureCVec_SignatureZZ, u8>) -> Self {
 		let contents = if o.result_ok {
 			let result = unsafe { o.contents.result };
 			unsafe { o.contents.result = std::ptr::null_mut() };
@@ -1212,9 +1339,26 @@ impl Drop for CVec_ChannelMonitorZ {
 		unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) };
 	}
 }
-pub type C2Tuple_BlockHashChannelManagerZ = crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>;
+#[repr(C)]
+pub struct C2Tuple_BlockHashChannelManagerZ {
+	pub a: crate::c_types::ThirtyTwoBytes,
+	pub b: crate::ln::channelmanager::ChannelManager,
+}
+impl From<(crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager)> for C2Tuple_BlockHashChannelManagerZ {
+	fn from (tup: (crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager)) -> Self {
+		Self {
+			a: tup.0,
+			b: tup.1,
+		}
+	}
+}
+impl C2Tuple_BlockHashChannelManagerZ {
+	#[allow(unused)] pub(crate) fn to_rust(mut self) -> (crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager) {
+		(self.a, self.b)
+	}
+}
 #[no_mangle]
-pub static C2Tuple_BlockHashChannelManagerZ_free: extern "C" fn(C2Tuple_BlockHashChannelManagerZ) = crate::c_types::C2TupleTempl_free::<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>;
+pub extern "C" fn C2Tuple_BlockHashChannelManagerZ_free(_res: C2Tuple_BlockHashChannelManagerZ) { }
 #[no_mangle]
 pub extern "C" fn C2Tuple_BlockHashChannelManagerZ_new(a: crate::c_types::ThirtyTwoBytes, b: crate::ln::channelmanager::ChannelManager) -> C2Tuple_BlockHashChannelManagerZ {
 	C2Tuple_BlockHashChannelManagerZ { a, b, }
@@ -1222,7 +1366,7 @@ pub extern "C" fn C2Tuple_BlockHashChannelManagerZ_new(a: crate::c_types::Thirty
 
 #[repr(C)]
 pub union CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZPtr {
-	pub result: *mut crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>,
+	pub result: *mut crate::c_types::derived::C2Tuple_BlockHashChannelManagerZ,
 	pub err: *mut crate::ln::msgs::DecodeError,
 }
 #[repr(C)]
@@ -1231,7 +1375,7 @@ pub struct CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
 	pub result_ok: bool,
 }
 #[no_mangle]
-pub extern "C" fn CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_ok(o: crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>) -> CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
+pub extern "C" fn CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ_ok(o: crate::c_types::derived::C2Tuple_BlockHashChannelManagerZ) -> CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
 	CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
 		contents: CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZPtr {
 			result: Box::into_raw(Box::new(o)),
@@ -1263,8 +1407,8 @@ impl Drop for CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
 		}
 	}
 }
-impl From<crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>> for CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
-	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::C2TupleTempl<crate::c_types::ThirtyTwoBytes, crate::ln::channelmanager::ChannelManager>, crate::ln::msgs::DecodeError>) -> Self {
+impl From<crate::c_types::CResultTempl<crate::c_types::derived::C2Tuple_BlockHashChannelManagerZ, crate::ln::msgs::DecodeError>> for CResult_C2Tuple_BlockHashChannelManagerZDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::derived::C2Tuple_BlockHashChannelManagerZ, crate::ln::msgs::DecodeError>) -> Self {
 		let contents = if o.result_ok {
 			let result = unsafe { o.contents.result };
 			unsafe { o.contents.result = std::ptr::null_mut() };
@@ -1620,9 +1764,28 @@ impl From<crate::c_types::CResultTempl<bool, crate::ln::msgs::LightningError>> f
 		}
 	}
 }
-pub type C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ = crate::c_types::C3TupleTempl<crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate>;
+#[repr(C)]
+pub struct C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ {
+	pub a: crate::ln::msgs::ChannelAnnouncement,
+	pub b: crate::ln::msgs::ChannelUpdate,
+	pub c: crate::ln::msgs::ChannelUpdate,
+}
+impl From<(crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate)> for C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ {
+	fn from (tup: (crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate)) -> Self {
+		Self {
+			a: tup.0,
+			b: tup.1,
+			c: tup.2,
+		}
+	}
+}
+impl C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ {
+	#[allow(unused)] pub(crate) fn to_rust(mut self) -> (crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate) {
+		(self.a, self.b, self.c)
+	}
+}
 #[no_mangle]
-pub static C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ_free: extern "C" fn(C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ) = crate::c_types::C3TupleTempl_free::<crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate>;
+pub extern "C" fn C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ_free(_res: C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ) { }
 #[no_mangle]
 pub extern "C" fn C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ_new(a: crate::ln::msgs::ChannelAnnouncement, b: crate::ln::msgs::ChannelUpdate, c: crate::ln::msgs::ChannelUpdate) -> C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ {
 	C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ { a, b, c, }
@@ -1630,23 +1793,23 @@ pub extern "C" fn C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ_new(a: 
 
 #[repr(C)]
 pub struct CVec_C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZZ {
-	pub data: *mut crate::c_types::C3TupleTempl<crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate>,
+	pub data: *mut crate::c_types::derived::C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ,
 	pub datalen: usize
 }
 impl CVec_C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZZ {
-	#[allow(unused)] pub(crate) fn into_rust(&mut self) -> Vec<crate::c_types::C3TupleTempl<crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate>> {
+	#[allow(unused)] pub(crate) fn into_rust(&mut self) -> Vec<crate::c_types::derived::C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ> {
 		if self.datalen == 0 { return Vec::new(); }
 		let ret = unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) }.into();
 		self.data = std::ptr::null_mut();
 		self.datalen = 0;
 		ret
 	}
-	#[allow(unused)] pub(crate) fn as_slice(&self) -> &[crate::c_types::C3TupleTempl<crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate>] {
+	#[allow(unused)] pub(crate) fn as_slice(&self) -> &[crate::c_types::derived::C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ] {
 		unsafe { std::slice::from_raw_parts_mut(self.data, self.datalen) }
 	}
 }
-impl From<Vec<crate::c_types::C3TupleTempl<crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate>>> for CVec_C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZZ {
-	fn from(v: Vec<crate::c_types::C3TupleTempl<crate::ln::msgs::ChannelAnnouncement, crate::ln::msgs::ChannelUpdate, crate::ln::msgs::ChannelUpdate>>) -> Self {
+impl From<Vec<crate::c_types::derived::C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ>> for CVec_C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZZ {
+	fn from(v: Vec<crate::c_types::derived::C3Tuple_ChannelAnnouncementChannelUpdateChannelUpdateZ>) -> Self {
 		let datalen = v.len();
 		let data = Box::into_raw(v.into_boxed_slice());
 		Self { datalen, data: unsafe { (*data).as_mut_ptr() } }
