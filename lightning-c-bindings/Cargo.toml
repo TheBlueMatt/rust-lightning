@@ -18,6 +18,13 @@ crate-type = ["staticlib"
 bitcoin = "0.24"
 lightning = { version = "0.0.12", path = "../lightning" }
 
+# Always force panic=abort, further options are set in the genbindings.sh build script
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
 # We eventually want to join the root workspace, but for now, the bindings generation is
 # a bit brittle and we don't want to hold up other developers from making changes just
 # because they break the bindings
