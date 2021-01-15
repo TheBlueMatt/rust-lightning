@@ -15,7 +15,7 @@ crate-type = ["staticlib"
 ,"cdylib"]
 
 [dependencies]
-bitcoin = "0.24"
+bitcoin = "0.26"
 lightning = { version = "0.0.12", path = "../lightning" }
 
 # Always force panic=abort, further options are set in the genbindings.sh build script
