@@ -916,19 +916,18 @@ impl<ChanSigner: ChannelKeys, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> 
 		}
 	}
 
-	/// Force closes a channel, immediately broadcasting the latest local commitment transaction to
-	/// the chain and rejecting new HTLCs on the given channel.
-	pub fn force_close_channel(&self, channel_id: &[u8; 32]) {
-		let _consistency_lock = self.total_consistency_lock.read().unwrap();
-
+	fn force_close_channel_with_peer(&self, channel_id: &[u8; 32], peer_node_id: Option<&PublicKey>) {
 		let mut chan = {
 			let mut channel_state_lock = self.channel_state.lock().unwrap();
 			let channel_state = &mut *channel_state_lock;
-			if let Some(chan) = channel_state.by_id.remove(channel_id) {
-				if let Some(short_id) = chan.get_short_channel_id() {
+			if let hash_map::Entry::Occupied(chan) = channel_state.by_id.entry(channel_id.clone()) {
+				if let Some(node_id) = peer_node_id {
+					if chan.get().get_counterparty_node_id() != *node_id { return; }
+				}
+				if let Some(short_id) = chan.get().get_short_channel_id() {
 					channel_state.short_to_id.remove(&short_id);
 				}
-				chan
+				chan.remove_entry().1
 			} else {
 				return;
 			}
@@ -941,6 +940,13 @@ impl<ChanSigner: ChannelKeys, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> 
 				msg: update
 			});
 		}
+	}
+
+	/// Force closes a channel, immediately broadcasting the latest local commitment transaction to
+	/// the chain and rejecting new HTLCs on the given channel.
+	pub fn force_close_channel(&self, channel_id: &[u8; 32]) {
+		let _consistency_lock = self.total_consistency_lock.read().unwrap();
+		self.force_close_channel_with_peer(channel_id, None);
 	}
 
 	/// Force close all channels, immediately broadcasting the latest local commitment transaction
@@ -3475,7 +3481,7 @@ impl<ChanSigner: ChannelKeys, M: Deref + Sync + Send, T: Deref + Sync + Send, K:
 				}
 			}
 		} else {
-			self.force_close_channel(&msg.channel_id);
+			self.force_close_channel_with_peer(&msg.channel_id, Some(counterparty_node_id));
 		}
 	}
 }
