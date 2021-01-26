@@ -1,4 +1,5 @@
 [![Safety Dance](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FTheBlueMatt%2Frust-lightning.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FTheBlueMatt%2Frust-lightning?ref=badge_shield)
 
 Rust-Lightning, not Rusty's Lightning!
 =====
@@ -49,3 +50,7 @@ Project Architecture
 For a Rust-Lightning high-level API introduction, see [ARCH.md](ARCH.md).
 
 License is Apache-2.0.
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FTheBlueMatt%2Frust-lightning.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FTheBlueMatt%2Frust-lightning?ref=badge_large)
