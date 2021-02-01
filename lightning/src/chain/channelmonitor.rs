@@ -284,7 +284,7 @@ impl_writeable_tlv_based!(HolderSignedTx, {
 
 /// We use this to track counterparty commitment transactions and htlcs outputs and
 /// use it to generate any justice or 2nd-stage preimage/timeout transactions.
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct CounterpartyCommitmentTransaction {
 	counterparty_delayed_payment_base_key: PublicKey,
 	counterparty_htlc_base_key: PublicKey,
@@ -350,7 +350,7 @@ impl Readable for CounterpartyCommitmentTransaction {
 /// transaction causing it.
 ///
 /// Used to determine when the on-chain event can be considered safe from a chain reorganization.
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct OnchainEventEntry {
 	txid: Txid,
 	height: u32,
@@ -377,7 +377,7 @@ impl OnchainEventEntry {
 
 /// Upon discovering of some classes of onchain tx by ChannelMonitor, we may have to take actions on it
 /// once they mature to enough confirmations (ANTI_REORG_DELAY)
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 enum OnchainEvent {
 	/// HTLC output getting solved by a timeout, at maturation we pass upstream payment source information to solve
 	/// inbound HTLC in backward channel. Note, in case of preimage, we pass info to upstream without delay as we can
@@ -482,6 +482,13 @@ pub struct ChannelMonitor<Signer: Sign> {
 	inner: Mutex<ChannelMonitorImpl<Signer>>,
 }
 
+impl<Signer: Sign> Clone for ChannelMonitor<Signer> {
+	fn clone(&self) -> Self {
+		Self { inner: Mutex::new(self.inner.lock().unwrap().clone()) }
+	}
+}
+
+#[derive(Clone)]
 pub(crate) struct ChannelMonitorImpl<Signer: Sign> {
 	latest_update_id: u64,
 	commitment_transaction_number_obscure_factor: u64,
