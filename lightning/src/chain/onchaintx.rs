@@ -54,7 +54,7 @@ const MAX_ALLOC_SIZE: usize = 64*1024;
 /// transaction causing it.
 ///
 /// Used to determine when the on-chain event can be considered safe from a chain reorganization.
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 struct OnchainEventEntry {
 	txid: Txid,
 	height: u32,
@@ -73,7 +73,7 @@ impl OnchainEventEntry {
 
 /// Upon discovering of some classes of onchain tx by ChannelMonitor, we may have to take actions on it
 /// once they mature to enough confirmations (ANTI_REORG_DELAY)
-#[derive(PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 enum OnchainEvent {
 	/// Outpoint under claim process by our own tx, once this one get enough confirmations, we remove it from
 	/// bump-txn candidate buffer.
@@ -196,6 +196,7 @@ pub(crate) enum OnchainClaim {
 
 /// OnchainTxHandler receives claiming requests, aggregates them if it's sound, broadcast and
 /// do RBF bumping if possible.
+#[derive(Clone)]
 pub struct OnchainTxHandler<ChannelSigner: Sign> {
 	destination_script: Script,
 	holder_commitment: HolderCommitmentTransaction,
