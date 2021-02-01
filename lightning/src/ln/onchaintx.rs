@@ -240,6 +240,7 @@ impl Writeable for Option<Vec<Option<(usize, Signature)>>> {
 
 /// OnchainTxHandler receives claiming requests, aggregates them if it's sound, broadcast and
 /// do RBF bumping if possible.
+#[derive(Clone)]
 pub struct OnchainTxHandler<ChanSigner: ChannelKeys> {
 	destination_script: Script,
 	holder_commitment: HolderCommitmentTransaction,

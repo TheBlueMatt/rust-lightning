@@ -267,7 +267,7 @@ struct HolderSignedTx {
 
 /// We use this to track counterparty commitment transactions and htlcs outputs and
 /// use it to generate any justice or 2nd-stage preimage/timeout transactions.
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 struct CounterpartyCommitmentTransaction {
 	counterparty_delayed_payment_base_key: PublicKey,
 	counterparty_htlc_base_key: PublicKey,
@@ -623,6 +623,7 @@ impl Readable for ChannelMonitorUpdateStep {
 /// the "reorg path" (ie disconnecting blocks until you find a common ancestor from both the
 /// returned block hash and the the current chain and then reconnecting blocks to get to the
 /// best chain) upon deserializing the object!
+#[derive(Clone)]
 pub struct ChannelMonitor<ChanSigner: ChannelKeys> {
 	latest_update_id: u64,
 	commitment_transaction_number_obscure_factor: u64,
