@@ -53,11 +53,11 @@ fi
 CFLAGS="-Wall -Wno-nullability-completeness -pthread"
 
 # Naively run the C demo app:
-gcc $CFLAGS -Wall -g -pthread demo.c target/debug/libldk.a -ldl
+gcc $CFLAGS -Wall -g -pthread demo.c target/debug/libldk.a -ldl -lm
 ./a.out
 
 # And run the C++ demo app in valgrind to test memory model correctness and lack of leaks.
-g++ $CFLAGS -std=c++11 -Wall -g -pthread demo.cpp -Ltarget/debug/ -lldk -ldl
+g++ $CFLAGS -std=c++11 -Wall -g -pthread demo.cpp -Ltarget/debug/ -lldk -ldl -lm
 if [ -x "`which valgrind`" ]; then
 	LD_LIBRARY_PATH=target/debug/ valgrind --error-exitcode=4 --memcheck:leak-check=full --show-leak-kinds=all ./a.out
 	echo
@@ -67,7 +67,7 @@ fi
 
 # Test a statically-linked C++ version, tracking the resulting binary size and runtime
 # across debug, LTO, and cross-language LTO builds (using the same compiler each time).
-clang++ $CFLAGS -std=c++11 demo.cpp target/debug/libldk.a -ldl
+clang++ $CFLAGS -std=c++11 demo.cpp target/debug/libldk.a -ldl -lm
 strip ./a.out
 echo " C++ Bin size and runtime w/o optimization:"
 ls -lha a.out
@@ -88,11 +88,11 @@ if [ "$HOST_PLATFORM" = "host: x86_64-unknown-linux-gnu" ]; then
 			set +e
 
 			# First the C demo app...
-			clang-$LLVM_V $CFLAGS -fsanitize=memory -fsanitize-memory-track-origins -g demo.c target/debug/libldk.a -ldl
+			clang-$LLVM_V $CFLAGS -fsanitize=memory -fsanitize-memory-track-origins -g demo.c target/debug/libldk.a -ldl -lm
 			./a.out
 
 			# ...then the C++ demo app
-			clang++-$LLVM_V $CFLAGS -std=c++11 -fsanitize=memory -fsanitize-memory-track-origins -g demo.cpp target/debug/libldk.a -ldl
+			clang++-$LLVM_V $CFLAGS -std=c++11 -fsanitize=memory -fsanitize-memory-track-origins -g demo.cpp target/debug/libldk.a -ldl -lm
 			./a.out >/dev/null
 
 			# restore exit-on-failure
@@ -158,11 +158,11 @@ if [ "$HOST_PLATFORM" = "host: x86_64-unknown-linux-gnu" -o "$HOST_PLATFORM" = "
 		mv Cargo.toml.bk Cargo.toml
 
 		# First the C demo app...
-		$CLANG $CFLAGS -fsanitize=address -g demo.c target/debug/libldk.a -ldl
+		$CLANG $CFLAGS -fsanitize=address -g demo.c target/debug/libldk.a -ldl -lm
 		ASAN_OPTIONS='detect_leaks=1 detect_invalid_pointer_pairs=1 detect_stack_use_after_return=1' ./a.out
 
 		# ...then the C++ demo app
-		$CLANGPP $CFLAGS -std=c++11 -fsanitize=address -g demo.cpp target/debug/libldk.a -ldl
+		$CLANGPP $CFLAGS -std=c++11 -fsanitize=address -g demo.cpp target/debug/libldk.a -ldl -lm
 		ASAN_OPTIONS='detect_leaks=1 detect_invalid_pointer_pairs=1 detect_stack_use_after_return=1' ./a.out >/dev/null
 	else
 		echo "WARNING: Please install clang-$RUSTC_LLVM_V and clang++-$RUSTC_LLVM_V to build with address sanitizer"
