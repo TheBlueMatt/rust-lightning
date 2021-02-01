@@ -410,7 +410,7 @@ pub trait BaseSign {
 ///
 /// [`ChannelManager`]: crate::ln::channelmanager::ChannelManager
 /// [`ChannelMonitor`]: crate::chain::channelmonitor::ChannelMonitor
-pub trait Sign: BaseSign + Writeable {}
+pub trait Sign: BaseSign + Writeable + Clone {}
 
 /// Specifies the recipient of an invoice.
 ///
