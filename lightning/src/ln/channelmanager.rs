@@ -3790,6 +3790,13 @@ impl<ChanSigner: ChannelKeys, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> 
 /// 4) Reconnect blocks on your ChannelMonitors.
 /// 5) Move the ChannelMonitors into your local chain::Watch.
 /// 6) Disconnect/connect blocks on the ChannelManager.
+///
+/// Note that because some channels may be closed during deserialization, it is critical that you
+/// always deserialize only the latest version of a ChannelManager and ChannelMonitors available to
+/// you. If you deserialize an old ChannelManager (during which force-closure transactions may be
+/// broadcast), and then later deserialize a newer version of the same ChannelManager (which will
+/// not force-close the same channels but consider them live), you may end up revoking a state for
+/// which you've already broadcasted the transaction.
 pub struct ChannelManagerReadArgs<'a, ChanSigner: 'a + ChannelKeys, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref>
 	where M::Target: chain::Watch<Keys=ChanSigner>,
         T::Target: BroadcasterInterface,
