@@ -1245,6 +1245,186 @@ impl Clone for CResult_boolPeerHandleErrorZ {
 #[no_mangle]
 pub extern "C" fn CResult_boolPeerHandleErrorZ_clone(orig: &CResult_boolPeerHandleErrorZ) -> CResult_boolPeerHandleErrorZ { orig.clone() }
 #[repr(C)]
+pub union CResult_InitFeaturesDecodeErrorZPtr {
+	pub result: *mut crate::ln::features::InitFeatures,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_InitFeaturesDecodeErrorZ {
+	pub contents: CResult_InitFeaturesDecodeErrorZPtr,
+	pub result_ok: bool,
+}
+#[no_mangle]
+pub extern "C" fn CResult_InitFeaturesDecodeErrorZ_ok(o: crate::ln::features::InitFeatures) -> CResult_InitFeaturesDecodeErrorZ {
+	CResult_InitFeaturesDecodeErrorZ {
+		contents: CResult_InitFeaturesDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_InitFeaturesDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_InitFeaturesDecodeErrorZ {
+	CResult_InitFeaturesDecodeErrorZ {
+		contents: CResult_InitFeaturesDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_InitFeaturesDecodeErrorZ_free(_res: CResult_InitFeaturesDecodeErrorZ) { }
+impl Drop for CResult_InitFeaturesDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::features::InitFeatures, crate::ln::msgs::DecodeError>> for CResult_InitFeaturesDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::features::InitFeatures, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_InitFeaturesDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_InitFeaturesDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_NodeFeaturesDecodeErrorZPtr {
+	pub result: *mut crate::ln::features::NodeFeatures,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_NodeFeaturesDecodeErrorZ {
+	pub contents: CResult_NodeFeaturesDecodeErrorZPtr,
+	pub result_ok: bool,
+}
+#[no_mangle]
+pub extern "C" fn CResult_NodeFeaturesDecodeErrorZ_ok(o: crate::ln::features::NodeFeatures) -> CResult_NodeFeaturesDecodeErrorZ {
+	CResult_NodeFeaturesDecodeErrorZ {
+		contents: CResult_NodeFeaturesDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_NodeFeaturesDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_NodeFeaturesDecodeErrorZ {
+	CResult_NodeFeaturesDecodeErrorZ {
+		contents: CResult_NodeFeaturesDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_NodeFeaturesDecodeErrorZ_free(_res: CResult_NodeFeaturesDecodeErrorZ) { }
+impl Drop for CResult_NodeFeaturesDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::features::NodeFeatures, crate::ln::msgs::DecodeError>> for CResult_NodeFeaturesDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::features::NodeFeatures, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_NodeFeaturesDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_NodeFeaturesDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
+pub union CResult_ChannelFeaturesDecodeErrorZPtr {
+	pub result: *mut crate::ln::features::ChannelFeatures,
+	pub err: *mut crate::ln::msgs::DecodeError,
+}
+#[repr(C)]
+pub struct CResult_ChannelFeaturesDecodeErrorZ {
+	pub contents: CResult_ChannelFeaturesDecodeErrorZPtr,
+	pub result_ok: bool,
+}
+#[no_mangle]
+pub extern "C" fn CResult_ChannelFeaturesDecodeErrorZ_ok(o: crate::ln::features::ChannelFeatures) -> CResult_ChannelFeaturesDecodeErrorZ {
+	CResult_ChannelFeaturesDecodeErrorZ {
+		contents: CResult_ChannelFeaturesDecodeErrorZPtr {
+			result: Box::into_raw(Box::new(o)),
+		},
+		result_ok: true,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_ChannelFeaturesDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_ChannelFeaturesDecodeErrorZ {
+	CResult_ChannelFeaturesDecodeErrorZ {
+		contents: CResult_ChannelFeaturesDecodeErrorZPtr {
+			err: Box::into_raw(Box::new(e)),
+		},
+		result_ok: false,
+	}
+}
+#[no_mangle]
+pub extern "C" fn CResult_ChannelFeaturesDecodeErrorZ_free(_res: CResult_ChannelFeaturesDecodeErrorZ) { }
+impl Drop for CResult_ChannelFeaturesDecodeErrorZ {
+	fn drop(&mut self) {
+		if self.result_ok {
+			if unsafe { !(self.contents.result as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.result) };
+			}
+		} else {
+			if unsafe { !(self.contents.err as *mut ()).is_null() } {
+				let _ = unsafe { Box::from_raw(self.contents.err) };
+			}
+		}
+	}
+}
+impl From<crate::c_types::CResultTempl<crate::ln::features::ChannelFeatures, crate::ln::msgs::DecodeError>> for CResult_ChannelFeaturesDecodeErrorZ {
+	fn from(mut o: crate::c_types::CResultTempl<crate::ln::features::ChannelFeatures, crate::ln::msgs::DecodeError>) -> Self {
+		let contents = if o.result_ok {
+			let result = unsafe { o.contents.result };
+			unsafe { o.contents.result = std::ptr::null_mut() };
+			CResult_ChannelFeaturesDecodeErrorZPtr { result }
+		} else {
+			let err = unsafe { o.contents.err };
+			unsafe { o.contents.err = std::ptr::null_mut(); }
+			CResult_ChannelFeaturesDecodeErrorZPtr { err }
+		};
+		Self {
+			contents,
+			result_ok: o.result_ok,
+		}
+	}
+}
+#[repr(C)]
 pub union CResult_ChannelConfigDecodeErrorZPtr {
 	pub result: *mut crate::util::config::ChannelConfig,
 	pub err: *mut crate::ln::msgs::DecodeError,

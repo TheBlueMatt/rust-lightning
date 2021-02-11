@@ -158,7 +158,7 @@ pub extern "C" fn ChannelDetails_set_remote_network_id(this_ptr: &mut ChannelDet
 #[no_mangle]
 pub extern "C" fn ChannelDetails_get_counterparty_features(this_ptr: &ChannelDetails) -> crate::ln::features::InitFeatures {
 	let mut inner_val = &mut unsafe { &mut *this_ptr.inner }.counterparty_features;
-	crate::ln::features::InitFeatures { inner: &mut (*inner_val), is_owned: false }
+	crate::ln::features::InitFeatures { inner: unsafe { ( (&((*inner_val)) as *const _) as *mut _) }, is_owned: false }
 }
 /// The Features the channel counterparty provided upon last connection.
 /// Useful for routing as it is the most up-to-date copy of the counterparty's features and

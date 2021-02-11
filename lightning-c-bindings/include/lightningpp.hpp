@@ -1961,6 +1961,21 @@ public:
 	const LDKCResult_NonePeerHandleErrorZ* operator &() const { return &self; }
 	const LDKCResult_NonePeerHandleErrorZ* operator ->() const { return &self; }
 };
+class CResult_InitFeaturesDecodeErrorZ {
+private:
+	LDKCResult_InitFeaturesDecodeErrorZ self;
+public:
+	CResult_InitFeaturesDecodeErrorZ(const CResult_InitFeaturesDecodeErrorZ&) = delete;
+	CResult_InitFeaturesDecodeErrorZ(CResult_InitFeaturesDecodeErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_InitFeaturesDecodeErrorZ)); }
+	CResult_InitFeaturesDecodeErrorZ(LDKCResult_InitFeaturesDecodeErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_InitFeaturesDecodeErrorZ)); }
+	operator LDKCResult_InitFeaturesDecodeErrorZ() && { LDKCResult_InitFeaturesDecodeErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_InitFeaturesDecodeErrorZ)); return res; }
+	~CResult_InitFeaturesDecodeErrorZ() { CResult_InitFeaturesDecodeErrorZ_free(self); }
+	CResult_InitFeaturesDecodeErrorZ& operator=(CResult_InitFeaturesDecodeErrorZ&& o) { CResult_InitFeaturesDecodeErrorZ_free(self); self = o.self; memset(&o, 0, sizeof(CResult_InitFeaturesDecodeErrorZ)); return *this; }
+	LDKCResult_InitFeaturesDecodeErrorZ* operator &() { return &self; }
+	LDKCResult_InitFeaturesDecodeErrorZ* operator ->() { return &self; }
+	const LDKCResult_InitFeaturesDecodeErrorZ* operator &() const { return &self; }
+	const LDKCResult_InitFeaturesDecodeErrorZ* operator ->() const { return &self; }
+};
 class CResult_NoneLightningErrorZ {
 private:
 	LDKCResult_NoneLightningErrorZ self;
@@ -2141,21 +2156,6 @@ public:
 	const LDKCResult_SecretKeyErrorZ* operator &() const { return &self; }
 	const LDKCResult_SecretKeyErrorZ* operator ->() const { return &self; }
 };
-class CResult_NoneAPIErrorZ {
-private:
-	LDKCResult_NoneAPIErrorZ self;
-public:
-	CResult_NoneAPIErrorZ(const CResult_NoneAPIErrorZ&) = delete;
-	CResult_NoneAPIErrorZ(CResult_NoneAPIErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_NoneAPIErrorZ)); }
-	CResult_NoneAPIErrorZ(LDKCResult_NoneAPIErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_NoneAPIErrorZ)); }
-	operator LDKCResult_NoneAPIErrorZ() && { LDKCResult_NoneAPIErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_NoneAPIErrorZ)); return res; }
-	~CResult_NoneAPIErrorZ() { CResult_NoneAPIErrorZ_free(self); }
-	CResult_NoneAPIErrorZ& operator=(CResult_NoneAPIErrorZ&& o) { CResult_NoneAPIErrorZ_free(self); self = o.self; memset(&o, 0, sizeof(CResult_NoneAPIErrorZ)); return *this; }
-	LDKCResult_NoneAPIErrorZ* operator &() { return &self; }
-	LDKCResult_NoneAPIErrorZ* operator ->() { return &self; }
-	const LDKCResult_NoneAPIErrorZ* operator &() const { return &self; }
-	const LDKCResult_NoneAPIErrorZ* operator ->() const { return &self; }
-};
 class CResult_CounterpartyChannelTransactionParametersDecodeErrorZ {
 private:
 	LDKCResult_CounterpartyChannelTransactionParametersDecodeErrorZ self;
@@ -2171,6 +2171,21 @@ public:
 	const LDKCResult_CounterpartyChannelTransactionParametersDecodeErrorZ* operator &() const { return &self; }
 	const LDKCResult_CounterpartyChannelTransactionParametersDecodeErrorZ* operator ->() const { return &self; }
 };
+class CResult_NoneAPIErrorZ {
+private:
+	LDKCResult_NoneAPIErrorZ self;
+public:
+	CResult_NoneAPIErrorZ(const CResult_NoneAPIErrorZ&) = delete;
+	CResult_NoneAPIErrorZ(CResult_NoneAPIErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_NoneAPIErrorZ)); }
+	CResult_NoneAPIErrorZ(LDKCResult_NoneAPIErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_NoneAPIErrorZ)); }
+	operator LDKCResult_NoneAPIErrorZ() && { LDKCResult_NoneAPIErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_NoneAPIErrorZ)); return res; }
+	~CResult_NoneAPIErrorZ() { CResult_NoneAPIErrorZ_free(self); }
+	CResult_NoneAPIErrorZ& operator=(CResult_NoneAPIErrorZ&& o) { CResult_NoneAPIErrorZ_free(self); self = o.self; memset(&o, 0, sizeof(CResult_NoneAPIErrorZ)); return *this; }
+	LDKCResult_NoneAPIErrorZ* operator &() { return &self; }
+	LDKCResult_NoneAPIErrorZ* operator ->() { return &self; }
+	const LDKCResult_NoneAPIErrorZ* operator &() const { return &self; }
+	const LDKCResult_NoneAPIErrorZ* operator ->() const { return &self; }
+};
 class CVec_NetAddressZ {
 private:
 	LDKCVec_NetAddressZ self;
@@ -2185,6 +2200,21 @@ public:
 	LDKCVec_NetAddressZ* operator ->() { return &self; }
 	const LDKCVec_NetAddressZ* operator &() const { return &self; }
 	const LDKCVec_NetAddressZ* operator ->() const { return &self; }
+};
+class CVec_TransactionZ {
+private:
+	LDKCVec_TransactionZ self;
+public:
+	CVec_TransactionZ(const CVec_TransactionZ&) = delete;
+	CVec_TransactionZ(CVec_TransactionZ&& o) : self(o.self) { memset(&o, 0, sizeof(CVec_TransactionZ)); }
+	CVec_TransactionZ(LDKCVec_TransactionZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCVec_TransactionZ)); }
+	operator LDKCVec_TransactionZ() && { LDKCVec_TransactionZ res = self; memset(&self, 0, sizeof(LDKCVec_TransactionZ)); return res; }
+	~CVec_TransactionZ() { CVec_TransactionZ_free(self); }
+	CVec_TransactionZ& operator=(CVec_TransactionZ&& o) { CVec_TransactionZ_free(self); self = o.self; memset(&o, 0, sizeof(CVec_TransactionZ)); return *this; }
+	LDKCVec_TransactionZ* operator &() { return &self; }
+	LDKCVec_TransactionZ* operator ->() { return &self; }
+	const LDKCVec_TransactionZ* operator &() const { return &self; }
+	const LDKCVec_TransactionZ* operator ->() const { return &self; }
 };
 class CResult_TxCreationKeysDecodeErrorZ {
 private:
@@ -2216,6 +2246,21 @@ public:
 	const LDKCVec_PublicKeyZ* operator &() const { return &self; }
 	const LDKCVec_PublicKeyZ* operator ->() const { return &self; }
 };
+class CResult_ChannelFeaturesDecodeErrorZ {
+private:
+	LDKCResult_ChannelFeaturesDecodeErrorZ self;
+public:
+	CResult_ChannelFeaturesDecodeErrorZ(const CResult_ChannelFeaturesDecodeErrorZ&) = delete;
+	CResult_ChannelFeaturesDecodeErrorZ(CResult_ChannelFeaturesDecodeErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_ChannelFeaturesDecodeErrorZ)); }
+	CResult_ChannelFeaturesDecodeErrorZ(LDKCResult_ChannelFeaturesDecodeErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_ChannelFeaturesDecodeErrorZ)); }
+	operator LDKCResult_ChannelFeaturesDecodeErrorZ() && { LDKCResult_ChannelFeaturesDecodeErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_ChannelFeaturesDecodeErrorZ)); return res; }
+	~CResult_ChannelFeaturesDecodeErrorZ() { CResult_ChannelFeaturesDecodeErrorZ_free(self); }
+	CResult_ChannelFeaturesDecodeErrorZ& operator=(CResult_ChannelFeaturesDecodeErrorZ&& o) { CResult_ChannelFeaturesDecodeErrorZ_free(self); self = o.self; memset(&o, 0, sizeof(CResult_ChannelFeaturesDecodeErrorZ)); return *this; }
+	LDKCResult_ChannelFeaturesDecodeErrorZ* operator &() { return &self; }
+	LDKCResult_ChannelFeaturesDecodeErrorZ* operator ->() { return &self; }
+	const LDKCResult_ChannelFeaturesDecodeErrorZ* operator &() const { return &self; }
+	const LDKCResult_ChannelFeaturesDecodeErrorZ* operator ->() const { return &self; }
+};
 class C2Tuple_usizeTransactionZ {
 private:
 	LDKC2Tuple_usizeTransactionZ self;
@@ -2245,21 +2290,6 @@ public:
 	LDKCVec_C2Tuple_usizeTransactionZZ* operator ->() { return &self; }
 	const LDKCVec_C2Tuple_usizeTransactionZZ* operator &() const { return &self; }
 	const LDKCVec_C2Tuple_usizeTransactionZZ* operator ->() const { return &self; }
-};
-class CVec_TransactionZ {
-private:
-	LDKCVec_TransactionZ self;
-public:
-	CVec_TransactionZ(const CVec_TransactionZ&) = delete;
-	CVec_TransactionZ(CVec_TransactionZ&& o) : self(o.self) { memset(&o, 0, sizeof(CVec_TransactionZ)); }
-	CVec_TransactionZ(LDKCVec_TransactionZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCVec_TransactionZ)); }
-	operator LDKCVec_TransactionZ() && { LDKCVec_TransactionZ res = self; memset(&self, 0, sizeof(LDKCVec_TransactionZ)); return res; }
-	~CVec_TransactionZ() { CVec_TransactionZ_free(self); }
-	CVec_TransactionZ& operator=(CVec_TransactionZ&& o) { CVec_TransactionZ_free(self); self = o.self; memset(&o, 0, sizeof(CVec_TransactionZ)); return *this; }
-	LDKCVec_TransactionZ* operator &() { return &self; }
-	LDKCVec_TransactionZ* operator ->() { return &self; }
-	const LDKCVec_TransactionZ* operator &() const { return &self; }
-	const LDKCVec_TransactionZ* operator ->() const { return &self; }
 };
 class CVec_ChannelMonitorZ {
 private:
@@ -2291,21 +2321,6 @@ public:
 	const LDKC2Tuple_u64u64Z* operator &() const { return &self; }
 	const LDKC2Tuple_u64u64Z* operator ->() const { return &self; }
 };
-class CResult_UpdateFeeDecodeErrorZ {
-private:
-	LDKCResult_UpdateFeeDecodeErrorZ self;
-public:
-	CResult_UpdateFeeDecodeErrorZ(const CResult_UpdateFeeDecodeErrorZ&) = delete;
-	CResult_UpdateFeeDecodeErrorZ(CResult_UpdateFeeDecodeErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_UpdateFeeDecodeErrorZ)); }
-	CResult_UpdateFeeDecodeErrorZ(LDKCResult_UpdateFeeDecodeErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_UpdateFeeDecodeErrorZ)); }
-	operator LDKCResult_UpdateFeeDecodeErrorZ() && { LDKCResult_UpdateFeeDecodeErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_UpdateFeeDecodeErrorZ)); return res; }
-	~CResult_UpdateFeeDecodeErrorZ() { CResult_UpdateFeeDecodeErrorZ_free(self); }
-	CResult_UpdateFeeDecodeErrorZ& operator=(CResult_UpdateFeeDecodeErrorZ&& o) { CResult_UpdateFeeDecodeErrorZ_free(self); self = o.self; memset(&o, 0, sizeof(CResult_UpdateFeeDecodeErrorZ)); return *this; }
-	LDKCResult_UpdateFeeDecodeErrorZ* operator &() { return &self; }
-	LDKCResult_UpdateFeeDecodeErrorZ* operator ->() { return &self; }
-	const LDKCResult_UpdateFeeDecodeErrorZ* operator &() const { return &self; }
-	const LDKCResult_UpdateFeeDecodeErrorZ* operator ->() const { return &self; }
-};
 class CResult_DirectionalChannelInfoDecodeErrorZ {
 private:
 	LDKCResult_DirectionalChannelInfoDecodeErrorZ self;
@@ -2321,20 +2336,20 @@ public:
 	const LDKCResult_DirectionalChannelInfoDecodeErrorZ* operator &() const { return &self; }
 	const LDKCResult_DirectionalChannelInfoDecodeErrorZ* operator ->() const { return &self; }
 };
-class CResult_NodeAnnouncementDecodeErrorZ {
+class CResult_UpdateFeeDecodeErrorZ {
 private:
-	LDKCResult_NodeAnnouncementDecodeErrorZ self;
+	LDKCResult_UpdateFeeDecodeErrorZ self;
 public:
-	CResult_NodeAnnouncementDecodeErrorZ(const CResult_NodeAnnouncementDecodeErrorZ&) = delete;
-	CResult_NodeAnnouncementDecodeErrorZ(CResult_NodeAnnouncementDecodeErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_NodeAnnouncementDecodeErrorZ)); }
-	CResult_NodeAnnouncementDecodeErrorZ(LDKCResult_NodeAnnouncementDecodeErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_NodeAnnouncementDecodeErrorZ)); }
-	operator LDKCResult_NodeAnnouncementDecodeErrorZ() && { LDKCResult_NodeAnnouncementDecodeErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_NodeAnnouncementDecodeErrorZ)); return res; }
-	~CResult_NodeAnnouncementDecodeErrorZ() { CResult_NodeAnnouncementDecodeErrorZ_free(self); }
-	CResult_NodeAnnouncementDecodeErrorZ& operator=(CResult_NodeAnnouncementDecodeErrorZ&& o) { CResult_NodeAnnouncementDecodeErrorZ_free(self); self = o.self; memset(&o, 0, sizeof(CResult_NodeAnnouncementDecodeErrorZ)); return *this; }
-	LDKCResult_NodeAnnouncementDecodeErrorZ* operator &() { return &self; }
-	LDKCResult_NodeAnnouncementDecodeErrorZ* operator ->() { return &self; }
-	const LDKCResult_NodeAnnouncementDecodeErrorZ* operator &() const { return &self; }
-	const LDKCResult_NodeAnnouncementDecodeErrorZ* operator ->() const { return &self; }
+	CResult_UpdateFeeDecodeErrorZ(const CResult_UpdateFeeDecodeErrorZ&) = delete;
+	CResult_UpdateFeeDecodeErrorZ(CResult_UpdateFeeDecodeErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_UpdateFeeDecodeErrorZ)); }
+	CResult_UpdateFeeDecodeErrorZ(LDKCResult_UpdateFeeDecodeErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_UpdateFeeDecodeErrorZ)); }
+	operator LDKCResult_UpdateFeeDecodeErrorZ() && { LDKCResult_UpdateFeeDecodeErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_UpdateFeeDecodeErrorZ)); return res; }
+	~CResult_UpdateFeeDecodeErrorZ() { CResult_UpdateFeeDecodeErrorZ_free(self); }
+	CResult_UpdateFeeDecodeErrorZ& operator=(CResult_UpdateFeeDecodeErrorZ&& o) { CResult_UpdateFeeDecodeErrorZ_free(self); self = o.self; memset(&o, 0, sizeof(CResult_UpdateFeeDecodeErrorZ)); return *this; }
+	LDKCResult_UpdateFeeDecodeErrorZ* operator &() { return &self; }
+	LDKCResult_UpdateFeeDecodeErrorZ* operator ->() { return &self; }
+	const LDKCResult_UpdateFeeDecodeErrorZ* operator &() const { return &self; }
+	const LDKCResult_UpdateFeeDecodeErrorZ* operator ->() const { return &self; }
 };
 class C2Tuple_u32TxOutZ {
 private:
@@ -2350,6 +2365,21 @@ public:
 	LDKC2Tuple_u32TxOutZ* operator ->() { return &self; }
 	const LDKC2Tuple_u32TxOutZ* operator &() const { return &self; }
 	const LDKC2Tuple_u32TxOutZ* operator ->() const { return &self; }
+};
+class CResult_NodeAnnouncementDecodeErrorZ {
+private:
+	LDKCResult_NodeAnnouncementDecodeErrorZ self;
+public:
+	CResult_NodeAnnouncementDecodeErrorZ(const CResult_NodeAnnouncementDecodeErrorZ&) = delete;
+	CResult_NodeAnnouncementDecodeErrorZ(CResult_NodeAnnouncementDecodeErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_NodeAnnouncementDecodeErrorZ)); }
+	CResult_NodeAnnouncementDecodeErrorZ(LDKCResult_NodeAnnouncementDecodeErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_NodeAnnouncementDecodeErrorZ)); }
+	operator LDKCResult_NodeAnnouncementDecodeErrorZ() && { LDKCResult_NodeAnnouncementDecodeErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_NodeAnnouncementDecodeErrorZ)); return res; }
+	~CResult_NodeAnnouncementDecodeErrorZ() { CResult_NodeAnnouncementDecodeErrorZ_free(self); }
+	CResult_NodeAnnouncementDecodeErrorZ& operator=(CResult_NodeAnnouncementDecodeErrorZ&& o) { CResult_NodeAnnouncementDecodeErrorZ_free(self); self = o.self; memset(&o, 0, sizeof(CResult_NodeAnnouncementDecodeErrorZ)); return *this; }
+	LDKCResult_NodeAnnouncementDecodeErrorZ* operator &() { return &self; }
+	LDKCResult_NodeAnnouncementDecodeErrorZ* operator ->() { return &self; }
+	const LDKCResult_NodeAnnouncementDecodeErrorZ* operator &() const { return &self; }
+	const LDKCResult_NodeAnnouncementDecodeErrorZ* operator ->() const { return &self; }
 };
 class CResult_QueryChannelRangeDecodeErrorZ {
 private:
@@ -2905,6 +2935,21 @@ public:
 	LDKCResult_InitDecodeErrorZ* operator ->() { return &self; }
 	const LDKCResult_InitDecodeErrorZ* operator &() const { return &self; }
 	const LDKCResult_InitDecodeErrorZ* operator ->() const { return &self; }
+};
+class CResult_NodeFeaturesDecodeErrorZ {
+private:
+	LDKCResult_NodeFeaturesDecodeErrorZ self;
+public:
+	CResult_NodeFeaturesDecodeErrorZ(const CResult_NodeFeaturesDecodeErrorZ&) = delete;
+	CResult_NodeFeaturesDecodeErrorZ(CResult_NodeFeaturesDecodeErrorZ&& o) : self(o.self) { memset(&o, 0, sizeof(CResult_NodeFeaturesDecodeErrorZ)); }
+	CResult_NodeFeaturesDecodeErrorZ(LDKCResult_NodeFeaturesDecodeErrorZ&& m_self) : self(m_self) { memset(&m_self, 0, sizeof(LDKCResult_NodeFeaturesDecodeErrorZ)); }
+	operator LDKCResult_NodeFeaturesDecodeErrorZ() && { LDKCResult_NodeFeaturesDecodeErrorZ res = self; memset(&self, 0, sizeof(LDKCResult_NodeFeaturesDecodeErrorZ)); return res; }
+	~CResult_NodeFeaturesDecodeErrorZ() { CResult_NodeFeaturesDecodeErrorZ_free(self); }
+	CResult_NodeFeaturesDecodeErrorZ& operator=(CResult_NodeFeaturesDecodeErrorZ&& o) { CResult_NodeFeaturesDecodeErrorZ_free(self); self = o.self; memset(&o, 0, sizeof(CResult_NodeFeaturesDecodeErrorZ)); return *this; }
+	LDKCResult_NodeFeaturesDecodeErrorZ* operator &() { return &self; }
+	LDKCResult_NodeFeaturesDecodeErrorZ* operator ->() { return &self; }
+	const LDKCResult_NodeFeaturesDecodeErrorZ* operator &() const { return &self; }
+	const LDKCResult_NodeFeaturesDecodeErrorZ* operator ->() const { return &self; }
 };
 class CResult_UpdateFulfillHTLCDecodeErrorZ {
 private:

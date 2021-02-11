@@ -596,6 +596,78 @@ typedef struct LDKCResult_boolPeerHandleErrorZ {
 
 
 /**
+ * Features used within an `init` message.
+ */
+typedef struct MUST_USE_STRUCT LDKInitFeatures {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeInitFeatures *inner;
+   bool is_owned;
+} LDKInitFeatures;
+
+typedef union LDKCResult_InitFeaturesDecodeErrorZPtr {
+   struct LDKInitFeatures *result;
+   struct LDKDecodeError *err;
+} LDKCResult_InitFeaturesDecodeErrorZPtr;
+
+typedef struct LDKCResult_InitFeaturesDecodeErrorZ {
+   union LDKCResult_InitFeaturesDecodeErrorZPtr contents;
+   bool result_ok;
+} LDKCResult_InitFeaturesDecodeErrorZ;
+
+
+
+/**
+ * Features used within a `node_announcement` message.
+ */
+typedef struct MUST_USE_STRUCT LDKNodeFeatures {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeNodeFeatures *inner;
+   bool is_owned;
+} LDKNodeFeatures;
+
+typedef union LDKCResult_NodeFeaturesDecodeErrorZPtr {
+   struct LDKNodeFeatures *result;
+   struct LDKDecodeError *err;
+} LDKCResult_NodeFeaturesDecodeErrorZPtr;
+
+typedef struct LDKCResult_NodeFeaturesDecodeErrorZ {
+   union LDKCResult_NodeFeaturesDecodeErrorZPtr contents;
+   bool result_ok;
+} LDKCResult_NodeFeaturesDecodeErrorZ;
+
+
+
+/**
+ * Features used within a `channel_announcement` message.
+ */
+typedef struct MUST_USE_STRUCT LDKChannelFeatures {
+   /**
+    * Nearly everywhere, inner must be non-null, however in places where
+    * the Rust equivalent takes an Option, it may be set to null to indicate None.
+    */
+   LDKnativeChannelFeatures *inner;
+   bool is_owned;
+} LDKChannelFeatures;
+
+typedef union LDKCResult_ChannelFeaturesDecodeErrorZPtr {
+   struct LDKChannelFeatures *result;
+   struct LDKDecodeError *err;
+} LDKCResult_ChannelFeaturesDecodeErrorZPtr;
+
+typedef struct LDKCResult_ChannelFeaturesDecodeErrorZ {
+   union LDKCResult_ChannelFeaturesDecodeErrorZPtr contents;
+   bool result_ok;
+} LDKCResult_ChannelFeaturesDecodeErrorZ;
+
+
+
+/**
  * Options which apply on a per-channel basis and may change at runtime or based on negotiation
  * with our counterparty.
  */
@@ -3388,20 +3460,6 @@ typedef struct MUST_USE_STRUCT LDKKeysManager {
    bool is_owned;
 } LDKKeysManager;
 
-
-
-/**
- * Features used within an `init` message.
- */
-typedef struct MUST_USE_STRUCT LDKInitFeatures {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeInitFeatures *inner;
-   bool is_owned;
-} LDKInitFeatures;
-
 typedef struct LDKThreeBytes {
    uint8_t data[3];
 } LDKThreeBytes;
@@ -3540,34 +3598,6 @@ typedef struct MUST_USE_STRUCT LDKDataLossProtect {
    LDKnativeDataLossProtect *inner;
    bool is_owned;
 } LDKDataLossProtect;
-
-
-
-/**
- * Features used within a `node_announcement` message.
- */
-typedef struct MUST_USE_STRUCT LDKNodeFeatures {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeNodeFeatures *inner;
-   bool is_owned;
-} LDKNodeFeatures;
-
-
-
-/**
- * Features used within a `channel_announcement` message.
- */
-typedef struct MUST_USE_STRUCT LDKChannelFeatures {
-   /**
-    * Nearly everywhere, inner must be non-null, however in places where
-    * the Rust equivalent takes an Option, it may be set to null to indicate None.
-    */
-   LDKnativeChannelFeatures *inner;
-   bool is_owned;
-} LDKChannelFeatures;
 
 /**
  * A trait to describe an object which can receive routing messages.
@@ -3915,6 +3945,24 @@ struct LDKCResult_boolPeerHandleErrorZ CResult_boolPeerHandleErrorZ_err(struct L
 void CResult_boolPeerHandleErrorZ_free(struct LDKCResult_boolPeerHandleErrorZ _res);
 
 struct LDKCResult_boolPeerHandleErrorZ CResult_boolPeerHandleErrorZ_clone(const struct LDKCResult_boolPeerHandleErrorZ *NONNULL_PTR orig);
+
+struct LDKCResult_InitFeaturesDecodeErrorZ CResult_InitFeaturesDecodeErrorZ_ok(struct LDKInitFeatures o);
+
+struct LDKCResult_InitFeaturesDecodeErrorZ CResult_InitFeaturesDecodeErrorZ_err(struct LDKDecodeError e);
+
+void CResult_InitFeaturesDecodeErrorZ_free(struct LDKCResult_InitFeaturesDecodeErrorZ _res);
+
+struct LDKCResult_NodeFeaturesDecodeErrorZ CResult_NodeFeaturesDecodeErrorZ_ok(struct LDKNodeFeatures o);
+
+struct LDKCResult_NodeFeaturesDecodeErrorZ CResult_NodeFeaturesDecodeErrorZ_err(struct LDKDecodeError e);
+
+void CResult_NodeFeaturesDecodeErrorZ_free(struct LDKCResult_NodeFeaturesDecodeErrorZ _res);
+
+struct LDKCResult_ChannelFeaturesDecodeErrorZ CResult_ChannelFeaturesDecodeErrorZ_ok(struct LDKChannelFeatures o);
+
+struct LDKCResult_ChannelFeaturesDecodeErrorZ CResult_ChannelFeaturesDecodeErrorZ_err(struct LDKDecodeError e);
+
+void CResult_ChannelFeaturesDecodeErrorZ_free(struct LDKCResult_ChannelFeaturesDecodeErrorZ _res);
 
 struct LDKCResult_ChannelConfigDecodeErrorZ CResult_ChannelConfigDecodeErrorZ_ok(struct LDKChannelConfig o);
 
@@ -8183,6 +8231,54 @@ void InitFeatures_free(struct LDKInitFeatures this_ptr);
 void NodeFeatures_free(struct LDKNodeFeatures this_ptr);
 
 void ChannelFeatures_free(struct LDKChannelFeatures this_ptr);
+
+/**
+ * Create a blank Features with no features set
+ */
+MUST_USE_RES struct LDKInitFeatures InitFeatures_empty(void);
+
+/**
+ * Creates features known by the implementation as defined by [`T::KNOWN_FEATURE_FLAGS`].
+ *
+ * [`T::KNOWN_FEATURE_FLAGS`]: sealed/trait.Context.html#associatedconstant.KNOWN_FEATURE_FLAGS
+ */
+MUST_USE_RES struct LDKInitFeatures InitFeatures_known(void);
+
+/**
+ * Create a blank Features with no features set
+ */
+MUST_USE_RES struct LDKNodeFeatures NodeFeatures_empty(void);
+
+/**
+ * Creates features known by the implementation as defined by [`T::KNOWN_FEATURE_FLAGS`].
+ *
+ * [`T::KNOWN_FEATURE_FLAGS`]: sealed/trait.Context.html#associatedconstant.KNOWN_FEATURE_FLAGS
+ */
+MUST_USE_RES struct LDKNodeFeatures NodeFeatures_known(void);
+
+/**
+ * Create a blank Features with no features set
+ */
+MUST_USE_RES struct LDKChannelFeatures ChannelFeatures_empty(void);
+
+/**
+ * Creates features known by the implementation as defined by [`T::KNOWN_FEATURE_FLAGS`].
+ *
+ * [`T::KNOWN_FEATURE_FLAGS`]: sealed/trait.Context.html#associatedconstant.KNOWN_FEATURE_FLAGS
+ */
+MUST_USE_RES struct LDKChannelFeatures ChannelFeatures_known(void);
+
+struct LDKCVec_u8Z InitFeatures_write(const struct LDKInitFeatures *NONNULL_PTR obj);
+
+struct LDKCVec_u8Z NodeFeatures_write(const struct LDKNodeFeatures *NONNULL_PTR obj);
+
+struct LDKCVec_u8Z ChannelFeatures_write(const struct LDKChannelFeatures *NONNULL_PTR obj);
+
+struct LDKCResult_InitFeaturesDecodeErrorZ InitFeatures_read(struct LDKu8slice ser);
+
+struct LDKCResult_NodeFeaturesDecodeErrorZ NodeFeatures_read(struct LDKu8slice ser);
+
+struct LDKCResult_ChannelFeaturesDecodeErrorZ ChannelFeatures_read(struct LDKu8slice ser);
 
 void RouteHop_free(struct LDKRouteHop this_ptr);
 

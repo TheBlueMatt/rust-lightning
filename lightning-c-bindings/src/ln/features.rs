@@ -134,3 +134,99 @@ impl ChannelFeatures {
 		ret
 	}
 }
+/// Create a blank Features with no features set
+#[must_use]
+#[no_mangle]
+pub extern "C" fn InitFeatures_empty() -> InitFeatures {
+	let mut ret = lightning::ln::features::InitFeatures::empty();
+	InitFeatures { inner: Box::into_raw(Box::new(ret)), is_owned: true }
+}
+
+/// Creates features known by the implementation as defined by [`T::KNOWN_FEATURE_FLAGS`].
+///
+/// [`T::KNOWN_FEATURE_FLAGS`]: sealed/trait.Context.html#associatedconstant.KNOWN_FEATURE_FLAGS
+#[must_use]
+#[no_mangle]
+pub extern "C" fn InitFeatures_known() -> InitFeatures {
+	let mut ret = lightning::ln::features::InitFeatures::known();
+	InitFeatures { inner: Box::into_raw(Box::new(ret)), is_owned: true }
+}
+
+/// Create a blank Features with no features set
+#[must_use]
+#[no_mangle]
+pub extern "C" fn NodeFeatures_empty() -> NodeFeatures {
+	let mut ret = lightning::ln::features::NodeFeatures::empty();
+	NodeFeatures { inner: Box::into_raw(Box::new(ret)), is_owned: true }
+}
+
+/// Creates features known by the implementation as defined by [`T::KNOWN_FEATURE_FLAGS`].
+///
+/// [`T::KNOWN_FEATURE_FLAGS`]: sealed/trait.Context.html#associatedconstant.KNOWN_FEATURE_FLAGS
+#[must_use]
+#[no_mangle]
+pub extern "C" fn NodeFeatures_known() -> NodeFeatures {
+	let mut ret = lightning::ln::features::NodeFeatures::known();
+	NodeFeatures { inner: Box::into_raw(Box::new(ret)), is_owned: true }
+}
+
+/// Create a blank Features with no features set
+#[must_use]
+#[no_mangle]
+pub extern "C" fn ChannelFeatures_empty() -> ChannelFeatures {
+	let mut ret = lightning::ln::features::ChannelFeatures::empty();
+	ChannelFeatures { inner: Box::into_raw(Box::new(ret)), is_owned: true }
+}
+
+/// Creates features known by the implementation as defined by [`T::KNOWN_FEATURE_FLAGS`].
+///
+/// [`T::KNOWN_FEATURE_FLAGS`]: sealed/trait.Context.html#associatedconstant.KNOWN_FEATURE_FLAGS
+#[must_use]
+#[no_mangle]
+pub extern "C" fn ChannelFeatures_known() -> ChannelFeatures {
+	let mut ret = lightning::ln::features::ChannelFeatures::known();
+	ChannelFeatures { inner: Box::into_raw(Box::new(ret)), is_owned: true }
+}
+
+#[no_mangle]
+pub extern "C" fn InitFeatures_write(obj: &InitFeatures) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
+}
+#[no_mangle]
+pub(crate) extern "C" fn InitFeatures_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeInitFeatures) })
+}
+#[no_mangle]
+pub extern "C" fn NodeFeatures_write(obj: &NodeFeatures) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
+}
+#[no_mangle]
+pub(crate) extern "C" fn NodeFeatures_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeNodeFeatures) })
+}
+#[no_mangle]
+pub extern "C" fn ChannelFeatures_write(obj: &ChannelFeatures) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })
+}
+#[no_mangle]
+pub(crate) extern "C" fn ChannelFeatures_write_void(obj: *const c_void) -> crate::c_types::derived::CVec_u8Z {
+	crate::c_types::serialize_obj(unsafe { &*(obj as *const nativeChannelFeatures) })
+}
+#[no_mangle]
+pub extern "C" fn InitFeatures_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_InitFeaturesDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::ln::features::InitFeatures { inner: Box::into_raw(Box::new(o)), is_owned: true } }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
+	local_res
+}
+#[no_mangle]
+pub extern "C" fn NodeFeatures_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_NodeFeaturesDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::ln::features::NodeFeatures { inner: Box::into_raw(Box::new(o)), is_owned: true } }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
+	local_res
+}
+#[no_mangle]
+pub extern "C" fn ChannelFeatures_read(ser: crate::c_types::u8slice) -> crate::c_types::derived::CResult_ChannelFeaturesDecodeErrorZ {
+	let res = crate::c_types::deserialize_obj(ser);
+	let mut local_res = match res { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::ln::features::ChannelFeatures { inner: Box::into_raw(Box::new(o)), is_owned: true } }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
+	local_res
+}
