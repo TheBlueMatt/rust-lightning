@@ -19,7 +19,7 @@ pub extern "C" fn build_commitment_secret(commitment_seed: *const [u8; 32], mut 
 /// Note that this is infallible iff we trust that at least one of the two input keys are randomly
 /// generated (ie our own).
 #[no_mangle]
-pub extern "C" fn derive_private_key(mut per_commitment_point: crate::c_types::PublicKey, base_secret: *const [u8; 32]) -> crate::c_types::derived::CResult_SecretKeySecpErrorZ {
+pub extern "C" fn derive_private_key(mut per_commitment_point: crate::c_types::PublicKey, base_secret: *const [u8; 32]) -> crate::c_types::derived::CResult_SecretKeyErrorZ {
 	let mut ret = lightning::ln::chan_utils::derive_private_key(&bitcoin::secp256k1::Secp256k1::new(), &per_commitment_point.into_rust(), &::bitcoin::secp256k1::key::SecretKey::from_slice(&unsafe { *base_secret}[..]).unwrap());
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::c_types::SecretKey::from_rust(o) }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::c_types::Secp256k1Error::from_rust(e) }).into() };
 	local_ret
@@ -32,7 +32,7 @@ pub extern "C" fn derive_private_key(mut per_commitment_point: crate::c_types::P
 /// Note that this is infallible iff we trust that at least one of the two input keys are randomly
 /// generated (ie our own).
 #[no_mangle]
-pub extern "C" fn derive_public_key(mut per_commitment_point: crate::c_types::PublicKey, mut base_point: crate::c_types::PublicKey) -> crate::c_types::derived::CResult_PublicKeySecpErrorZ {
+pub extern "C" fn derive_public_key(mut per_commitment_point: crate::c_types::PublicKey, mut base_point: crate::c_types::PublicKey) -> crate::c_types::derived::CResult_PublicKeyErrorZ {
 	let mut ret = lightning::ln::chan_utils::derive_public_key(&bitcoin::secp256k1::Secp256k1::new(), &per_commitment_point.into_rust(), &base_point.into_rust());
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::c_types::PublicKey::from_rust(&o) }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::c_types::Secp256k1Error::from_rust(e) }).into() };
 	local_ret
@@ -48,7 +48,7 @@ pub extern "C" fn derive_public_key(mut per_commitment_point: crate::c_types::Pu
 /// Note that this is infallible iff we trust that at least one of the two input keys are randomly
 /// generated (ie our own).
 #[no_mangle]
-pub extern "C" fn derive_private_revocation_key(per_commitment_secret: *const [u8; 32], countersignatory_revocation_base_secret: *const [u8; 32]) -> crate::c_types::derived::CResult_SecretKeySecpErrorZ {
+pub extern "C" fn derive_private_revocation_key(per_commitment_secret: *const [u8; 32], countersignatory_revocation_base_secret: *const [u8; 32]) -> crate::c_types::derived::CResult_SecretKeyErrorZ {
 	let mut ret = lightning::ln::chan_utils::derive_private_revocation_key(&bitcoin::secp256k1::Secp256k1::new(), &::bitcoin::secp256k1::key::SecretKey::from_slice(&unsafe { *per_commitment_secret}[..]).unwrap(), &::bitcoin::secp256k1::key::SecretKey::from_slice(&unsafe { *countersignatory_revocation_base_secret}[..]).unwrap());
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::c_types::SecretKey::from_rust(o) }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::c_types::Secp256k1Error::from_rust(e) }).into() };
 	local_ret
@@ -66,7 +66,7 @@ pub extern "C" fn derive_private_revocation_key(per_commitment_secret: *const [u
 /// Note that this is infallible iff we trust that at least one of the two input keys are randomly
 /// generated (ie our own).
 #[no_mangle]
-pub extern "C" fn derive_public_revocation_key(mut per_commitment_point: crate::c_types::PublicKey, mut countersignatory_revocation_base_point: crate::c_types::PublicKey) -> crate::c_types::derived::CResult_PublicKeySecpErrorZ {
+pub extern "C" fn derive_public_revocation_key(mut per_commitment_point: crate::c_types::PublicKey, mut countersignatory_revocation_base_point: crate::c_types::PublicKey) -> crate::c_types::derived::CResult_PublicKeyErrorZ {
 	let mut ret = lightning::ln::chan_utils::derive_public_revocation_key(&bitcoin::secp256k1::Secp256k1::new(), &per_commitment_point.into_rust(), &countersignatory_revocation_base_point.into_rust());
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::c_types::PublicKey::from_rust(&o) }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::c_types::Secp256k1Error::from_rust(e) }).into() };
 	local_ret
@@ -384,7 +384,7 @@ pub extern "C" fn ChannelPublicKeys_read(ser: crate::c_types::u8slice) -> Channe
 /// Key set is asymmetric and can't be used as part of counter-signatory set of transactions.
 #[must_use]
 #[no_mangle]
-pub extern "C" fn TxCreationKeys_derive_new(mut per_commitment_point: crate::c_types::PublicKey, mut broadcaster_delayed_payment_base: crate::c_types::PublicKey, mut broadcaster_htlc_base: crate::c_types::PublicKey, mut countersignatory_revocation_base: crate::c_types::PublicKey, mut countersignatory_htlc_base: crate::c_types::PublicKey) -> crate::c_types::derived::CResult_TxCreationKeysSecpErrorZ {
+pub extern "C" fn TxCreationKeys_derive_new(mut per_commitment_point: crate::c_types::PublicKey, mut broadcaster_delayed_payment_base: crate::c_types::PublicKey, mut broadcaster_htlc_base: crate::c_types::PublicKey, mut countersignatory_revocation_base: crate::c_types::PublicKey, mut countersignatory_htlc_base: crate::c_types::PublicKey) -> crate::c_types::derived::CResult_TxCreationKeysErrorZ {
 	let mut ret = lightning::ln::chan_utils::TxCreationKeys::derive_new(&bitcoin::secp256k1::Secp256k1::new(), &per_commitment_point.into_rust(), &broadcaster_delayed_payment_base.into_rust(), &broadcaster_htlc_base.into_rust(), &countersignatory_revocation_base.into_rust(), &countersignatory_htlc_base.into_rust());
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::ln::chan_utils::TxCreationKeys { inner: Box::into_raw(Box::new(o)), is_owned: true } }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::c_types::Secp256k1Error::from_rust(e) }).into() };
 	local_ret
@@ -394,7 +394,7 @@ pub extern "C" fn TxCreationKeys_derive_new(mut per_commitment_point: crate::c_t
 /// Key set is asymmetric and can't be used as part of counter-signatory set of transactions.
 #[must_use]
 #[no_mangle]
-pub extern "C" fn TxCreationKeys_from_channel_static_keys(mut per_commitment_point: crate::c_types::PublicKey, broadcaster_keys: &crate::ln::chan_utils::ChannelPublicKeys, countersignatory_keys: &crate::ln::chan_utils::ChannelPublicKeys) -> crate::c_types::derived::CResult_TxCreationKeysSecpErrorZ {
+pub extern "C" fn TxCreationKeys_from_channel_static_keys(mut per_commitment_point: crate::c_types::PublicKey, broadcaster_keys: &crate::ln::chan_utils::ChannelPublicKeys, countersignatory_keys: &crate::ln::chan_utils::ChannelPublicKeys) -> crate::c_types::derived::CResult_TxCreationKeysErrorZ {
 	let mut ret = lightning::ln::chan_utils::TxCreationKeys::from_channel_static_keys(&per_commitment_point.into_rust(), unsafe { &*broadcaster_keys.inner }, unsafe { &*countersignatory_keys.inner }, &bitcoin::secp256k1::Secp256k1::new());
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { crate::ln::chan_utils::TxCreationKeys { inner: Box::into_raw(Box::new(o)), is_owned: true } }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::c_types::Secp256k1Error::from_rust(e) }).into() };
 	local_ret

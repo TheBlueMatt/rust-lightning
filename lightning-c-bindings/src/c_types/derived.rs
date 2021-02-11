@@ -1042,36 +1042,36 @@ impl Clone for CResult_SignatureNoneZ {
 #[no_mangle]
 pub extern "C" fn CResult_SignatureNoneZ_clone(orig: &CResult_SignatureNoneZ) -> CResult_SignatureNoneZ { orig.clone() }
 #[repr(C)]
-pub union CResult_ChanKeySignerDecodeErrorZPtr {
+pub union CResult_ChannelKeysDecodeErrorZPtr {
 	pub result: *mut crate::chain::keysinterface::ChannelKeys,
 	pub err: *mut crate::ln::msgs::DecodeError,
 }
 #[repr(C)]
-pub struct CResult_ChanKeySignerDecodeErrorZ {
-	pub contents: CResult_ChanKeySignerDecodeErrorZPtr,
+pub struct CResult_ChannelKeysDecodeErrorZ {
+	pub contents: CResult_ChannelKeysDecodeErrorZPtr,
 	pub result_ok: bool,
 }
 #[no_mangle]
-pub extern "C" fn CResult_ChanKeySignerDecodeErrorZ_ok(o: crate::chain::keysinterface::ChannelKeys) -> CResult_ChanKeySignerDecodeErrorZ {
-	CResult_ChanKeySignerDecodeErrorZ {
-		contents: CResult_ChanKeySignerDecodeErrorZPtr {
+pub extern "C" fn CResult_ChannelKeysDecodeErrorZ_ok(o: crate::chain::keysinterface::ChannelKeys) -> CResult_ChannelKeysDecodeErrorZ {
+	CResult_ChannelKeysDecodeErrorZ {
+		contents: CResult_ChannelKeysDecodeErrorZPtr {
 			result: Box::into_raw(Box::new(o)),
 		},
 		result_ok: true,
 	}
 }
 #[no_mangle]
-pub extern "C" fn CResult_ChanKeySignerDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_ChanKeySignerDecodeErrorZ {
-	CResult_ChanKeySignerDecodeErrorZ {
-		contents: CResult_ChanKeySignerDecodeErrorZPtr {
+pub extern "C" fn CResult_ChannelKeysDecodeErrorZ_err(e: crate::ln::msgs::DecodeError) -> CResult_ChannelKeysDecodeErrorZ {
+	CResult_ChannelKeysDecodeErrorZ {
+		contents: CResult_ChannelKeysDecodeErrorZPtr {
 			err: Box::into_raw(Box::new(e)),
 		},
 		result_ok: false,
 	}
 }
 #[no_mangle]
-pub extern "C" fn CResult_ChanKeySignerDecodeErrorZ_free(_res: CResult_ChanKeySignerDecodeErrorZ) { }
-impl Drop for CResult_ChanKeySignerDecodeErrorZ {
+pub extern "C" fn CResult_ChannelKeysDecodeErrorZ_free(_res: CResult_ChannelKeysDecodeErrorZ) { }
+impl Drop for CResult_ChannelKeysDecodeErrorZ {
 	fn drop(&mut self) {
 		if self.result_ok {
 			if unsafe { !(self.contents.result as *mut ()).is_null() } {
@@ -1084,16 +1084,16 @@ impl Drop for CResult_ChanKeySignerDecodeErrorZ {
 		}
 	}
 }
-impl From<crate::c_types::CResultTempl<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>> for CResult_ChanKeySignerDecodeErrorZ {
+impl From<crate::c_types::CResultTempl<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>> for CResult_ChannelKeysDecodeErrorZ {
 	fn from(mut o: crate::c_types::CResultTempl<crate::chain::keysinterface::ChannelKeys, crate::ln::msgs::DecodeError>) -> Self {
 		let contents = if o.result_ok {
 			let result = unsafe { o.contents.result };
 			unsafe { o.contents.result = std::ptr::null_mut() };
-			CResult_ChanKeySignerDecodeErrorZPtr { result }
+			CResult_ChannelKeysDecodeErrorZPtr { result }
 		} else {
 			let err = unsafe { o.contents.err };
 			unsafe { o.contents.err = std::ptr::null_mut(); }
-			CResult_ChanKeySignerDecodeErrorZPtr { err }
+			CResult_ChannelKeysDecodeErrorZPtr { err }
 		};
 		Self {
 			contents,
@@ -1101,21 +1101,21 @@ impl From<crate::c_types::CResultTempl<crate::chain::keysinterface::ChannelKeys,
 		}
 	}
 }
-impl Clone for CResult_ChanKeySignerDecodeErrorZ {
+impl Clone for CResult_ChannelKeysDecodeErrorZ {
 	fn clone(&self) -> Self {
 		if self.result_ok {
-			Self { result_ok: true, contents: CResult_ChanKeySignerDecodeErrorZPtr {
+			Self { result_ok: true, contents: CResult_ChannelKeysDecodeErrorZPtr {
 				result: Box::into_raw(Box::new(<crate::chain::keysinterface::ChannelKeys>::clone(unsafe { &*self.contents.result })))
 			} }
 		} else {
-			Self { result_ok: false, contents: CResult_ChanKeySignerDecodeErrorZPtr {
+			Self { result_ok: false, contents: CResult_ChannelKeysDecodeErrorZPtr {
 				err: Box::into_raw(Box::new(<crate::ln::msgs::DecodeError>::clone(unsafe { &*self.contents.err })))
 			} }
 		}
 	}
 }
 #[no_mangle]
-pub extern "C" fn CResult_ChanKeySignerDecodeErrorZ_clone(orig: &CResult_ChanKeySignerDecodeErrorZ) -> CResult_ChanKeySignerDecodeErrorZ { orig.clone() }
+pub extern "C" fn CResult_ChannelKeysDecodeErrorZ_clone(orig: &CResult_ChannelKeysDecodeErrorZ) -> CResult_ChannelKeysDecodeErrorZ { orig.clone() }
 #[repr(C)]
 pub union CResult_InMemoryChannelKeysDecodeErrorZPtr {
 	pub result: *mut crate::chain::keysinterface::InMemoryChannelKeys,
@@ -3496,36 +3496,36 @@ impl Clone for CResult_boolPeerHandleErrorZ {
 #[no_mangle]
 pub extern "C" fn CResult_boolPeerHandleErrorZ_clone(orig: &CResult_boolPeerHandleErrorZ) -> CResult_boolPeerHandleErrorZ { orig.clone() }
 #[repr(C)]
-pub union CResult_SecretKeySecpErrorZPtr {
+pub union CResult_SecretKeyErrorZPtr {
 	pub result: *mut crate::c_types::SecretKey,
 	pub err: *mut crate::c_types::Secp256k1Error,
 }
 #[repr(C)]
-pub struct CResult_SecretKeySecpErrorZ {
-	pub contents: CResult_SecretKeySecpErrorZPtr,
+pub struct CResult_SecretKeyErrorZ {
+	pub contents: CResult_SecretKeyErrorZPtr,
 	pub result_ok: bool,
 }
 #[no_mangle]
-pub extern "C" fn CResult_SecretKeySecpErrorZ_ok(o: crate::c_types::SecretKey) -> CResult_SecretKeySecpErrorZ {
-	CResult_SecretKeySecpErrorZ {
-		contents: CResult_SecretKeySecpErrorZPtr {
+pub extern "C" fn CResult_SecretKeyErrorZ_ok(o: crate::c_types::SecretKey) -> CResult_SecretKeyErrorZ {
+	CResult_SecretKeyErrorZ {
+		contents: CResult_SecretKeyErrorZPtr {
 			result: Box::into_raw(Box::new(o)),
 		},
 		result_ok: true,
 	}
 }
 #[no_mangle]
-pub extern "C" fn CResult_SecretKeySecpErrorZ_err(e: crate::c_types::Secp256k1Error) -> CResult_SecretKeySecpErrorZ {
-	CResult_SecretKeySecpErrorZ {
-		contents: CResult_SecretKeySecpErrorZPtr {
+pub extern "C" fn CResult_SecretKeyErrorZ_err(e: crate::c_types::Secp256k1Error) -> CResult_SecretKeyErrorZ {
+	CResult_SecretKeyErrorZ {
+		contents: CResult_SecretKeyErrorZPtr {
 			err: Box::into_raw(Box::new(e)),
 		},
 		result_ok: false,
 	}
 }
 #[no_mangle]
-pub extern "C" fn CResult_SecretKeySecpErrorZ_free(_res: CResult_SecretKeySecpErrorZ) { }
-impl Drop for CResult_SecretKeySecpErrorZ {
+pub extern "C" fn CResult_SecretKeyErrorZ_free(_res: CResult_SecretKeyErrorZ) { }
+impl Drop for CResult_SecretKeyErrorZ {
 	fn drop(&mut self) {
 		if self.result_ok {
 			if unsafe { !(self.contents.result as *mut ()).is_null() } {
@@ -3538,16 +3538,16 @@ impl Drop for CResult_SecretKeySecpErrorZ {
 		}
 	}
 }
-impl From<crate::c_types::CResultTempl<crate::c_types::SecretKey, crate::c_types::Secp256k1Error>> for CResult_SecretKeySecpErrorZ {
+impl From<crate::c_types::CResultTempl<crate::c_types::SecretKey, crate::c_types::Secp256k1Error>> for CResult_SecretKeyErrorZ {
 	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::SecretKey, crate::c_types::Secp256k1Error>) -> Self {
 		let contents = if o.result_ok {
 			let result = unsafe { o.contents.result };
 			unsafe { o.contents.result = std::ptr::null_mut() };
-			CResult_SecretKeySecpErrorZPtr { result }
+			CResult_SecretKeyErrorZPtr { result }
 		} else {
 			let err = unsafe { o.contents.err };
 			unsafe { o.contents.err = std::ptr::null_mut(); }
-			CResult_SecretKeySecpErrorZPtr { err }
+			CResult_SecretKeyErrorZPtr { err }
 		};
 		Self {
 			contents,
@@ -3556,36 +3556,36 @@ impl From<crate::c_types::CResultTempl<crate::c_types::SecretKey, crate::c_types
 	}
 }
 #[repr(C)]
-pub union CResult_PublicKeySecpErrorZPtr {
+pub union CResult_PublicKeyErrorZPtr {
 	pub result: *mut crate::c_types::PublicKey,
 	pub err: *mut crate::c_types::Secp256k1Error,
 }
 #[repr(C)]
-pub struct CResult_PublicKeySecpErrorZ {
-	pub contents: CResult_PublicKeySecpErrorZPtr,
+pub struct CResult_PublicKeyErrorZ {
+	pub contents: CResult_PublicKeyErrorZPtr,
 	pub result_ok: bool,
 }
 #[no_mangle]
-pub extern "C" fn CResult_PublicKeySecpErrorZ_ok(o: crate::c_types::PublicKey) -> CResult_PublicKeySecpErrorZ {
-	CResult_PublicKeySecpErrorZ {
-		contents: CResult_PublicKeySecpErrorZPtr {
+pub extern "C" fn CResult_PublicKeyErrorZ_ok(o: crate::c_types::PublicKey) -> CResult_PublicKeyErrorZ {
+	CResult_PublicKeyErrorZ {
+		contents: CResult_PublicKeyErrorZPtr {
 			result: Box::into_raw(Box::new(o)),
 		},
 		result_ok: true,
 	}
 }
 #[no_mangle]
-pub extern "C" fn CResult_PublicKeySecpErrorZ_err(e: crate::c_types::Secp256k1Error) -> CResult_PublicKeySecpErrorZ {
-	CResult_PublicKeySecpErrorZ {
-		contents: CResult_PublicKeySecpErrorZPtr {
+pub extern "C" fn CResult_PublicKeyErrorZ_err(e: crate::c_types::Secp256k1Error) -> CResult_PublicKeyErrorZ {
+	CResult_PublicKeyErrorZ {
+		contents: CResult_PublicKeyErrorZPtr {
 			err: Box::into_raw(Box::new(e)),
 		},
 		result_ok: false,
 	}
 }
 #[no_mangle]
-pub extern "C" fn CResult_PublicKeySecpErrorZ_free(_res: CResult_PublicKeySecpErrorZ) { }
-impl Drop for CResult_PublicKeySecpErrorZ {
+pub extern "C" fn CResult_PublicKeyErrorZ_free(_res: CResult_PublicKeyErrorZ) { }
+impl Drop for CResult_PublicKeyErrorZ {
 	fn drop(&mut self) {
 		if self.result_ok {
 			if unsafe { !(self.contents.result as *mut ()).is_null() } {
@@ -3598,16 +3598,16 @@ impl Drop for CResult_PublicKeySecpErrorZ {
 		}
 	}
 }
-impl From<crate::c_types::CResultTempl<crate::c_types::PublicKey, crate::c_types::Secp256k1Error>> for CResult_PublicKeySecpErrorZ {
+impl From<crate::c_types::CResultTempl<crate::c_types::PublicKey, crate::c_types::Secp256k1Error>> for CResult_PublicKeyErrorZ {
 	fn from(mut o: crate::c_types::CResultTempl<crate::c_types::PublicKey, crate::c_types::Secp256k1Error>) -> Self {
 		let contents = if o.result_ok {
 			let result = unsafe { o.contents.result };
 			unsafe { o.contents.result = std::ptr::null_mut() };
-			CResult_PublicKeySecpErrorZPtr { result }
+			CResult_PublicKeyErrorZPtr { result }
 		} else {
 			let err = unsafe { o.contents.err };
 			unsafe { o.contents.err = std::ptr::null_mut(); }
-			CResult_PublicKeySecpErrorZPtr { err }
+			CResult_PublicKeyErrorZPtr { err }
 		};
 		Self {
 			contents,
@@ -3616,36 +3616,36 @@ impl From<crate::c_types::CResultTempl<crate::c_types::PublicKey, crate::c_types
 	}
 }
 #[repr(C)]
-pub union CResult_TxCreationKeysSecpErrorZPtr {
+pub union CResult_TxCreationKeysErrorZPtr {
 	pub result: *mut crate::ln::chan_utils::TxCreationKeys,
 	pub err: *mut crate::c_types::Secp256k1Error,
 }
 #[repr(C)]
-pub struct CResult_TxCreationKeysSecpErrorZ {
-	pub contents: CResult_TxCreationKeysSecpErrorZPtr,
+pub struct CResult_TxCreationKeysErrorZ {
+	pub contents: CResult_TxCreationKeysErrorZPtr,
 	pub result_ok: bool,
 }
 #[no_mangle]
-pub extern "C" fn CResult_TxCreationKeysSecpErrorZ_ok(o: crate::ln::chan_utils::TxCreationKeys) -> CResult_TxCreationKeysSecpErrorZ {
-	CResult_TxCreationKeysSecpErrorZ {
-		contents: CResult_TxCreationKeysSecpErrorZPtr {
+pub extern "C" fn CResult_TxCreationKeysErrorZ_ok(o: crate::ln::chan_utils::TxCreationKeys) -> CResult_TxCreationKeysErrorZ {
+	CResult_TxCreationKeysErrorZ {
+		contents: CResult_TxCreationKeysErrorZPtr {
 			result: Box::into_raw(Box::new(o)),
 		},
 		result_ok: true,
 	}
 }
 #[no_mangle]
-pub extern "C" fn CResult_TxCreationKeysSecpErrorZ_err(e: crate::c_types::Secp256k1Error) -> CResult_TxCreationKeysSecpErrorZ {
-	CResult_TxCreationKeysSecpErrorZ {
-		contents: CResult_TxCreationKeysSecpErrorZPtr {
+pub extern "C" fn CResult_TxCreationKeysErrorZ_err(e: crate::c_types::Secp256k1Error) -> CResult_TxCreationKeysErrorZ {
+	CResult_TxCreationKeysErrorZ {
+		contents: CResult_TxCreationKeysErrorZPtr {
 			err: Box::into_raw(Box::new(e)),
 		},
 		result_ok: false,
 	}
 }
 #[no_mangle]
-pub extern "C" fn CResult_TxCreationKeysSecpErrorZ_free(_res: CResult_TxCreationKeysSecpErrorZ) { }
-impl Drop for CResult_TxCreationKeysSecpErrorZ {
+pub extern "C" fn CResult_TxCreationKeysErrorZ_free(_res: CResult_TxCreationKeysErrorZ) { }
+impl Drop for CResult_TxCreationKeysErrorZ {
 	fn drop(&mut self) {
 		if self.result_ok {
 			if unsafe { !(self.contents.result as *mut ()).is_null() } {
@@ -3658,16 +3658,16 @@ impl Drop for CResult_TxCreationKeysSecpErrorZ {
 		}
 	}
 }
-impl From<crate::c_types::CResultTempl<crate::ln::chan_utils::TxCreationKeys, crate::c_types::Secp256k1Error>> for CResult_TxCreationKeysSecpErrorZ {
+impl From<crate::c_types::CResultTempl<crate::ln::chan_utils::TxCreationKeys, crate::c_types::Secp256k1Error>> for CResult_TxCreationKeysErrorZ {
 	fn from(mut o: crate::c_types::CResultTempl<crate::ln::chan_utils::TxCreationKeys, crate::c_types::Secp256k1Error>) -> Self {
 		let contents = if o.result_ok {
 			let result = unsafe { o.contents.result };
 			unsafe { o.contents.result = std::ptr::null_mut() };
-			CResult_TxCreationKeysSecpErrorZPtr { result }
+			CResult_TxCreationKeysErrorZPtr { result }
 		} else {
 			let err = unsafe { o.contents.err };
 			unsafe { o.contents.err = std::ptr::null_mut(); }
-			CResult_TxCreationKeysSecpErrorZPtr { err }
+			CResult_TxCreationKeysErrorZPtr { err }
 		};
 		Self {
 			contents,

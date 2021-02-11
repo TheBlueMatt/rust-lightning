@@ -513,7 +513,7 @@ pub struct KeysInterface {
 	/// contain no versioning scheme. You may wish to include your own version prefix and ensure
 	/// you've read all of the provided bytes to ensure no corruption occurred.
 	#[must_use]
-	pub read_chan_signer: extern "C" fn (this_arg: *const c_void, reader: crate::c_types::u8slice) -> crate::c_types::derived::CResult_ChanKeySignerDecodeErrorZ,
+	pub read_chan_signer: extern "C" fn (this_arg: *const c_void, reader: crate::c_types::u8slice) -> crate::c_types::derived::CResult_ChannelKeysDecodeErrorZ,
 	pub free: Option<extern "C" fn(this_arg: *mut c_void)>,
 }
 unsafe impl Send for KeysInterface {}
@@ -1010,7 +1010,7 @@ extern "C" fn KeysManager_KeysInterface_get_secure_random_bytes(this_arg: *const
 	crate::c_types::ThirtyTwoBytes { data: ret }
 }
 #[must_use]
-extern "C" fn KeysManager_KeysInterface_read_chan_signer(this_arg: *const c_void, mut reader: crate::c_types::u8slice) -> crate::c_types::derived::CResult_ChanKeySignerDecodeErrorZ {
+extern "C" fn KeysManager_KeysInterface_read_chan_signer(this_arg: *const c_void, mut reader: crate::c_types::u8slice) -> crate::c_types::derived::CResult_ChannelKeysDecodeErrorZ {
 	let mut ret = unsafe { &mut *(this_arg as *mut nativeKeysManager) }.read_chan_signer(reader.to_slice());
 	let mut local_ret = match ret { Ok(mut o) => crate::c_types::CResultTempl::ok( { o.into() }).into(), Err(mut e) => crate::c_types::CResultTempl::err( { crate::ln::msgs::DecodeError { inner: Box::into_raw(Box::new(e)), is_owned: true } }).into() };
 	local_ret

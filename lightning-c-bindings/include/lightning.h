@@ -1503,15 +1503,15 @@ typedef struct LDKCResult_SpendableOutputDescriptorDecodeErrorZ {
    bool result_ok;
 } LDKCResult_SpendableOutputDescriptorDecodeErrorZ;
 
-typedef union LDKCResult_ChanKeySignerDecodeErrorZPtr {
+typedef union LDKCResult_ChannelKeysDecodeErrorZPtr {
    struct LDKChannelKeys *result;
    struct LDKDecodeError *err;
-} LDKCResult_ChanKeySignerDecodeErrorZPtr;
+} LDKCResult_ChannelKeysDecodeErrorZPtr;
 
-typedef struct LDKCResult_ChanKeySignerDecodeErrorZ {
-   union LDKCResult_ChanKeySignerDecodeErrorZPtr contents;
+typedef struct LDKCResult_ChannelKeysDecodeErrorZ {
+   union LDKCResult_ChannelKeysDecodeErrorZPtr contents;
    bool result_ok;
-} LDKCResult_ChanKeySignerDecodeErrorZ;
+} LDKCResult_ChannelKeysDecodeErrorZ;
 
 
 
@@ -1879,7 +1879,7 @@ typedef struct LDKKeysInterface {
     * contain no versioning scheme. You may wish to include your own version prefix and ensure
     * you've read all of the provided bytes to ensure no corruption occurred.
     */
-   struct LDKCResult_ChanKeySignerDecodeErrorZ (*read_chan_signer)(const void *this_arg, struct LDKu8slice reader);
+   struct LDKCResult_ChannelKeysDecodeErrorZ (*read_chan_signer)(const void *this_arg, struct LDKu8slice reader);
    void (*free)(void *this_arg);
 } LDKKeysInterface;
 
@@ -2443,25 +2443,25 @@ typedef struct LDKCResult_boolPeerHandleErrorZ {
    bool result_ok;
 } LDKCResult_boolPeerHandleErrorZ;
 
-typedef union LDKCResult_SecretKeySecpErrorZPtr {
+typedef union LDKCResult_SecretKeyErrorZPtr {
    struct LDKSecretKey *result;
    enum LDKSecp256k1Error *err;
-} LDKCResult_SecretKeySecpErrorZPtr;
+} LDKCResult_SecretKeyErrorZPtr;
 
-typedef struct LDKCResult_SecretKeySecpErrorZ {
-   union LDKCResult_SecretKeySecpErrorZPtr contents;
+typedef struct LDKCResult_SecretKeyErrorZ {
+   union LDKCResult_SecretKeyErrorZPtr contents;
    bool result_ok;
-} LDKCResult_SecretKeySecpErrorZ;
+} LDKCResult_SecretKeyErrorZ;
 
-typedef union LDKCResult_PublicKeySecpErrorZPtr {
+typedef union LDKCResult_PublicKeyErrorZPtr {
    struct LDKPublicKey *result;
    enum LDKSecp256k1Error *err;
-} LDKCResult_PublicKeySecpErrorZPtr;
+} LDKCResult_PublicKeyErrorZPtr;
 
-typedef struct LDKCResult_PublicKeySecpErrorZ {
-   union LDKCResult_PublicKeySecpErrorZPtr contents;
+typedef struct LDKCResult_PublicKeyErrorZ {
+   union LDKCResult_PublicKeyErrorZPtr contents;
    bool result_ok;
-} LDKCResult_PublicKeySecpErrorZ;
+} LDKCResult_PublicKeyErrorZ;
 
 
 
@@ -2487,15 +2487,15 @@ typedef struct MUST_USE_STRUCT LDKTxCreationKeys {
    bool is_owned;
 } LDKTxCreationKeys;
 
-typedef union LDKCResult_TxCreationKeysSecpErrorZPtr {
+typedef union LDKCResult_TxCreationKeysErrorZPtr {
    struct LDKTxCreationKeys *result;
    enum LDKSecp256k1Error *err;
-} LDKCResult_TxCreationKeysSecpErrorZPtr;
+} LDKCResult_TxCreationKeysErrorZPtr;
 
-typedef struct LDKCResult_TxCreationKeysSecpErrorZ {
-   union LDKCResult_TxCreationKeysSecpErrorZPtr contents;
+typedef struct LDKCResult_TxCreationKeysErrorZ {
+   union LDKCResult_TxCreationKeysErrorZPtr contents;
    bool result_ok;
-} LDKCResult_TxCreationKeysSecpErrorZ;
+} LDKCResult_TxCreationKeysErrorZ;
 
 
 
@@ -3586,13 +3586,13 @@ void CResult_SignatureNoneZ_free(struct LDKCResult_SignatureNoneZ _res);
 
 struct LDKCResult_SignatureNoneZ CResult_SignatureNoneZ_clone(const struct LDKCResult_SignatureNoneZ *NONNULL_PTR orig);
 
-struct LDKCResult_ChanKeySignerDecodeErrorZ CResult_ChanKeySignerDecodeErrorZ_ok(struct LDKChannelKeys o);
+struct LDKCResult_ChannelKeysDecodeErrorZ CResult_ChannelKeysDecodeErrorZ_ok(struct LDKChannelKeys o);
 
-struct LDKCResult_ChanKeySignerDecodeErrorZ CResult_ChanKeySignerDecodeErrorZ_err(struct LDKDecodeError e);
+struct LDKCResult_ChannelKeysDecodeErrorZ CResult_ChannelKeysDecodeErrorZ_err(struct LDKDecodeError e);
 
-void CResult_ChanKeySignerDecodeErrorZ_free(struct LDKCResult_ChanKeySignerDecodeErrorZ _res);
+void CResult_ChannelKeysDecodeErrorZ_free(struct LDKCResult_ChannelKeysDecodeErrorZ _res);
 
-struct LDKCResult_ChanKeySignerDecodeErrorZ CResult_ChanKeySignerDecodeErrorZ_clone(const struct LDKCResult_ChanKeySignerDecodeErrorZ *NONNULL_PTR orig);
+struct LDKCResult_ChannelKeysDecodeErrorZ CResult_ChannelKeysDecodeErrorZ_clone(const struct LDKCResult_ChannelKeysDecodeErrorZ *NONNULL_PTR orig);
 
 struct LDKCResult_InMemoryChannelKeysDecodeErrorZ CResult_InMemoryChannelKeysDecodeErrorZ_ok(struct LDKInMemoryChannelKeys o);
 
@@ -3826,23 +3826,23 @@ void CResult_boolPeerHandleErrorZ_free(struct LDKCResult_boolPeerHandleErrorZ _r
 
 struct LDKCResult_boolPeerHandleErrorZ CResult_boolPeerHandleErrorZ_clone(const struct LDKCResult_boolPeerHandleErrorZ *NONNULL_PTR orig);
 
-struct LDKCResult_SecretKeySecpErrorZ CResult_SecretKeySecpErrorZ_ok(struct LDKSecretKey o);
+struct LDKCResult_SecretKeyErrorZ CResult_SecretKeyErrorZ_ok(struct LDKSecretKey o);
 
-struct LDKCResult_SecretKeySecpErrorZ CResult_SecretKeySecpErrorZ_err(enum LDKSecp256k1Error e);
+struct LDKCResult_SecretKeyErrorZ CResult_SecretKeyErrorZ_err(enum LDKSecp256k1Error e);
 
-void CResult_SecretKeySecpErrorZ_free(struct LDKCResult_SecretKeySecpErrorZ _res);
+void CResult_SecretKeyErrorZ_free(struct LDKCResult_SecretKeyErrorZ _res);
 
-struct LDKCResult_PublicKeySecpErrorZ CResult_PublicKeySecpErrorZ_ok(struct LDKPublicKey o);
+struct LDKCResult_PublicKeyErrorZ CResult_PublicKeyErrorZ_ok(struct LDKPublicKey o);
 
-struct LDKCResult_PublicKeySecpErrorZ CResult_PublicKeySecpErrorZ_err(enum LDKSecp256k1Error e);
+struct LDKCResult_PublicKeyErrorZ CResult_PublicKeyErrorZ_err(enum LDKSecp256k1Error e);
 
-void CResult_PublicKeySecpErrorZ_free(struct LDKCResult_PublicKeySecpErrorZ _res);
+void CResult_PublicKeyErrorZ_free(struct LDKCResult_PublicKeyErrorZ _res);
 
-struct LDKCResult_TxCreationKeysSecpErrorZ CResult_TxCreationKeysSecpErrorZ_ok(struct LDKTxCreationKeys o);
+struct LDKCResult_TxCreationKeysErrorZ CResult_TxCreationKeysErrorZ_ok(struct LDKTxCreationKeys o);
 
-struct LDKCResult_TxCreationKeysSecpErrorZ CResult_TxCreationKeysSecpErrorZ_err(enum LDKSecp256k1Error e);
+struct LDKCResult_TxCreationKeysErrorZ CResult_TxCreationKeysErrorZ_err(enum LDKSecp256k1Error e);
 
-void CResult_TxCreationKeysSecpErrorZ_free(struct LDKCResult_TxCreationKeysSecpErrorZ _res);
+void CResult_TxCreationKeysErrorZ_free(struct LDKCResult_TxCreationKeysErrorZ _res);
 
 struct LDKCResult_TrustedCommitmentTransactionNoneZ CResult_TrustedCommitmentTransactionNoneZ_ok(struct LDKTrustedCommitmentTransaction o);
 
@@ -7044,7 +7044,7 @@ struct LDKThirtyTwoBytes build_commitment_secret(const uint8_t (*commitment_seed
  * Note that this is infallible iff we trust that at least one of the two input keys are randomly
  * generated (ie our own).
  */
-struct LDKCResult_SecretKeySecpErrorZ derive_private_key(struct LDKPublicKey per_commitment_point, const uint8_t (*base_secret)[32]);
+struct LDKCResult_SecretKeyErrorZ derive_private_key(struct LDKPublicKey per_commitment_point, const uint8_t (*base_secret)[32]);
 
 /**
  * Derives a per-commitment-transaction public key (eg an htlc key or a delayed_payment key)
@@ -7054,7 +7054,7 @@ struct LDKCResult_SecretKeySecpErrorZ derive_private_key(struct LDKPublicKey per
  * Note that this is infallible iff we trust that at least one of the two input keys are randomly
  * generated (ie our own).
  */
-struct LDKCResult_PublicKeySecpErrorZ derive_public_key(struct LDKPublicKey per_commitment_point, struct LDKPublicKey base_point);
+struct LDKCResult_PublicKeyErrorZ derive_public_key(struct LDKPublicKey per_commitment_point, struct LDKPublicKey base_point);
 
 /**
  * Derives a per-commitment-transaction revocation key from its constituent parts.
@@ -7067,7 +7067,7 @@ struct LDKCResult_PublicKeySecpErrorZ derive_public_key(struct LDKPublicKey per_
  * Note that this is infallible iff we trust that at least one of the two input keys are randomly
  * generated (ie our own).
  */
-struct LDKCResult_SecretKeySecpErrorZ derive_private_revocation_key(const uint8_t (*per_commitment_secret)[32], const uint8_t (*countersignatory_revocation_base_secret)[32]);
+struct LDKCResult_SecretKeyErrorZ derive_private_revocation_key(const uint8_t (*per_commitment_secret)[32], const uint8_t (*countersignatory_revocation_base_secret)[32]);
 
 /**
  * Derives a per-commitment-transaction revocation public key from its constituent parts. This is
@@ -7082,7 +7082,7 @@ struct LDKCResult_SecretKeySecpErrorZ derive_private_revocation_key(const uint8_
  * Note that this is infallible iff we trust that at least one of the two input keys are randomly
  * generated (ie our own).
  */
-struct LDKCResult_PublicKeySecpErrorZ derive_public_revocation_key(struct LDKPublicKey per_commitment_point, struct LDKPublicKey countersignatory_revocation_base_point);
+struct LDKCResult_PublicKeyErrorZ derive_public_revocation_key(struct LDKPublicKey per_commitment_point, struct LDKPublicKey countersignatory_revocation_base_point);
 
 void TxCreationKeys_free(struct LDKTxCreationKeys this_ptr);
 
@@ -7230,13 +7230,13 @@ struct LDKChannelPublicKeys ChannelPublicKeys_read(struct LDKu8slice ser);
  * Create per-state keys from channel base points and the per-commitment point.
  * Key set is asymmetric and can't be used as part of counter-signatory set of transactions.
  */
-MUST_USE_RES struct LDKCResult_TxCreationKeysSecpErrorZ TxCreationKeys_derive_new(struct LDKPublicKey per_commitment_point, struct LDKPublicKey broadcaster_delayed_payment_base, struct LDKPublicKey broadcaster_htlc_base, struct LDKPublicKey countersignatory_revocation_base, struct LDKPublicKey countersignatory_htlc_base);
+MUST_USE_RES struct LDKCResult_TxCreationKeysErrorZ TxCreationKeys_derive_new(struct LDKPublicKey per_commitment_point, struct LDKPublicKey broadcaster_delayed_payment_base, struct LDKPublicKey broadcaster_htlc_base, struct LDKPublicKey countersignatory_revocation_base, struct LDKPublicKey countersignatory_htlc_base);
 
 /**
  * Generate per-state keys from channel static keys.
  * Key set is asymmetric and can't be used as part of counter-signatory set of transactions.
  */
-MUST_USE_RES struct LDKCResult_TxCreationKeysSecpErrorZ TxCreationKeys_from_channel_static_keys(struct LDKPublicKey per_commitment_point, const struct LDKChannelPublicKeys *NONNULL_PTR broadcaster_keys, const struct LDKChannelPublicKeys *NONNULL_PTR countersignatory_keys);
+MUST_USE_RES struct LDKCResult_TxCreationKeysErrorZ TxCreationKeys_from_channel_static_keys(struct LDKPublicKey per_commitment_point, const struct LDKChannelPublicKeys *NONNULL_PTR broadcaster_keys, const struct LDKChannelPublicKeys *NONNULL_PTR countersignatory_keys);
 
 /**
  * A script either spendable by the revocation
