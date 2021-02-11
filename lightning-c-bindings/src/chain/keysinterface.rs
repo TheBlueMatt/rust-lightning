@@ -609,24 +609,6 @@ impl InMemoryChannelKeys {
 		ret
 	}
 }
-impl Clone for InMemoryChannelKeys {
-	fn clone(&self) -> Self {
-		Self {
-			inner: if self.inner.is_null() { std::ptr::null_mut() } else {
-				Box::into_raw(Box::new(unsafe { &*self.inner }.clone())) },
-			is_owned: true,
-		}
-	}
-}
-#[allow(unused)]
-/// Used only if an object of this type is returned as a trait impl by a method
-pub(crate) extern "C" fn InMemoryChannelKeys_clone_void(this_ptr: *const c_void) -> *mut c_void {
-	Box::into_raw(Box::new(unsafe { (*(this_ptr as *mut nativeInMemoryChannelKeys)).clone() })) as *mut c_void
-}
-#[no_mangle]
-pub extern "C" fn InMemoryChannelKeys_clone(orig: &InMemoryChannelKeys) -> InMemoryChannelKeys {
-	orig.clone()
-}
 /// Private key of anchor tx
 #[no_mangle]
 pub extern "C" fn InMemoryChannelKeys_get_funding_key(this_ptr: &InMemoryChannelKeys) -> *const [u8; 32] {
@@ -692,6 +674,24 @@ pub extern "C" fn InMemoryChannelKeys_get_commitment_seed(this_ptr: &InMemoryCha
 #[no_mangle]
 pub extern "C" fn InMemoryChannelKeys_set_commitment_seed(this_ptr: &mut InMemoryChannelKeys, mut val: crate::c_types::ThirtyTwoBytes) {
 	unsafe { &mut *this_ptr.inner }.commitment_seed = val.data;
+}
+impl Clone for InMemoryChannelKeys {
+	fn clone(&self) -> Self {
+		Self {
+			inner: if self.inner.is_null() { std::ptr::null_mut() } else {
+				Box::into_raw(Box::new(unsafe { &*self.inner }.clone())) },
+			is_owned: true,
+		}
+	}
+}
+#[allow(unused)]
+/// Used only if an object of this type is returned as a trait impl by a method
+pub(crate) extern "C" fn InMemoryChannelKeys_clone_void(this_ptr: *const c_void) -> *mut c_void {
+	Box::into_raw(Box::new(unsafe { (*(this_ptr as *mut nativeInMemoryChannelKeys)).clone() })) as *mut c_void
+}
+#[no_mangle]
+pub extern "C" fn InMemoryChannelKeys_clone(orig: &InMemoryChannelKeys) -> InMemoryChannelKeys {
+	orig.clone()
 }
 /// Create a new InMemoryChannelKeys
 #[must_use]

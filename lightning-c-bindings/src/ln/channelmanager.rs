@@ -124,24 +124,6 @@ impl ChannelDetails {
 		ret
 	}
 }
-impl Clone for ChannelDetails {
-	fn clone(&self) -> Self {
-		Self {
-			inner: if self.inner.is_null() { std::ptr::null_mut() } else {
-				Box::into_raw(Box::new(unsafe { &*self.inner }.clone())) },
-			is_owned: true,
-		}
-	}
-}
-#[allow(unused)]
-/// Used only if an object of this type is returned as a trait impl by a method
-pub(crate) extern "C" fn ChannelDetails_clone_void(this_ptr: *const c_void) -> *mut c_void {
-	Box::into_raw(Box::new(unsafe { (*(this_ptr as *mut nativeChannelDetails)).clone() })) as *mut c_void
-}
-#[no_mangle]
-pub extern "C" fn ChannelDetails_clone(orig: &ChannelDetails) -> ChannelDetails {
-	orig.clone()
-}
 /// The channel's ID (prior to funding transaction generation, this is a random 32 bytes,
 /// thereafter this is the txid of the funding transaction xor the funding transaction output).
 /// Note that this means this value is *not* persistent - it can change once during the
@@ -255,6 +237,24 @@ pub extern "C" fn ChannelDetails_get_is_live(this_ptr: &ChannelDetails) -> bool 
 #[no_mangle]
 pub extern "C" fn ChannelDetails_set_is_live(this_ptr: &mut ChannelDetails, mut val: bool) {
 	unsafe { &mut *this_ptr.inner }.is_live = val;
+}
+impl Clone for ChannelDetails {
+	fn clone(&self) -> Self {
+		Self {
+			inner: if self.inner.is_null() { std::ptr::null_mut() } else {
+				Box::into_raw(Box::new(unsafe { &*self.inner }.clone())) },
+			is_owned: true,
+		}
+	}
+}
+#[allow(unused)]
+/// Used only if an object of this type is returned as a trait impl by a method
+pub(crate) extern "C" fn ChannelDetails_clone_void(this_ptr: *const c_void) -> *mut c_void {
+	Box::into_raw(Box::new(unsafe { (*(this_ptr as *mut nativeChannelDetails)).clone() })) as *mut c_void
+}
+#[no_mangle]
+pub extern "C" fn ChannelDetails_clone(orig: &ChannelDetails) -> ChannelDetails {
+	orig.clone()
 }
 
 use lightning::ln::channelmanager::PaymentSendFailure as nativePaymentSendFailureImport;
