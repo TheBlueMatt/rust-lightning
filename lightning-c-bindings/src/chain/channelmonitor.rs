@@ -466,6 +466,24 @@ impl ChannelMonitor {
 		ret
 	}
 }
+impl Clone for ChannelMonitor {
+	fn clone(&self) -> Self {
+		Self {
+			inner: if self.inner.is_null() { std::ptr::null_mut() } else {
+				Box::into_raw(Box::new(unsafe { &*self.inner }.clone())) },
+			is_owned: true,
+		}
+	}
+}
+#[allow(unused)]
+/// Used only if an object of this type is returned as a trait impl by a method
+pub(crate) extern "C" fn ChannelMonitor_clone_void(this_ptr: *const c_void) -> *mut c_void {
+	Box::into_raw(Box::new(unsafe { (*(this_ptr as *mut nativeChannelMonitor)).clone() })) as *mut c_void
+}
+#[no_mangle]
+pub extern "C" fn ChannelMonitor_clone(orig: &ChannelMonitor) -> ChannelMonitor {
+	orig.clone()
+}
 #[no_mangle]
 pub extern "C" fn ChannelMonitor_write(obj: &ChannelMonitor) -> crate::c_types::derived::CVec_u8Z {
 	crate::c_types::serialize_obj(unsafe { &*unsafe { &*obj }.inner })

@@ -3430,6 +3430,14 @@ impl Drop for CVec_ChannelMonitorZ {
 		unsafe { Box::from_raw(std::slice::from_raw_parts_mut(self.data, self.datalen)) };
 	}
 }
+impl Clone for CVec_ChannelMonitorZ {
+	fn clone(&self) -> Self {
+		let mut res = Vec::new();
+		if self.datalen == 0 { return Self::from(res); }
+		res.extend_from_slice(unsafe { std::slice::from_raw_parts_mut(self.data, self.datalen) });
+		Self::from(res)
+	}
+}
 #[repr(C)]
 pub struct C2Tuple_BlockHashChannelManagerZ {
 	pub a: crate::c_types::ThirtyTwoBytes,
