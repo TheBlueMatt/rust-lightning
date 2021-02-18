@@ -197,14 +197,20 @@ mod tests {
 		}
 	}
 
+	fn get_temp_path(name: &str) -> String {
+		let mut path = std::env::temp_dir();
+		path.push(name);
+		path.to_str().unwrap().to_string()
+	}
+
 	// Integration-test the FilesystemPersister. Test relaying a few payments
 	// and check that the persisted data is updated the appropriate number of
 	// times.
 	#[test]
 	fn test_filesystem_persister() {
 		// Create the nodes, giving them FilesystemPersisters for data persisters.
-		let persister_0 = FilesystemPersister::new("test_filesystem_persister_0".to_string());
-		let persister_1 = FilesystemPersister::new("test_filesystem_persister_1".to_string());
+		let persister_0 = FilesystemPersister::new(get_temp_path("test_filesystem_persister_0"));
+		let persister_1 = FilesystemPersister::new(get_temp_path("test_filesystem_persister_1"));
 		let chanmon_cfgs = create_chanmon_cfgs(2);
 		let mut node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
 		let chain_mon_0 = test_utils::TestChainMonitor::new(Some(&chanmon_cfgs[0].chain_source), &chanmon_cfgs[0].tx_broadcaster, &chanmon_cfgs[0].logger, &chanmon_cfgs[0].fee_estimator, &persister_0, &node_cfgs[0].keys_manager);
@@ -273,7 +279,7 @@ mod tests {
 	#[cfg(not(target_os = "windows"))]
 	#[test]
 	fn test_readonly_dir_perm_failure() {
-		let persister = FilesystemPersister::new("test_readonly_dir_perm_failure".to_string());
+		let persister = FilesystemPersister::new(get_temp_path("test_readonly_dir_perm_failure"));
 		fs::create_dir_all(&persister.path_to_channel_data).unwrap();
 
 		// Set up a dummy channel and force close. This will produce a monitor
