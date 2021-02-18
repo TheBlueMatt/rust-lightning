@@ -42,7 +42,11 @@ fn path_to_windows_str<T: AsRef<OsStr>>(x: T) -> Vec<winapi::shared::ntdef::WCHA
 #[allow(bare_trait_objects)]
 pub(crate) fn write_to_file<D: DiskWriteable>(path: String, filename: String, data: &D) -> std::io::Result<()> {
 	println!("VMW: in write_to_file, filename: {}", filename);
-	fs::create_dir_all(path.clone())?;
+	fs::create_dir(path.clone())?;
+			/*call!(unsafe {winapi::um::winbase::MoveFileExW(
+				path_to_windows_str(src).as_ptr(), path_to_windows_str(dst).as_ptr(),
+				winapi::um::winbase::MOVEFILE_WRITE_THROUGH | winapi::um::winbase::MOVEFILE_REPLACE_EXISTING
+			)});*/
 
 	// Do a crazy dance with lots of fsync()s to be overly cautious here...
 	// We never want to end up in a state where we've lost the old data, or end up using the
@@ -103,17 +107,17 @@ pub(crate) fn write_to_file<D: DiskWriteable>(path: String, filename: String, da
 		// )});
 		// let backup_filepath = PathBuf::from(format!("{}.backup", filename_with_path.clone()));
 
-		if Path::new(&filename_with_path.clone()).exists() {
+		/*if Path::new(&filename_with_path.clone()).exists() {
 			unsafe {winapi::um::winbase::ReplaceFileW(
 				path_to_windows_str(dst).as_ptr(), path_to_windows_str(src).as_ptr(), std::ptr::null(),
 				winapi::um::winbase::REPLACEFILE_IGNORE_MERGE_ERRORS, std::ptr::null_mut() as *mut winapi::ctypes::c_void, std::ptr::null_mut() as *mut winapi::ctypes::c_void
 			)};
-		} else {
+		} else {*/
 			call!(unsafe {winapi::um::winbase::MoveFileExW(
 				path_to_windows_str(src).as_ptr(), path_to_windows_str(dst).as_ptr(),
 				winapi::um::winbase::MOVEFILE_WRITE_THROUGH | winapi::um::winbase::MOVEFILE_REPLACE_EXISTING
 			)});
-		}
+		//}
 		let mut final_file = fs::File::open(filename_with_path.clone())?;
 		let file_handle = final_file.into_raw_handle();
 		unsafe{winapi::um::fileapi::FlushFileBuffers(file_handle);}
