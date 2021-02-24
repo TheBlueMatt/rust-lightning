@@ -166,8 +166,8 @@ impl BlockSource for Blockchain {
 pub struct NullChainListener;
 
 impl chain::Listen for NullChainListener {
-	fn block_connected(&self, _block: &Block, _height: u32) {}
-	fn block_disconnected(&self, _header: &BlockHeader, _height: u32) {}
+	fn block_connected(&mut self, _block: &Block, _height: u32) {}
+	fn block_disconnected(&mut self, _header: &BlockHeader, _height: u32) {}
 }
 
 pub struct MockChainListener {
@@ -195,7 +195,7 @@ impl MockChainListener {
 }
 
 impl chain::Listen for MockChainListener {
-	fn block_connected(&self, block: &Block, height: u32) {
+	fn block_connected(&mut self, block: &Block, height: u32) {
 		match self.expected_blocks_connected.borrow_mut().pop_front() {
 			None => {
 				panic!("Unexpected block connected: {:?}", block.block_hash());
@@ -207,7 +207,7 @@ impl chain::Listen for MockChainListener {
 		}
 	}
 
-	fn block_disconnected(&self, header: &BlockHeader, height: u32) {
+	fn block_disconnected(&mut self, header: &BlockHeader, height: u32) {
 		match self.expected_blocks_disconnected.borrow_mut().pop_front() {
 			None => {
 				panic!("Unexpected block disconnected: {:?}", header.block_hash());

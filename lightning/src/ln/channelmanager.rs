@@ -3139,7 +3139,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> EventsProvi
 	}
 }
 
-impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> chain::Listen for ChannelManager<Signer, M, T, K, F, L>
+impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> chain::sealed::DerefListen for ChannelManager<Signer, M, T, K, F, L>
 where
 	M::Target: chain::Watch<Signer>,
 	T::Target: BroadcasterInterface,

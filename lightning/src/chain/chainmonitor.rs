@@ -141,7 +141,7 @@ where C::Target: chain::Filter,
 }
 
 impl<ChannelSigner: Sign, C: Deref + Send + Sync, T: Deref + Send + Sync, F: Deref + Send + Sync, L: Deref + Send + Sync, P: Deref + Send + Sync>
-chain::Listen for ChainMonitor<ChannelSigner, C, T, F, L, P>
+chain::sealed::DerefListen for ChainMonitor<ChannelSigner, C, T, F, L, P>
 where
 	ChannelSigner: Sign,
 	C::Target: chain::Filter,

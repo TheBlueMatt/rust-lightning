@@ -18,6 +18,8 @@ use chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate, ChannelMonitor
 use chain::keysinterface::Sign;
 use chain::transaction::OutPoint;
 
+use std::ops::Deref;
+
 pub mod chaininterface;
 pub mod chainmonitor;
 pub mod channelmonitor;
@@ -53,11 +55,43 @@ pub trait Access: Send + Sync {
 /// Useful when needing to replay chain data upon startup or as new chain events occur.
 pub trait Listen {
 	/// Notifies the listener that a block was added at the given height.
-	fn block_connected(&self, block: &Block, height: u32);
+	fn block_connected(&mut self, block: &Block, height: u32);
 
 	/// Notifies the listener that a block was removed at the given height.
-	fn block_disconnected(&self, header: &BlockHeader, height: u32);
+	fn block_disconnected(&mut self, header: &BlockHeader, height: u32);
 }
+
+pub(crate) mod sealed {
+	use super::*;
+	/// Rustc currently isn't smart enough to figure out that two impls are not conflicting when they
+	/// both impl for `Deref` but with a different `Target`
+	/// (https://github.com/rust-lang/rust/issues/20400). Instead, we use the workaround suggested at
+	/// https://stackoverflow.com/questions/40392524/conflicting-trait-implementations-even-though-associated-types-differ/40408431#40408431
+	pub trait DerefListen {
+		fn block_connected(&self, block: &Block, height: u32);
+		fn block_disconnected(&self, header: &BlockHeader, height: u32);
+	}
+	impl<T: Deref, U: Deref> DerefListen for (T, U) where T::Target: DerefListen, U::Target: DerefListen {
+		fn block_connected(&self, block: &Block, height: u32) {
+			Deref::deref(&self.0).block_connected(block, height);
+			Deref::deref(&self.1).block_connected(block, height);
+		}
+
+		fn block_disconnected(&self, header: &BlockHeader, height: u32) {
+			Deref::deref(&self.0).block_disconnected(header, height);
+			Deref::deref(&self.1).block_disconnected(header, height);
+		}
+	}
+}
+impl<T: Deref> Listen for T where T::Target: sealed::DerefListen {
+	fn block_connected(&mut self, block: &Block, height: u32) {
+		sealed::DerefListen::block_connected(Deref::deref(self), block, height);
+	}
+	fn block_disconnected(&mut self, header: &BlockHeader, height: u32) {
+		sealed::DerefListen::block_disconnected(Deref::deref(self), header, height);
+	}
+}
+
 
 /// The `Watch` trait defines behavior for watching on-chain activity pertaining to channels as
 /// blocks are connected and disconnected.
@@ -135,30 +169,4 @@ pub trait Filter: Send + Sync {
 	/// Registers interest in spends of a transaction output identified by `outpoint` having
 	/// `script_pubkey` as the spending condition.
 	fn register_output(&self, outpoint: &OutPoint, script_pubkey: &Script);
-}
-
-impl<T: Listen> Listen for std::ops::Deref<Target = T> {
-	fn block_connected(&self, block: &Block, height: u32) {
-		(**self).block_connected(block, height);
-	}
-
-	fn block_disconnected(&self, header: &BlockHeader, height: u32) {
-		(**self).block_disconnected(header, height);
-	}
-}
-
-impl<T: std::ops::Deref, U: std::ops::Deref> Listen for (T, U)
-where
-	T::Target: Listen,
-	U::Target: Listen,
-{
-	fn block_connected(&self, block: &Block, height: u32) {
-		self.0.block_connected(block, height);
-		self.1.block_connected(block, height);
-	}
-
-	fn block_disconnected(&self, header: &BlockHeader, height: u32) {
-		self.0.block_disconnected(header, height);
-		self.1.block_disconnected(header, height);
-	}
 }

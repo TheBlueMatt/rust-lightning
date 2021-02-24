@@ -80,15 +80,17 @@ use lightning::chain;
 /// 	};
 ///
 /// 	let mut cache = UnboundedCache::new();
-/// 	let mut monitor_listener = (RefCell::new(monitor), &*tx_broadcaster, &*fee_estimator, &*logger);
+///		let mut monitor_listener = channelmonitor::MonitorTraits {
+///			monitor: &mut monitor, broadcaster: &*tx_broadcaster, fee_estimator: &*fee_estimator, logger: &*logger
+///		};
+///		let mut manager_ref = &manager;
 /// 	let listeners = vec![
 /// 		(monitor_block_hash, &mut monitor_listener as &mut dyn chain::Listen),
-/// 		(manager_block_hash, &mut manager as &mut dyn chain::Listen),
+/// 		(manager_block_hash, &mut manager_ref as &mut dyn chain::Listen),
 /// 	];
 /// 	let chain_tip =
 /// 		init::sync_listeners(block_source, Network::Bitcoin, &mut cache, listeners).await.unwrap();
 ///
-/// 	let monitor = monitor_listener.0.into_inner();
 /// 	chain_monitor.watch_channel(monitor.get_funding_txo().0, monitor);
 ///
 /// 	let chain_poller = poll::ChainPoller::new(block_source, Network::Bitcoin);
@@ -132,7 +134,7 @@ pub async fn sync_listeners<B: BlockSource, C: Cache>(
 		// Disconnect any stale blocks, but keep them in the cache for the next iteration.
 		let header_cache = &mut ReadOnlyCache(header_cache);
 		let (common_ancestor, connected_blocks) = {
-			let chain_listener = &DynamicChainListener(chain_listener);
+			let chain_listener = DynamicChainListener(chain_listener);
 			let mut chain_notifier = ChainNotifier { header_cache, chain_listener };
 			let difference =
 				chain_notifier.find_difference(new_header, &old_header, &mut chain_poller).await?;
@@ -150,7 +152,7 @@ pub async fn sync_listeners<B: BlockSource, C: Cache>(
 
 	// Connect new blocks for all listeners at once to avoid re-fetching blocks.
 	if let Some(common_ancestor) = most_common_ancestor {
-		let chain_listener = &ChainListenerSet(chain_listeners_at_height);
+		let chain_listener = ChainListenerSet(chain_listeners_at_height);
 		let mut chain_notifier = ChainNotifier { header_cache, chain_listener };
 		chain_notifier.connect_blocks(common_ancestor, most_connected_blocks, &mut chain_poller)
 			.await.or_else(|(e, _)| Err(e))?;
@@ -183,11 +185,11 @@ impl<'a, C: Cache> Cache for ReadOnlyCache<'a, C> {
 struct DynamicChainListener<'a>(&'a mut dyn chain::Listen);
 
 impl<'a> chain::Listen for DynamicChainListener<'a> {
-	fn block_connected(&self, _block: &Block, _height: u32) {
+	fn block_connected(&mut self, _block: &Block, _height: u32) {
 		unreachable!()
 	}
 
-	fn block_disconnected(&self, header: &BlockHeader, height: u32) {
+	fn block_disconnected(&mut self, header: &BlockHeader, height: u32) {
 		self.0.block_disconnected(header, height)
 	}
 }
@@ -196,15 +198,15 @@ impl<'a> chain::Listen for DynamicChainListener<'a> {
 struct ChainListenerSet<'a>(Vec<(u32, &'a mut dyn chain::Listen)>);
 
 impl<'a> chain::Listen for ChainListenerSet<'a> {
-	fn block_connected(&self, block: &Block, height: u32) {
-		for (starting_height, chain_listener) in self.0.iter() {
+	fn block_connected(&mut self, block: &Block, height: u32) {
+		for (starting_height, chain_listener) in self.0.iter_mut() {
 			if height > *starting_height {
 				chain_listener.block_connected(block, height);
 			}
 		}
 	}
 
-	fn block_disconnected(&self, _header: &BlockHeader, _height: u32) {
+	fn block_disconnected(&mut self, _header: &BlockHeader, _height: u32) {
 		unreachable!()
 	}
 }
