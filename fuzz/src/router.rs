@@ -26,7 +26,8 @@ use bitcoin::blockdata::constants::genesis_block;
 
 use utils::test_logger;
 
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
+use std::hash;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -92,6 +93,13 @@ impl chain::Access for FuzzChainSource {
 		}
 	}
 }
+
+// We sometimes walk the HashSet of peer node_ids, which, in order to keep the ordering consistent
+// across fuzz runs, we need to use a consistent hasher.
+// Tt is deprecated, but the "replacement" doesn't actually accomplish the same goals, so we just
+// ignore it.
+#[allow(deprecated)]
+pub type NonRandomHash = hash::BuildHasherDefault<hash::SipHasher>;
 
 #[inline]
 pub fn do_test<Out: test_logger::Output>(data: &[u8], out: Out) {
@@ -159,7 +167,7 @@ pub fn do_test<Out: test_logger::Output>(data: &[u8], out: Out) {
 	let our_pubkey = get_pubkey!();
 	let mut net_graph = NetworkGraph::new(genesis_block(Network::Bitcoin).header.block_hash());
 
-	let mut node_pks = HashSet::new();
+	let mut node_pks: HashSet<_, NonRandomHash> = HashSet::default();
 	let mut scid = 42;
 
 	loop {
