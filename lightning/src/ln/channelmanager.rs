@@ -3186,6 +3186,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 	pub fn block_connected(&self, header: &BlockHeader, txdata: &TransactionData, height: u32) {
 		let block_hash = header.block_hash();
 		log_trace!(self.logger, "Block {} at height {} connected", block_hash, height);
+
 		let _persistence_guard = PersistenceNotifierGuard::new(&self.total_consistency_lock, &self.persistence_notifier);
 		let mut failed_channels = Vec::new();
 		let mut timed_out_htlcs = Vec::new();
@@ -3270,7 +3271,11 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				});
 				!htlcs.is_empty() // Only retain this entry if htlcs has at least one entry.
 			});
+
+			*self.last_block_hash.lock().unwrap() = block_hash;
+			self.latest_block_height.store(height as usize, Ordering::Release);
 		}
+
 		for failure in failed_channels.drain(..) {
 			self.finish_force_close_channel(failure);
 		}
@@ -3278,8 +3283,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		for (source, payment_hash, reason) in timed_out_htlcs.drain(..) {
 			self.fail_htlc_backwards_internal(self.channel_state.lock().unwrap(), source, &payment_hash, reason);
 		}
-		self.latest_block_height.store(height as usize, Ordering::Release);
-		*self.last_block_hash.try_lock().expect("block_(dis)connected must not be called in parallel") = block_hash;
+
 		loop {
 			// Update last_node_announcement_serial to be the max of its current value and the
 			// block timestamp. This should keep us close to the current time without relying on
@@ -3322,12 +3326,14 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					true
 				}
 			});
+
+			*self.last_block_hash.lock().unwrap() = header.block_hash();
+			self.latest_block_height.fetch_sub(1, Ordering::AcqRel);
 		}
+
 		for failure in failed_channels.drain(..) {
 			self.finish_force_close_channel(failure);
 		}
-		self.latest_block_height.fetch_sub(1, Ordering::AcqRel);
-		*self.last_block_hash.try_lock().expect("block_(dis)connected must not be called in parallel") = header.block_hash();
 	}
 
 	/// Blocks until ChannelManager needs to be persisted or a timeout is reached. It returns a bool
@@ -3881,11 +3887,12 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> Writeable f
 		writer.write_all(&[SERIALIZATION_VERSION; 1])?;
 		writer.write_all(&[MIN_SERIALIZATION_VERSION; 1])?;
 
+		let channel_state = self.channel_state.lock().unwrap();
+
 		self.genesis_hash.write(writer)?;
 		(self.latest_block_height.load(Ordering::Acquire) as u32).write(writer)?;
 		self.last_block_hash.lock().unwrap().write(writer)?;
 
-		let channel_state = self.channel_state.lock().unwrap();
 		let mut unfunded_channels = 0;
 		for (_, channel) in channel_state.by_id.iter() {
 			if !channel.is_funding_initiated() {
