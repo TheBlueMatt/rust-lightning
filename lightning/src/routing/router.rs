@@ -211,6 +211,8 @@ struct PathBuildingHop<'a> {
 	// value_contribution_msat, which requires tracking it here. See comments below where it is
 	// used for more info.
 	value_contribution_msat: u64,
+/// Track available liquidity to make sure we don't overshoot it, which would indicate a bug.
+available_liquidity_msat: u64,
 }
 
 // Instantiated with a list of hops with correct data in them collected during path finding,
@@ -280,6 +282,7 @@ impl<'a> PaymentPath<'a> {
 				// channels in add_entry.
 				// Also, this can't be exploited more heavily than *announce a free path and fail
 				// all payments*.
+if cur_hop_transferred_amount_msat + extra_fees_msat > cur_hop.available_liquidity_msat { panic!(); }
 				cur_hop_transferred_amount_msat += extra_fees_msat;
 				total_fee_paid_msat += extra_fees_msat;
 				cur_hop_fees_msat += extra_fees_msat;
@@ -620,6 +623,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 								fee_proportional_millionths = fees.proportional_millionths;
 							}
 							PathBuildingHop {
+available_liquidity_msat: *available_liquidity_msat,
 								pubkey: $dest_node_id.clone(),
 								short_channel_id: 0,
 								channel_features: $chan_features,
@@ -715,6 +719,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 
 							if !old_entry.was_processed && new_cost < old_cost {
 								targets.push(new_graph_node);
+old_entry.available_liquidity_msat = *available_liquidity_msat;
 								old_entry.next_hops_fee_msat = $next_hops_fee_msat;
 								old_entry.hop_use_fee_msat = hop_use_fee_msat;
 								old_entry.total_fee_msat = total_fee_msat;
