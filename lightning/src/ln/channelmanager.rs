@@ -3327,7 +3327,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				}
 			});
 
-			*self.last_block_hash.lock().unwrap() = header.block_hash();
+			*self.last_block_hash.lock().unwrap() = header.prev_blockhash;
 			self.latest_block_height.fetch_sub(1, Ordering::AcqRel);
 		}
 
