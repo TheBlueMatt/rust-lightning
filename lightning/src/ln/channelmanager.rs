@@ -3184,8 +3184,8 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 {
 	/// Updates channel state based on transactions seen in a connected block.
 	pub fn block_connected(&self, header: &BlockHeader, txdata: &TransactionData, height: u32) {
-		let header_hash = header.block_hash();
-		log_trace!(self.logger, "Block {} at height {} connected", header_hash, height);
+		let block_hash = header.block_hash();
+		log_trace!(self.logger, "Block {} at height {} connected", block_hash, height);
 		let _persistence_guard = PersistenceNotifierGuard::new(&self.total_consistency_lock, &self.persistence_notifier);
 		let mut failed_channels = Vec::new();
 		let mut timed_out_htlcs = Vec::new();
@@ -3279,7 +3279,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 			self.fail_htlc_backwards_internal(self.channel_state.lock().unwrap(), source, &payment_hash, reason);
 		}
 		self.latest_block_height.store(height as usize, Ordering::Release);
-		*self.last_block_hash.try_lock().expect("block_(dis)connected must not be called in parallel") = header_hash;
+		*self.last_block_hash.try_lock().expect("block_(dis)connected must not be called in parallel") = block_hash;
 		loop {
 			// Update last_node_announcement_serial to be the max of its current value and the
 			// block timestamp. This should keep us close to the current time without relying on
