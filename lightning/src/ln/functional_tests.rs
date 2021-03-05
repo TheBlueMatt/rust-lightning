@@ -3548,7 +3548,7 @@ fn test_unconf_chan() {
 	mem::drop(channel_state);
 
 	let mut headers = Vec::new();
-	let mut header = BlockHeader { version: 0x20000000, prev_blockhash: Default::default(), merkle_root: Default::default(), time: 42, bits: 42, nonce: 42 };
+	let mut header = BlockHeader { version: 0x20000000, prev_blockhash: genesis_block(Network::Testnet).header.block_hash(), merkle_root: Default::default(), time: 42, bits: 42, nonce: 42 };
 	headers.push(header.clone());
 	for _i in 2..100 {
 		header = BlockHeader { version: 0x20000000, prev_blockhash: header.block_hash(), merkle_root: Default::default(), time: 42, bits: 42, nonce: 42 };
@@ -8125,8 +8125,8 @@ fn test_set_outpoints_partial_claiming() {
 	};
 
 	// Broadcast partial claim on node A, should regenerate a claiming tx with HTLC dropped
-	let header = BlockHeader { version: 0x20000000, prev_blockhash: header.block_hash(), merkle_root: Default::default(), time: 42, bits: 42, nonce: 42 };
-	connect_block(&nodes[0], &Block { header, txdata: vec![partial_claim_tx.clone()] }, 102);
+	let new_header = BlockHeader { version: 0x20000000, prev_blockhash: header.block_hash(), merkle_root: Default::default(), time: 42, bits: 42, nonce: 42 };
+	connect_block(&nodes[0], &Block { header: new_header, txdata: vec![partial_claim_tx.clone()] }, 102);
 	{
 		let mut node_txn = nodes[0].tx_broadcaster.txn_broadcasted.lock().unwrap();
 		assert_eq!(node_txn.len(), 1);
@@ -8137,7 +8137,7 @@ fn test_set_outpoints_partial_claiming() {
 	nodes[0].node.get_and_clear_pending_msg_events();
 
 	// Disconnect last block on node A, should regenerate a claiming tx with HTLC dropped
-	disconnect_block(&nodes[0], &header, 102);
+	disconnect_block(&nodes[0], &new_header, 102);
 	{
 		let mut node_txn = nodes[0].tx_broadcaster.txn_broadcasted.lock().unwrap();
 		assert_eq!(node_txn.len(), 1);

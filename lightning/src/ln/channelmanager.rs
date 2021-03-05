@@ -3272,6 +3272,15 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				!htlcs.is_empty() // Only retain this entry if htlcs has at least one entry.
 			});
 
+			// This assertion should be enforced in tests, however we have a number of tests that
+			// were written before this requirement and do not meet it.
+			#[cfg(not(test))]
+			{
+				assert_eq!(*self.last_block_hash.lock().unwrap(), header.prev_blockhash,
+					"Blocks must be connected in chain-order - the connected header must build on the last connected header");
+				assert_eq!(self.latest_block_height.load(Ordering::Acquire) as u64, height as u64 - 1,
+					"Blocks must be connected in chain-order - the connected header must build on the last connected header");
+			}
 			*self.last_block_hash.lock().unwrap() = block_hash;
 			self.latest_block_height.store(height as usize, Ordering::Release);
 		}
@@ -3327,6 +3336,8 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				}
 			});
 
+			assert_eq!(*self.last_block_hash.lock().unwrap(), header.block_hash(),
+				"Blocks must be disconnected in chain-order - the disconnected header must be the last connected header");
 			*self.last_block_hash.lock().unwrap() = header.prev_blockhash;
 			self.latest_block_height.fetch_sub(1, Ordering::AcqRel);
 		}
