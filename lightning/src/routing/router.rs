@@ -674,7 +674,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 						// the fees included in $incl_fee_next_hops_htlc_minimum_msat, but also
 						// can't use something that may decrease on future hops.
 						let old_cost = cmp::max(old_entry.total_fee_msat, old_entry.path_htlc_minimum_msat);
-						let new_cost = cmp::max(total_fee_msat, $incl_fee_next_hops_htlc_minimum_msat);
+						let new_cost = cmp::max(total_fee_msat, path_htlc_minimum_msat);
 
 						if new_cost < old_cost {
 							targets.push(new_graph_node);
@@ -691,7 +691,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 							};
 							old_entry.channel_fees = $directional_info.fees;
 							old_entry.htlc_minimum_msat = $directional_info.htlc_minimum_msat;
-							old_entry.path_htlc_minimum_msat = $incl_fee_next_hops_htlc_minimum_msat;
+							old_entry.path_htlc_minimum_msat = path_htlc_minimum_msat;
 						}
 					}
 				}
