@@ -889,7 +889,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 				// on some channels we already passed (assuming dest->source direction). Here, we
 				// recompute the fees again, so that if that's the case, we match the currently
 				// underpaid htlc_minimum_msat with fees.
-				payment_path.update_value_and_recompute_fees(value_contribution_msat);
+				payment_path.update_value_and_recompute_fees(cmp::min(value_contribution_msat, final_value_msat));
 
 				// Since a path allows to transfer as much value as
 				// the smallest channel it has ("bottleneck"), we should recompute
@@ -900,6 +900,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 				// might have been computed considering a larger value.
 				// Remember that we used these channels so that we don't rely
 				// on the same liquidity in future paths.
+				let mut prevented_redundant_path_selection = false;
 				for payment_hop in payment_path.hops.iter() {
 					let channel_liquidity_available_msat = bookkeeped_channels_liquidity_available_msat.get_mut(&payment_hop.route_hop.short_channel_id).unwrap();
 					let mut spent_on_hop_msat = value_contribution_msat;
@@ -910,8 +911,23 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 						// trying to avoid cases when a hop is not usable due to the fee situation.
 						break 'path_construction;
 					}
+					if *channel_liquidity_available_msat < path_value_msat {
+						// If we use at least half of a channel's available liquidity, assume that
+						// it will not be selected again in the next loop iteration (see below).
+						prevented_redundant_path_selection = true;
+					}
 					*channel_liquidity_available_msat -= spent_on_hop_msat;
 				}
+				if !prevented_redundant_path_selection {
+					// If we weren't capped by hitting a liquidity limit on a channel in the path,
+					// we'll probably end up picking the same path again on the next iteration.
+					// Randomly decrease the available liquidity of a hop in the middle of the
+					// path.
+					let victim_liquidity = bookkeeped_channels_liquidity_available_msat.get_mut(
+						&payment_path.hops[(payment_path.hops.len() - 1) / 2].route_hop.short_channel_id).unwrap();
+					*victim_liquidity = 0;
+				}
+
 				// Track the total amount all our collected paths allow to send so that we:
 				// - know when to stop looking for more paths
 				// - know which of the hops are useless considering how much more sats we need
