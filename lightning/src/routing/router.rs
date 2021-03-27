@@ -3434,6 +3434,78 @@ mod tests {
 			assert_eq!(total_amount_paid_msat, 90_000);
 		}
 	}
+
+	#[test]
+	fn exact_fee_liquidity_limit() {
+		// Test that if, while walking the graph, we find a hop that has exactly enough liquidity
+		// for us, including later hop fees, we take it. In the first version of our MPP algorithm
+		// we calculated fees on a higher value, resulting in us ignoring such paths.
+		let (secp_ctx, net_graph_msg_handler, _, logger) = build_graph();
+		let (our_privkey, our_id, privkeys, nodes) = get_nodes(&secp_ctx);
+
+		// We modify the graph to set the htlc_maximum of channel 2 to below the value we wish to
+		// send.
+		update_channel(&net_graph_msg_handler, &secp_ctx, &our_privkey, UnsignedChannelUpdate {
+			chain_hash: genesis_block(Network::Testnet).header.block_hash(),
+			short_channel_id: 2,
+			timestamp: 2,
+			flags: 0,
+			cltv_expiry_delta: 0,
+			htlc_minimum_msat: 0,
+			htlc_maximum_msat: OptionalField::Present(85_000),
+			fee_base_msat: 0,
+			fee_proportional_millionths: 0,
+			excess_data: Vec::new()
+		});
+
+		update_channel(&net_graph_msg_handler, &secp_ctx, &our_privkey, UnsignedChannelUpdate {
+			chain_hash: genesis_block(Network::Testnet).header.block_hash(),
+			short_channel_id: 12,
+			timestamp: 2,
+			flags: 0,
+			cltv_expiry_delta: (4 << 8) | 1,
+			htlc_minimum_msat: 0,
+			htlc_maximum_msat: OptionalField::Present(270_000),
+			fee_base_msat: 0,
+			fee_proportional_millionths: 1000000,
+			excess_data: Vec::new()
+		});
+
+		update_channel(&net_graph_msg_handler, &secp_ctx, &privkeys[2], UnsignedChannelUpdate {
+			chain_hash: genesis_block(Network::Testnet).header.block_hash(),
+			short_channel_id: 13,
+			timestamp: 2,
+			flags: 1 | 2,
+			cltv_expiry_delta: (13 << 8) | 2,
+			htlc_minimum_msat: 0,
+			htlc_maximum_msat: OptionalField::Absent,
+			fee_base_msat: 0,
+			fee_proportional_millionths: 0,
+			excess_data: Vec::new()
+		});
+
+		{
+			// Now, attempt to route 125 sats (just a bit below the capacity of 3 channels).
+			// Our algorithm should provide us with these 3 paths.
+			let route = get_route(&our_id, &net_graph_msg_handler.network_graph.read().unwrap(), &nodes[2], None, None, &Vec::new(), 90_000, 42, Arc::clone(&logger)).unwrap();
+			assert_eq!(route.paths.len(), 1);
+			assert_eq!(route.paths[0].len(), 2);
+
+			assert_eq!(route.paths[0][0].pubkey, nodes[7]);
+			assert_eq!(route.paths[0][0].short_channel_id, 12);
+			assert_eq!(route.paths[0][0].fee_msat, 90_000*2);
+			assert_eq!(route.paths[0][0].cltv_expiry_delta, (13 << 8) | 1);
+			assert_eq!(route.paths[0][0].node_features.le_flags(), &id_to_feature_flags(8));
+			assert_eq!(route.paths[0][0].channel_features.le_flags(), &id_to_feature_flags(12));
+
+			assert_eq!(route.paths[0][1].pubkey, nodes[2]);
+			assert_eq!(route.paths[0][1].short_channel_id, 13);
+			assert_eq!(route.paths[0][1].fee_msat, 90_000);
+			assert_eq!(route.paths[0][1].cltv_expiry_delta, 42);
+			assert_eq!(route.paths[0][1].node_features.le_flags(), &id_to_feature_flags(3));
+			assert_eq!(route.paths[0][1].channel_features.le_flags(), &id_to_feature_flags(13));
+		}
+	}
 }
 
 #[cfg(all(test, feature = "unstable"))]
