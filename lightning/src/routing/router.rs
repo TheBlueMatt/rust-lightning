@@ -630,21 +630,14 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 								Some(fee_msat) => {
 									hop_use_fee_msat = fee_msat;
 									total_fee_msat += hop_use_fee_msat;
-									if let Some(prev_hop_fee_msat) = compute_fees(total_fee_msat + amount_to_transfer_over_msat,
-																				old_entry.src_lowest_inbound_fees) {
-										if let Some(incremented_total_fee_msat) = total_fee_msat.checked_add(prev_hop_fee_msat) {
-											total_fee_msat = incremented_total_fee_msat;
-										}
-										else {
-											// max_value means we'll always fail
-											// the old_entry.total_fee_msat > total_fee_msat check
+									match compute_fees(minimal_value_contribution_msat, old_entry.src_lowest_inbound_fees).map(|a| a.checked_add(total_fee_msat)) {
+										Some(Some(v)) => {
+											total_fee_msat = v;
+										},
+										_ => {
 											total_fee_msat = u64::max_value();
 										}
-									} else {
-										// max_value means we'll always fail
-										// the old_entry.total_fee_msat > total_fee_msat check
-										total_fee_msat = u64::max_value();
-									}
+									};
 								}
 							}
 						}
