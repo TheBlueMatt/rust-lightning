@@ -3523,6 +3523,66 @@ mod tests {
 			assert_eq!(route.paths[0][1].channel_features.le_flags(), &id_to_feature_flags(13));
 		}
 	}
+
+	#[test]
+	fn htlc_max_reduction_below_min() {
+		// Test that if, while walking the graph, we reduce the value being sent to meet an
+		// htlc_maximum_msat, we don't end up undershooting a later htlc_minimum_msat. In the
+		// initial version of MPP we'd accept such routes but reject them while recalculating fees,
+		// resulting in us thinking there is no possible path, even if other paths exist.
+		let (secp_ctx, net_graph_msg_handler, _, logger) = build_graph();
+		let (our_privkey, our_id, privkeys, nodes) = get_nodes(&secp_ctx);
+
+		// We modify the graph to set the htlc_minimum of channel 2 and 4 as needed - channel 2
+		// gets an htlc_minimum_msat of 80_000 and channel 4 an htlc_maximum_msat of 90_000. We
+		// then try to send 90_000.
+		update_channel(&net_graph_msg_handler, &secp_ctx, &our_privkey, UnsignedChannelUpdate {
+			chain_hash: genesis_block(Network::Testnet).header.block_hash(),
+			short_channel_id: 2,
+			timestamp: 2,
+			flags: 0,
+			cltv_expiry_delta: 0,
+			htlc_minimum_msat: 0,
+			htlc_maximum_msat: OptionalField::Present(80_000),
+			fee_base_msat: 0,
+			fee_proportional_millionths: 0,
+			excess_data: Vec::new()
+		});
+		update_channel(&net_graph_msg_handler, &secp_ctx, &privkeys[1], UnsignedChannelUpdate {
+			chain_hash: genesis_block(Network::Testnet).header.block_hash(),
+			short_channel_id: 4,
+			timestamp: 2,
+			flags: 0,
+			cltv_expiry_delta: (4 << 8) | 1,
+			htlc_minimum_msat: 90_000,
+			htlc_maximum_msat: OptionalField::Absent,
+			fee_base_msat: 0,
+			fee_proportional_millionths: 0,
+			excess_data: Vec::new()
+		});
+
+		{
+			// Now, attempt to route 125 sats (just a bit below the capacity of 3 channels).
+			// Our algorithm should provide us with these 3 paths.
+			let route = get_route(&our_id, &net_graph_msg_handler.network_graph.read().unwrap(), &nodes[2], Some(InvoiceFeatures::known()), None, &Vec::new(), 90_000, 42, Arc::clone(&logger)).unwrap();
+			assert_eq!(route.paths.len(), 1);
+			assert_eq!(route.paths[0].len(), 2);
+
+			assert_eq!(route.paths[0][0].pubkey, nodes[7]);
+			assert_eq!(route.paths[0][0].short_channel_id, 12);
+			assert_eq!(route.paths[0][0].fee_msat, 90_000*2);
+			assert_eq!(route.paths[0][0].cltv_expiry_delta, (13 << 8) | 1);
+			assert_eq!(route.paths[0][0].node_features.le_flags(), &id_to_feature_flags(8));
+			assert_eq!(route.paths[0][0].channel_features.le_flags(), &id_to_feature_flags(12));
+
+			assert_eq!(route.paths[0][1].pubkey, nodes[2]);
+			assert_eq!(route.paths[0][1].short_channel_id, 13);
+			assert_eq!(route.paths[0][1].fee_msat, 90_000);
+			assert_eq!(route.paths[0][1].cltv_expiry_delta, 42);
+			assert_eq!(route.paths[0][1].node_features.le_flags(), InvoiceFeatures::known().le_flags());
+			assert_eq!(route.paths[0][1].channel_features.le_flags(), &id_to_feature_flags(13));
+		}
+	}
 }
 
 #[cfg(all(test, feature = "unstable"))]
