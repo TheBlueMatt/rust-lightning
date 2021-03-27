@@ -425,13 +425,18 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 	let mut targets = BinaryHeap::new(); //TODO: Do we care about switching to eg Fibbonaci heap?
 	let mut dist = HashMap::with_capacity(network.get_nodes().len());
 
+	// During routing, if we ignore a path due to an htlc_minimum_msat limit, we set this,
+	// indicating that we may wish to try again with a higher value, potentially paying to meet an
+	// htlc_minimum with extra fees while still finding a cheaper path.
+	let mut hit_minimum_limit;
+
 	// When arranging a route, we select multiple paths so that we can make a multi-path payment.
-	// Don't stop searching for paths when we think they're
-	// sufficient to transfer a given value aggregately.
-	// Search for higher value, so that we collect many more paths,
-	// and then select the best combination among them.
+	// We start with a path_value of the exact amount we want, and if that generates a route we may
+	// return it immediately. Otherwise, we don't stop searching for paths until we have 3x the
+	// amount we want in total across paths, selecting the best subset at the end.
 	const ROUTE_CAPACITY_PROVISION_FACTOR: u64 = 3;
 	let recommended_value_msat = final_value_msat * ROUTE_CAPACITY_PROVISION_FACTOR as u64;
+	let mut path_value_msat = final_value_msat;
 
 	// Allow MPP only if we have a features set from somewhere that indicates the payee supports
 	// it. If the payee supports it they're supposed to include it in the invoice, so that should
@@ -555,8 +560,9 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 					// Since we're choosing amount_to_transfer_over_msat as maximum possible, it can
 					// be only reduced later (not increased), so this channel should just be skipped
 					// as not sufficient.
-					// TODO: Explore simply adding fee to hit htlc_minimum_msat
-					if contributes_sufficient_value && amount_to_transfer_over_msat >= $directional_info.htlc_minimum_msat {
+					if amount_to_transfer_over_msat < $directional_info.htlc_minimum_msat {
+						hit_minimum_limit = true;
+					} else if contributes_sufficient_value {
 						// Note that low contribution here (limited by available_liquidity_msat)
 						// might violate htlc_minimum_msat on the hops which are next along the
 						// payment path (upstream to the payee). To avoid that, we recompute path
@@ -743,12 +749,13 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 		// the further iterations of path finding. Also don't erase first_hop_targets.
 		targets.clear();
 		dist.clear();
+		hit_minimum_limit = false;
 
 		// If first hop is a private channel and the only way to reach the payee, this is the only
 		// place where it could be added.
 		if first_hops.is_some() {
 			if let Some(&(ref first_hop, ref features, ref outbound_capacity_msat)) = first_hop_targets.get(&payee) {
-				add_entry!(first_hop, *our_node_id, payee, dummy_directional_info, Some(outbound_capacity_msat / 1000), features.to_context(), 0, recommended_value_msat);
+				add_entry!(first_hop, *our_node_id, payee, dummy_directional_info, Some(outbound_capacity_msat / 1000), features.to_context(), 0, path_value_msat);
 			}
 		}
 
@@ -761,7 +768,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 			// If not, targets.pop() will not even let us enter the loop in step 2.
 			None => {},
 			Some(node) => {
-				add_entries_to_cheapest_to_target_node!(node, payee, 0, recommended_value_msat);
+				add_entries_to_cheapest_to_target_node!(node, payee, 0, path_value_msat);
 			},
 		}
 
@@ -780,7 +787,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 					// bit lazy here. In the future, we should pull them out via our
 					// ChannelManager, but there's no reason to waste the space until we
 					// need them.
-					add_entry!(first_hop, *our_node_id , hop.src_node_id, dummy_directional_info, Some(outbound_capacity_msat / 1000), features.to_context(), 0, recommended_value_msat);
+					add_entry!(first_hop, *our_node_id , hop.src_node_id, dummy_directional_info, Some(outbound_capacity_msat / 1000), features.to_context(), 0, path_value_msat);
 					true
 				} else {
 					// In any other case, only add the hop if the source is in the regular network
@@ -800,7 +807,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 					htlc_maximum_msat: hop.htlc_maximum_msat,
 					fees: hop.fees,
 				};
-				add_entry!(hop.short_channel_id, hop.src_node_id, payee, directional_info, None::<u64>, ChannelFeatures::empty(), 0, recommended_value_msat);
+				add_entry!(hop.short_channel_id, hop.src_node_id, payee, directional_info, None::<u64>, ChannelFeatures::empty(), 0, path_value_msat);
 			}
 		}
 
@@ -925,12 +932,22 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 		}
 
 		// Step (3).
-		// Stop either when recommended value is reached,
-		// or if during last iteration no new path was found.
-		// In the latter case, making another path finding attempt could not help,
-		// because we deterministically terminate the search due to low liquidity.
+		// Stop either when the recommended value is reached or if no new path was found in this
+		// iteration.
+		// In the latter case, making another path finding attempt won't help,
+		// because we deterministically terminated the search due to low liquidity.
 		if already_collected_value_msat >= recommended_value_msat || !found_new_path {
 			break 'paths_collection;
+		}
+		// Further, if this was our first walk of the graph, and we weren't limited by an
+		// htlc_minim_msat, return immediately because this path should suffice. If we were limited
+		// by an htlc_minimum_msat value, find another path with a higher value, potentially
+		// allowing us to pay fees to meet the htlc_minimum while still keeping a lower total fee.
+		if already_collected_value_msat == final_value_msat && payment_paths.len() == 1 {
+			if !hit_minimum_limit {
+				break 'paths_collection;
+			}
+			path_value_msat = recommended_value_msat;
 		}
 	}
 
