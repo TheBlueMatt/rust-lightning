@@ -151,7 +151,8 @@ struct RouteGraphNode {
 
 impl cmp::Ord for RouteGraphNode {
 	fn cmp(&self, other: &RouteGraphNode) -> cmp::Ordering {
-		other.lowest_fee_to_peer_through_node.cmp(&self.lowest_fee_to_peer_through_node)
+		cmp::max(other.lowest_fee_to_peer_through_node, other.path_htlc_minimum_msat)
+			.cmp(&cmp::max(self.lowest_fee_to_peer_through_node, self.path_htlc_minimum_msat))
 			.then_with(|| other.pubkey.serialize().cmp(&self.pubkey.serialize()))
 	}
 }
@@ -196,6 +197,9 @@ struct PathBuildingHop {
 	/// we don't fall below the minimum. Should not be updated manually and
 	/// generally should not be accessed.
 	htlc_minimum_msat: u64,
+	/// A mirror of the same field in RouteGraphNode. Note that this is only used during the graph
+	/// walk and may be invalid thereafter.
+	path_htlc_minimum_msat: u64,
 }
 
 // Instantiated with a list of hops with correct data in them collected during path finding,
@@ -609,6 +613,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 								hop_use_fee_msat: u64::max_value(),
 								total_fee_msat: u64::max_value(),
 								htlc_minimum_msat: $directional_info.htlc_minimum_msat,
+								path_htlc_minimum_msat,
 							}
 						});
 
@@ -664,20 +669,12 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 						// 1 BTC. Now, since the latter is more expensive, we gonna try to cut it
 						// by 0.5 BTC, but then match htlc_minimum_msat by paying a fee of 0.5 BTC
 						// to this channel.
-						// TODO: this scoring could be smarter (e.g. 0.5*htlc_minimum_msat here).
-						let mut old_cost = old_entry.total_fee_msat;
-						if let Some(increased_old_cost) = old_cost.checked_add(old_entry.htlc_minimum_msat) {
-							old_cost = increased_old_cost;
-						} else {
-							old_cost = u64::max_value();
-						}
-
-						let mut new_cost = total_fee_msat;
-						if let Some(increased_new_cost) = new_cost.checked_add($directional_info.htlc_minimum_msat) {
-							new_cost = increased_new_cost;
-						} else {
-							new_cost = u64::max_value();
-						}
+						// Ideally the scoring could be smarter (e.g. 0.5*htlc_minimum_msat here),
+						// but it may require additional tracking - we don't want to double-count
+						// the fees included in $incl_fee_next_hops_htlc_minimum_msat, but also
+						// can't use something that may decrease on future hops.
+						let old_cost = cmp::max(old_entry.total_fee_msat, old_entry.path_htlc_minimum_msat);
+						let new_cost = cmp::max(total_fee_msat, $incl_fee_next_hops_htlc_minimum_msat);
 
 						if new_cost < old_cost {
 							targets.push(new_graph_node);
@@ -693,9 +690,8 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 								cltv_expiry_delta: $directional_info.cltv_expiry_delta as u32,
 							};
 							old_entry.channel_fees = $directional_info.fees;
-							// It's probably fine to replace the old entry, because the new one
-							// passed the htlc_minimum-related checks above.
 							old_entry.htlc_minimum_msat = $directional_info.htlc_minimum_msat;
+							old_entry.path_htlc_minimum_msat = $incl_fee_next_hops_htlc_minimum_msat;
 						}
 					}
 				}
