@@ -200,6 +200,12 @@ struct PathBuildingHop {
 	/// A mirror of the same field in RouteGraphNode. Note that this is only used during the graph
 	/// walk and may be invalid thereafter.
 	path_htlc_minimum_msat: u64,
+	/// If we've already processed a node as the best node, we shouldn't process it again. Normally
+	/// we'd just ignore it if we did as all channels would have a higher new fee, but because we
+	/// may decrease the amounts in use as we walk the graph, the actual calculated fee may
+	/// decrease as well. Thus, we have to explicitly track which nodes have been processed and
+	/// avoid processing them again.
+	was_processed: bool,
 }
 
 // Instantiated with a list of hops with correct data in them collected during path finding,
@@ -614,77 +620,80 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 								total_fee_msat: u64::max_value(),
 								htlc_minimum_msat: $directional_info.htlc_minimum_msat,
 								path_htlc_minimum_msat,
+								was_processed: false,
 							}
 						});
 
-						let mut hop_use_fee_msat = 0;
-						let mut total_fee_msat = $next_hops_fee_msat;
+						if !old_entry.was_processed {
+							let mut hop_use_fee_msat = 0;
+							let mut total_fee_msat = $next_hops_fee_msat;
 
-						// Ignore hop_use_fee_msat for channel-from-us as we assume all channels-from-us
-						// will have the same effective-fee
-						if $src_node_id != *our_node_id {
-							match compute_fees(amount_to_transfer_over_msat, $directional_info.fees) {
-								// max_value means we'll always fail
-								// the old_entry.total_fee_msat > total_fee_msat check
-								None => total_fee_msat = u64::max_value(),
-								Some(fee_msat) => {
-									hop_use_fee_msat = fee_msat;
-									total_fee_msat += hop_use_fee_msat;
-									match compute_fees(minimal_value_contribution_msat, old_entry.src_lowest_inbound_fees).map(|a| a.checked_add(total_fee_msat)) {
-										Some(Some(v)) => {
-											total_fee_msat = v;
-										},
-										_ => {
-											total_fee_msat = u64::max_value();
-										}
-									};
+							// Ignore hop_use_fee_msat for channel-from-us as we assume all channels-from-us
+							// will have the same effective-fee
+							if $src_node_id != *our_node_id {
+								match compute_fees(amount_to_transfer_over_msat, $directional_info.fees) {
+									// max_value means we'll always fail
+									// the old_entry.total_fee_msat > total_fee_msat check
+									None => total_fee_msat = u64::max_value(),
+									Some(fee_msat) => {
+										hop_use_fee_msat = fee_msat;
+										total_fee_msat += hop_use_fee_msat;
+										match compute_fees(minimal_value_contribution_msat, old_entry.src_lowest_inbound_fees).map(|a| a.checked_add(total_fee_msat)) {
+											Some(Some(v)) => {
+												total_fee_msat = v;
+											},
+											_ => {
+												total_fee_msat = u64::max_value();
+											}
+										};
+									}
 								}
 							}
-						}
 
-						let new_graph_node = RouteGraphNode {
-							pubkey: $src_node_id,
-							lowest_fee_to_peer_through_node: total_fee_msat,
-							lowest_fee_to_node: $next_hops_fee_msat as u64 + hop_use_fee_msat,
-							value_contribution_msat: value_contribution_msat,
-							path_htlc_minimum_msat,
-						};
-
-						// Update the way of reaching $src_node_id with the given $chan_id (from $dest_node_id),
-						// if this way is cheaper than the already known
-						// (considering the cost to "reach" this channel from the route destination,
-						// the cost of using this channel,
-						// and the cost of routing to the source node of this channel).
-						// Also, consider that htlc_minimum_msat_difference, because we might end up
-						// paying it. Consider the following exploit:
-						// we use 2 paths to transfer 1.5 BTC. One of them is 0-fee normal 1 BTC path,
-						// and for the other one we picked a 1sat-fee path with htlc_minimum_msat of
-						// 1 BTC. Now, since the latter is more expensive, we gonna try to cut it
-						// by 0.5 BTC, but then match htlc_minimum_msat by paying a fee of 0.5 BTC
-						// to this channel.
-						// Ideally the scoring could be smarter (e.g. 0.5*htlc_minimum_msat here),
-						// but it may require additional tracking - we don't want to double-count
-						// the fees included in $incl_fee_next_hops_htlc_minimum_msat, but also
-						// can't use something that may decrease on future hops.
-						let old_cost = cmp::max(old_entry.total_fee_msat, old_entry.path_htlc_minimum_msat);
-						let new_cost = cmp::max(total_fee_msat, path_htlc_minimum_msat);
-
-						if new_cost < old_cost {
-							targets.push(new_graph_node);
-							old_entry.next_hops_fee_msat = $next_hops_fee_msat;
-							old_entry.hop_use_fee_msat = hop_use_fee_msat;
-							old_entry.total_fee_msat = total_fee_msat;
-							old_entry.route_hop = RouteHop {
-								pubkey: $dest_node_id.clone(),
-								node_features: NodeFeatures::empty(),
-								short_channel_id: $chan_id.clone(),
-								channel_features: $chan_features.clone(),
-								fee_msat: 0, // This value will be later filled with hop_use_fee_msat of the following channel
-								cltv_expiry_delta: $directional_info.cltv_expiry_delta as u32,
+							let new_graph_node = RouteGraphNode {
+								pubkey: $src_node_id,
+								lowest_fee_to_peer_through_node: total_fee_msat,
+								lowest_fee_to_node: $next_hops_fee_msat as u64 + hop_use_fee_msat,
+								value_contribution_msat: value_contribution_msat,
+								path_htlc_minimum_msat,
 							};
-							old_entry.channel_fees = $directional_info.fees;
-							old_entry.htlc_minimum_msat = $directional_info.htlc_minimum_msat;
-							old_entry.path_htlc_minimum_msat = path_htlc_minimum_msat;
+
+							// Update the way of reaching $src_node_id with the given $chan_id (from $dest_node_id),
+							// if this way is cheaper than the already known
+							// (considering the cost to "reach" this channel from the route destination,
+							// the cost of using this channel,
+							// and the cost of routing to the source node of this channel).
+							// Also, consider that htlc_minimum_msat_difference, because we might end up
+							// paying it. Consider the following exploit:
+							// we use 2 paths to transfer 1.5 BTC. One of them is 0-fee normal 1 BTC path,
+							// and for the other one we picked a 1sat-fee path with htlc_minimum_msat of
+							// 1 BTC. Now, since the latter is more expensive, we gonna try to cut it
+							// by 0.5 BTC, but then match htlc_minimum_msat by paying a fee of 0.5 BTC
+							// to this channel.
+							// Ideally the scoring could be smarter (e.g. 0.5*htlc_minimum_msat here),
+							// but it may require additional tracking - we don't want to double-count
+							// the fees included in $incl_fee_next_hops_htlc_minimum_msat, but also
+							// can't use something that may decrease on future hops.
+							let old_cost = cmp::max(old_entry.total_fee_msat, old_entry.path_htlc_minimum_msat);
+							let new_cost = cmp::max(total_fee_msat, path_htlc_minimum_msat);
+
+							if new_cost < old_cost {
+								targets.push(new_graph_node);
+								old_entry.next_hops_fee_msat = $next_hops_fee_msat;
+								old_entry.hop_use_fee_msat = hop_use_fee_msat;
+								old_entry.total_fee_msat = total_fee_msat;
+								old_entry.route_hop = RouteHop {
+									pubkey: $dest_node_id.clone(),
+									node_features: NodeFeatures::empty(),
+									short_channel_id: $chan_id.clone(),
+									channel_features: $chan_features.clone(),
+									fee_msat: 0, // This value will be later filled with hop_use_fee_msat of the following channel
+									cltv_expiry_delta: $directional_info.cltv_expiry_delta as u32,
+								};
+								old_entry.channel_fees = $directional_info.fees;
+								old_entry.htlc_minimum_msat = $directional_info.htlc_minimum_msat;
+								old_entry.path_htlc_minimum_msat = path_htlc_minimum_msat;
+							}
 						}
 					}
 				}
@@ -699,7 +708,19 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 	// This data can later be helpful to optimize routing (pay lower fees).
 	macro_rules! add_entries_to_cheapest_to_target_node {
 		( $node: expr, $node_id: expr, $fee_to_target_msat: expr, $next_hops_value_contribution: expr, $incl_fee_next_hops_htlc_minimum_msat: expr ) => {
-			if first_hops.is_some() {
+			let skip_node = if let Some(elem) = dist.get_mut($node_id) {
+				let v = elem.was_processed;
+				elem.was_processed = true;
+				v
+			} else {
+				// Entries are added to dist in add_entry!() when there is a channel from a node.
+				// Because there are no channels from payee, it will not have a dist entry at this point.
+				// If we're processing any other node, it is always be the result of a channel from it.
+				assert_eq!($node_id, payee);
+				false
+			};
+
+			if !skip_node && first_hops.is_some() {
 				if let Some(&(ref first_hop, ref features, ref outbound_capacity_msat)) = first_hop_targets.get(&$node_id) {
 					add_entry!(first_hop, *our_node_id, $node_id, dummy_directional_info, Some(outbound_capacity_msat / 1000), features.to_context(), $fee_to_target_msat, $next_hops_value_contribution, $incl_fee_next_hops_htlc_minimum_msat);
 				}
@@ -712,7 +733,7 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 				features = NodeFeatures::empty();
 			}
 
-			if !features.requires_unknown_bits() {
+			if !skip_node && !features.requires_unknown_bits() {
 				for chan_id in $node.channels.iter() {
 					let chan = network.get_channels().get(chan_id).unwrap();
 					if !chan.features.requires_unknown_bits() {
@@ -931,6 +952,11 @@ pub fn get_route<L: Deref>(our_node_id: &PublicKey, network: &NetworkGraph, paye
 				found_new_path = true;
 				break 'path_construction;
 			}
+
+			// If we found a path back to the payee, we shouldn't try to process it again. This is
+			// the equivalent of the `elem.was_processed` check in
+			// add_entries_to_cheapest_to_target_node!() (see comment there for more info).
+			if pubkey == *payee { continue 'path_construction; }
 
 			// Otherwise, since the current target node is not us,
 			// keep "unrolling" the payment graph from payee to payer by
