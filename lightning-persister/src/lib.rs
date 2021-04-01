@@ -24,7 +24,7 @@ use lightning::ln::channelmanager::ChannelManager;
 use lightning::util::logger::Logger;
 use lightning::util::ser::Writeable;
 use std::fs;
-use std::io::Error;
+use std::io::{Error, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -56,6 +56,12 @@ pub struct FilesystemPersister {
 impl<Signer: Sign> DiskWriteable for ChannelMonitor<Signer> {
 	fn write_to_file(&self, writer: &mut fs::File) -> Result<(), Error> {
 		self.write(writer)
+	}
+}
+
+impl DiskWriteable for ChannelMonitorUpdate {
+	fn write_to_file(&self, writer: &mut fs::File) -> Result<(), Error> {
+		writer.write_all(&self.encode())
 	}
 }
 
@@ -150,9 +156,9 @@ impl<ChannelSigner: Sign + Send + Sync> channelmonitor::Persist<ChannelSigner> f
 		  .map_err(|_| ChannelMonitorUpdateErr::PermanentFailure)
 	}
 
-	fn update_persisted_channel(&self, funding_txo: OutPoint, _update: &ChannelMonitorUpdate, monitor: &ChannelMonitor<ChannelSigner>) -> Result<(), ChannelMonitorUpdateErr> {
-		let filename = format!("{}_{}", funding_txo.txid.to_hex(), funding_txo.index);
-		util::write_to_file(self.path_to_monitor_data(), filename, monitor)
+	fn update_persisted_channel(&self, funding_txo: OutPoint, update: &ChannelMonitorUpdate, _monitor: &ChannelMonitor<ChannelSigner>) -> Result<(), ChannelMonitorUpdateErr> {
+		let filename = format!("{}_{}_{}", funding_txo.txid.to_hex(), funding_txo.index, update.update_id);
+		util::write_to_new_file(self.path_to_monitor_data(), &filename, update)
 		  .map_err(|_| ChannelMonitorUpdateErr::PermanentFailure)
 	}
 }
