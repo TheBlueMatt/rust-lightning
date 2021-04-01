@@ -17,7 +17,7 @@ pub(crate) trait DiskWriteable {
 	fn write_to_file(&self, writer: &mut fs::File) -> Result<(), std::io::Error>;
 }
 
-pub(crate) fn get_full_filepath(mut filepath: PathBuf, filename: String) -> String {
+pub(crate) fn get_full_filepath(mut filepath: PathBuf, filename: &str) -> String {
 	filepath.push(filename);
 	filepath.to_str().unwrap().to_string()
 }
@@ -38,35 +38,44 @@ fn path_to_windows_str<T: AsRef<OsStr>>(path: T) -> Vec<winapi::shared::ntdef::W
 	path.as_ref().encode_wide().chain(Some(0)).collect()
 }
 
+pub(crate) fn write_to_new_file<D: DiskWriteable>(path: PathBuf, filename: &str, data: &D) -> std::io::Result<()> {
+	let filename_with_path = get_full_filepath(path.clone(), &filename);
+	fs::create_dir_all(path)?;
+
+	// Note that going by rust-lang/rust@d602a6b, on MacOS it is only safe to use
+	// rust stdlib 1.36 or higher.
+	let mut f = fs::File::create(filename_with_path)?;
+	data.write_to_file(&mut f)?;
+	f.sync_all()?;
+	Ok(())
+}
+
+
 #[allow(bare_trait_objects)]
 pub(crate) fn write_to_file<D: DiskWriteable>(path: PathBuf, filename: String, data: &D) -> std::io::Result<()> {
-	fs::create_dir_all(path.clone())?;
 	// Do a crazy dance with lots of fsync()s to be overly cautious here...
 	// We never want to end up in a state where we've lost the old data, or end up using the
 	// old data on power loss after we've returned.
 	// The way to atomically write a file on Unix platforms is:
 	// open(tmpname), write(tmpfile), fsync(tmpfile), close(tmpfile), rename(), fsync(dir)
-	let filename_with_path = get_full_filepath(path, filename);
-	let tmp_filename = format!("{}.tmp", filename_with_path.clone());
+	let filename_with_path = get_full_filepath(path.clone(), &filename);
+	let tmp_filename_with_path = {
+		let tmp_filename = format!("{}.tmp", filename);
+		write_to_new_file(path.clone(), &tmp_filename, data)?;
+		get_full_filepath(path, &tmp_filename)
+	};
 
-	{
-		// Note that going by rust-lang/rust@d602a6b, on MacOS it is only safe to use
-		// rust stdlib 1.36 or higher.
-		let mut f = fs::File::create(&tmp_filename)?;
-		data.write_to_file(&mut f)?;
-		f.sync_all()?;
-	}
 	// Fsync the parent directory on Unix.
 	#[cfg(not(target_os = "windows"))]
 	{
-		fs::rename(&tmp_filename, &filename_with_path)?;
+		fs::rename(&tmp_filename_with_path, &filename_with_path)?;
 		let path = Path::new(&filename_with_path).parent().unwrap();
 		let dir_file = fs::OpenOptions::new().read(true).open(path)?;
 		unsafe { libc::fsync(dir_file.as_raw_fd()); }
 	}
 	#[cfg(target_os = "windows")]
 	{
-		let src = PathBuf::from(tmp_filename.clone());
+		let src = PathBuf::from(tmp_filename_with_path.clone());
 		let dst = PathBuf::from(filename_with_path.clone());
 		if Path::new(&filename_with_path.clone()).exists() {
 			unsafe {winapi::um::winbase::ReplaceFileW(
@@ -133,7 +142,7 @@ mod tests {
 		let filename = "test_rename_failure_filename";
 		let path = PathBuf::from("test_rename_failure_dir");
 		// Create the channel data file and make it a directory.
-		fs::create_dir_all(get_full_filepath(path.clone(), filename.to_string())).unwrap();
+		fs::create_dir_all(get_full_filepath(path.clone(), filename)).unwrap();
 		match write_to_file(path.clone(), filename.to_string(), &test_writeable) {
 			Err(e) => assert_eq!(e.kind(), io::ErrorKind::Other),
 			_ => panic!("Unexpected Ok(())")
@@ -173,7 +182,7 @@ mod tests {
 		let path = PathBuf::from("test_tmp_file_creation_failure_dir");
 
 		// Create the tmp file and make it a directory.
-		let tmp_path = get_full_filepath(path.clone(), format!("{}.tmp", filename.clone()));
+		let tmp_path = get_full_filepath(path.clone(), &format!("{}.tmp", filename));
 		fs::create_dir_all(tmp_path).unwrap();
 		match write_to_file(path, filename, &test_writeable) {
 			Err(e) => {
