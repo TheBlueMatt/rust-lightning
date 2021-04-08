@@ -38,16 +38,24 @@ fn path_to_windows_str<T: AsRef<OsStr>>(path: T) -> Vec<winapi::shared::ntdef::W
 	path.as_ref().encode_wide().chain(Some(0)).collect()
 }
 
-pub(crate) fn write_to_new_file<D: DiskWriteable>(path: PathBuf, filename: &str, data: &D) -> std::io::Result<()> {
-	let filename_with_path = get_full_filepath(path.clone(), &filename);
-	fs::create_dir_all(path)?;
-
+pub(crate) fn write_to_open_file<D: DiskWriteable>(f: &mut fs::File, data: &D) -> std::io::Result<()> {
 	// Note that going by rust-lang/rust@d602a6b, on MacOS it is only safe to use
 	// rust stdlib 1.36 or higher.
-	let mut f = fs::File::create(filename_with_path)?;
-	data.write_to_file(&mut f)?;
+	data.write_to_file(f)?;
 	f.sync_all()?;
 	Ok(())
+}
+
+pub(crate) fn open_file(path: PathBuf, filename: &str) -> std::io::Result<fs::File> {
+	let filename_with_path = get_full_filepath(path.clone(), &filename);
+	fs::create_dir_all(path)?; //XXX
+
+	fs::File::create(filename_with_path)
+}
+
+pub(crate) fn write_to_new_file<D: DiskWriteable>(path: PathBuf, filename: &str, data: &D) -> std::io::Result<()> {
+	let mut f = open_file(path, filename)?;
+	write_to_open_file(&mut f, data)
 }
 
 

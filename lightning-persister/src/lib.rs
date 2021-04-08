@@ -24,16 +24,16 @@ use lightning::ln::channelmanager::ChannelManager;
 use lightning::util::logger::Logger;
 use lightning::util::ser::Writeable;
 use std::fs;
+use std::collections::HashMap;
 use std::io::{Error, Write};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock, Mutex};
 
 #[cfg(test)]
 use {
 	lightning::util::ser::ReadableArgs,
 	bitcoin::{BlockHash, Txid},
 	bitcoin::hashes::hex::FromHex,
-	std::collections::HashMap,
 	std::io::Cursor
 };
 
@@ -51,6 +51,7 @@ use {
 /// FilesystemPersister.
 pub struct FilesystemPersister {
 	path_to_channel_data: String,
+    monitor_logs: RwLock<HashMap<String, Mutex<fs::File>>>, // This locking structure is insane
 }
 
 impl<Signer: Sign> DiskWriteable for ChannelMonitor<Signer> {
@@ -83,6 +84,7 @@ impl FilesystemPersister {
 	pub fn new(path_to_channel_data: String) -> Self {
 		return Self {
 			path_to_channel_data,
+            monitor_logs: RwLock::new(HashMap::new()),
 		}
 	}
 
@@ -157,9 +159,21 @@ impl<ChannelSigner: Sign + Send + Sync> channelmonitor::Persist<ChannelSigner> f
 	}
 
 	fn update_persisted_channel(&self, funding_txo: OutPoint, update: &ChannelMonitorUpdate, _monitor: &ChannelMonitor<ChannelSigner>) -> Result<(), ChannelMonitorUpdateErr> {
-		let filename = format!("{}_{}_{}", funding_txo.txid.to_hex(), funding_txo.index, update.update_id);
-		util::write_to_new_file(self.path_to_monitor_data(), &filename, update)
-		  .map_err(|_| ChannelMonitorUpdateErr::PermanentFailure)
+		let filename = format!("{}_{}.log", funding_txo.txid.to_hex(), funding_txo.index);
+		{
+			let logs = self.monitor_logs.read().unwrap();
+			match logs.get(&filename) {
+				Some(file) => {
+					return util::write_to_open_file(&mut *file.lock().unwrap(), update).map_err(|_| ChannelMonitorUpdateErr::PermanentFailure);
+				},
+				None => {},
+			}
+		}
+		let mut logs = self.monitor_logs.write().unwrap();
+		let mut f = util::open_file(self.path_to_monitor_data(), &filename).map_err(|_| ChannelMonitorUpdateErr::PermanentFailure)?;
+		util::write_to_open_file(&mut f, update).map_err(|_| ChannelMonitorUpdateErr::PermanentFailure)?;
+		assert!(logs.insert(filename, Mutex::new(f)).is_none(), "We cannot have parallel calls to update a single monitor");
+		Ok(())
 	}
 }
 
