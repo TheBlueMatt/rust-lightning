@@ -1083,6 +1083,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		ChannelManager {
 			default_configuration: config.clone(),
 			genesis_hash: genesis_block(params.network).header.block_hash(),
+			//genesis_hash: Sha256dHash::from_hex("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206").unwrap(),
 			fee_estimator: fee_est,
 			chain_monitor,
 			tx_broadcaster,

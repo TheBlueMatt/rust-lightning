@@ -666,7 +666,7 @@ impl<Signer: Sign> Channel<Signer> {
 		if feerate_per_kw < lower_limit {
 			return Err(ChannelError::Close(format!("Peer's feerate much too low. Actual: {}. Our expected lower limit: {}", feerate_per_kw, lower_limit)));
 		}
-		let upper_limit = fee_estimator.get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority) as u64  * 2;
+		let upper_limit = fee_estimator.get_est_sat_per_1000_weight(ConfirmationTarget::HighPriority) as u64  * 200;
 		if feerate_per_kw as u64 > upper_limit {
 			return Err(ChannelError::Close(format!("Peer's feerate much too high. Actual: {}. Our expected upper limit: {}", feerate_per_kw, upper_limit)));
 		}
@@ -2138,6 +2138,7 @@ debug_assert!(false, "This should be triggerable, and we should add a test case 
 					None => {},
 					Some(payment_hash) =>
 						if payment_hash != htlc.payment_hash {
+							println!("FAIL: {:?}, {:?}", htlc.payment_hash, payment_hash);
 							return Err(ChannelError::Close(format!("Remote tried to fulfill HTLC ({}) with an incorrect preimage", htlc_id)));
 						}
 				};
