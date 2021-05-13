@@ -99,6 +99,7 @@ enum PendingHTLCRouting {
 	Receive {
 		payment_data: msgs::FinalOnionHopData,
 		incoming_cltv_expiry: u32, // Used to track when we should expire pending HTLCs that go unclaimed
+		keysend_preimage: Option<PaymentPreimage>,
 	},
 }
 
@@ -1433,10 +1434,10 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					return_err!("Upstream node set CLTV to the wrong value", 18, &byte_utils::be32_to_array(msg.cltv_expiry));
 				}
 
-				let payment_data = match next_hop_data.format {
-					msgs::OnionHopDataFormat::Legacy { .. } => None,
+				let (payment_data, keysend_preimage) = match next_hop_data.format {
+					msgs::OnionHopDataFormat::Legacy { .. } => (None, None),
 					msgs::OnionHopDataFormat::NonFinalNode { .. } => return_err!("Got non final data with an HMAC of 0", 0x4000 | 22, &[0;0]),
-					msgs::OnionHopDataFormat::FinalNode { payment_data, .. } => payment_data,
+					msgs::OnionHopDataFormat::FinalNode { payment_data, keysend_preimage } => (payment_data, keysend_preimage),
 				};
 
 				if payment_data.is_none() {
@@ -1452,6 +1453,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					routing: PendingHTLCRouting::Receive {
 						payment_data: payment_data.unwrap(),
 						incoming_cltv_expiry: msg.cltv_expiry,
+						keysend_preimage,
 					},
 					payment_hash: msg.payment_hash.clone(),
 					incoming_shared_secret: shared_secret,
@@ -2177,7 +2179,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					for forward_info in pending_forwards.drain(..) {
 						match forward_info {
 							HTLCForwardInfo::AddHTLC { prev_short_channel_id, prev_htlc_id, forward_info: PendingHTLCInfo {
-									routing: PendingHTLCRouting::Receive { payment_data, incoming_cltv_expiry },
+									routing: PendingHTLCRouting::Receive { payment_data, incoming_cltv_expiry, .. },
 									incoming_shared_secret, payment_hash, amt_to_forward, .. },
 									prev_funding_outpoint } => {
 								let claimable_htlc = ClaimableHTLC {
@@ -4326,6 +4328,7 @@ impl_writeable_tlv_based_enum!(PendingHTLCRouting,
 	(1, Receive) => {
 		(0, payment_data, required),
 		(2, incoming_cltv_expiry, required),
+		(4, keysend_preimage, option)
 	}
 ;);
 
