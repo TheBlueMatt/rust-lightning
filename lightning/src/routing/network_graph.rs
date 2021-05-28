@@ -2424,3 +2424,32 @@ mod tests {
 		assert!(result.is_err());
 	}
 }
+
+#[cfg(all(test, feature = "unstable"))]
+mod benches {
+	use super::*;
+
+	use test::Bencher;
+	use std::io::Read;
+
+	#[bench]
+	fn read_network_graph(bench: &mut Bencher) {
+		let mut d = ::routing::router::test_utils::get_route_file()
+			.expect("Please fetch https://bitcoin.ninja/ldk-net_graph-45d86ead641d-2021-05-27.bin and place it at lightning/net_graph-2021-05-27.bin");
+		let mut v = Vec::new();
+		d.read_to_end(&mut v).unwrap();
+		bench.iter(|| {
+			let _ = NetworkGraph::read(&mut std::io::Cursor::new(&v)).unwrap();
+		});
+	}
+
+	#[bench]
+	fn write_network_graph(bench: &mut Bencher) {
+		let mut d = ::routing::router::test_utils::get_route_file()
+			.expect("Please fetch https://bitcoin.ninja/ldk-net_graph-45d86ead641d-2021-05-27.bin and place it at lightning/net_graph-2021-05-27.bin");
+		let net_graph = NetworkGraph::read(&mut d).unwrap();
+		bench.iter(|| {
+			let _ = net_graph.encode();
+		});
+	}
+}
