@@ -249,6 +249,20 @@ impl<T: Readable> Readable for OptionDeserWrapper<T> {
 	}
 }
 
+pub(crate) struct U8Wrapper(pub u8);
+impl Writeable for U8Wrapper {
+	#[inline(always)]
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ::std::io::Error> {
+		self.0.write(writer)
+	}
+}
+impl Readable for U8Wrapper {
+	#[inline(always)]
+	fn read<R: Read>(reader: &mut R) -> Result<U8Wrapper, DecodeError> {
+		Ok(Self(Readable::read(reader)?))
+	}
+}
+
 const MAX_ALLOC_SIZE: u64 = 64*1024;
 
 pub(crate) struct VecWriteWrapper<'a, T: Writeable>(pub &'a Vec<T>);

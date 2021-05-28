@@ -8,7 +8,10 @@
 // licenses.
 
 macro_rules! encode_tlv {
-	($stream: expr, {$(($type: expr, $field: expr)),*}, {$(($optional_type: expr, $optional_field: expr)),*}) => { {
+	($stream: expr, {$(($type: expr, $field: expr)),*}, {$(($optional_type: expr, $optional_field: expr)),*}) => {
+		encode_tlv!(::util::ser::BigSize, $stream, {$(($type, $field)),*}, {$(($optional_type, $optional_field)),*});
+	};
+	($name_ty: path, $stream: expr, {$(($type: expr, $field: expr)),*}, {$(($optional_type: expr, $optional_field: expr)),*}) => { {
 		#[allow(unused_imports)]
 		use util::ser::BigSize;
 		// Fields must be serialized in order, so we have to potentially switch between optional
@@ -20,16 +23,16 @@ macro_rules! encode_tlv {
 		#[allow(unused_mut)]
 		let mut max_field: u64 = 0;
 		$(
-			if $type >= max_field { max_field = $type + 1; }
+			if $type + 1 >= max_field { max_field = $type + 1; }
 		)*
 		$(
-			if $optional_type >= max_field { max_field = $optional_type + 1; }
+			if $optional_type + 1 >= max_field { max_field = $optional_type + 1; }
 		)*
 		#[allow(unused_variables)]
 		for i in 0..max_field {
 			$(
 				if i == $type {
-					BigSize($type).write($stream)?;
+					$name_ty($type).write($stream)?;
 					BigSize($field.serialized_length() as u64).write($stream)?;
 					$field.write($stream)?;
 				}
@@ -37,7 +40,7 @@ macro_rules! encode_tlv {
 			$(
 				if i == $optional_type {
 					if let Some(ref field) = $optional_field {
-						BigSize($optional_type).write($stream)?;
+						$name_ty($optional_type).write($stream)?;
 						BigSize(field.serialized_length() as u64).write($stream)?;
 						field.write($stream)?;
 					}
@@ -48,20 +51,20 @@ macro_rules! encode_tlv {
 }
 
 macro_rules! get_varint_length_prefixed_tlv_length {
-	({$(($type: expr, $field: expr)),*}, {$(($optional_type: expr, $optional_field: expr)),* $(,)*}) => { {
+	($name_ty: path, {$(($type: expr, $field: expr)),*}, {$(($optional_type: expr, $optional_field: expr)),* $(,)*}) => { {
 		use util::ser::LengthCalculatingWriter;
 		#[allow(unused_mut)]
 		let mut len = LengthCalculatingWriter(0);
 		{
 			$(
-				BigSize($type).write(&mut len).expect("No in-memory data may fail to serialize");
+				$name_ty($type).write(&mut len).expect("No in-memory data may fail to serialize");
 				let field_len = $field.serialized_length();
 				BigSize(field_len as u64).write(&mut len).expect("No in-memory data may fail to serialize");
 				len.0 += field_len;
 			)*
 			$(
 				if let Some(ref field) = $optional_field {
-					BigSize($optional_type).write(&mut len).expect("No in-memory data may fail to serialize");
+					$name_ty($optional_type).write(&mut len).expect("No in-memory data may fail to serialize");
 					let field_len = field.serialized_length();
 					BigSize(field_len as u64).write(&mut len).expect("No in-memory data may fail to serialize");
 					len.0 += field_len;
@@ -73,23 +76,29 @@ macro_rules! get_varint_length_prefixed_tlv_length {
 }
 
 macro_rules! encode_varint_length_prefixed_tlv {
-	($stream: expr, {$(($type: expr, $field: expr)),*}, {$(($optional_type: expr, $optional_field: expr)),*}) => { {
+	($stream: expr, {$(($type: expr, $field: expr)),*}, {$(($optional_type: expr, $optional_field: expr)),*}) => {
+		encode_varint_length_prefixed_tlv!(::util::ser::BigSize, $stream, {$(($type, $field)),*}, {$(($optional_type, $optional_field)),*});
+	};
+	($name_ty: path, $stream: expr, {$(($type: expr, $field: expr)),*}, {$(($optional_type: expr, $optional_field: expr)),*}) => { {
 		use util::ser::BigSize;
-		let len = get_varint_length_prefixed_tlv_length!({ $(($type, $field)),* }, { $(($optional_type, $optional_field)),* });
+		let len = get_varint_length_prefixed_tlv_length!($name_ty, { $(($type, $field)),* }, { $(($optional_type, $optional_field)),* });
 		BigSize(len as u64).write($stream)?;
 		encode_tlv!($stream, { $(($type, $field)),* }, { $(($optional_type, $optional_field)),* });
 	} }
 }
 
 macro_rules! decode_tlv {
-	($stream: expr, {$(($reqtype: expr, $reqfield: ident)),*}, {$(($type: expr, $field: ident)),*}) => { {
+	($stream: expr, {$(($reqtype: expr, $reqfield: ident)),*}, {$(($type: expr, $field: ident)),*}) => {
+		decode_tlv!(::util::ser::BigSize, $stream, {$(($reqtype, $reqfield)),*}, {$(($type, $field)),*});
+	};
+	($name_ty: path, $stream: expr, {$(($reqtype: expr, $reqfield: ident)),*}, {$(($type: expr, $field: ident)),*}) => { {
 		use ln::msgs::DecodeError;
-		let mut last_seen_type: Option<u64> = None;
+		let mut last_seen_type = None;
 		'tlv_read: loop {
 			use util::ser;
 
 			// First decode the type of this TLV:
-			let typ: ser::BigSize = {
+			let typ: $name_ty = {
 				// We track whether any bytes were read during the consensus_decode call to
 				// determine whether we should break or return ShortRead if we get an
 				// UnexpectedEof. This should in every case be largely cosmetic, but its nice to
@@ -291,7 +300,7 @@ macro_rules! write_ver_prefix {
 /// correctly.
 macro_rules! write_tlv_fields {
 	($stream: expr, {$(($type: expr, $field: expr)),* $(,)*}, {$(($optional_type: expr, $optional_field: expr)),* $(,)*}) => {
-		encode_varint_length_prefixed_tlv!($stream, {$(($type, $field)),*} , {$(($optional_type, $optional_field)),*});
+		encode_varint_length_prefixed_tlv!(::util::ser::U8Wrapper, $stream, {$(($type, $field)),*} , {$(($optional_type, $optional_field)),*});
 	}
 }
 
@@ -314,7 +323,7 @@ macro_rules! read_tlv_fields {
 	($stream: expr, {$(($reqtype: expr, $reqfield: ident)),* $(,)*}, {$(($type: expr, $field: ident)),* $(,)*}) => { {
 		let tlv_len = ::util::ser::BigSize::read($stream)?;
 		let mut rd = ::util::ser::FixedLengthReader::new($stream, tlv_len.0);
-		decode_tlv!(&mut rd, {$(($reqtype, $reqfield)),*}, {$(($type, $field)),*});
+		decode_tlv!(::util::ser::U8Wrapper, &mut rd, {$(($reqtype, $reqfield)),*}, {$(($type, $field)),*});
 		rd.eat_remaining().map_err(|_| DecodeError::ShortRead)?;
 	} }
 }
@@ -363,10 +372,10 @@ macro_rules! _write_tlv_fields {
 }
 macro_rules! _get_tlv_len {
 	({$(($type: expr, $field: expr)),* $(,)*}, {}, {$(($optional_type: expr, $optional_field: expr)),* $(,)*}) => {
-		get_varint_length_prefixed_tlv_length!({$(($type, $field)),*} , {$(($optional_type, $optional_field)),*})
+		get_varint_length_prefixed_tlv_length!(::util::ser::U8Wrapper, {$(($type, $field)),*} , {$(($optional_type, $optional_field)),*})
 	};
 	({$(($type: expr, $field: expr)),* $(,)*}, {$(($optional_type: expr, $optional_field: expr)),* $(,)*}, {$(($optional_type_2: expr, $optional_field_2: expr)),* $(,)*}) => {
-		get_varint_length_prefixed_tlv_length!({$(($type, $field)),*} , {$(($optional_type, $optional_field)),*, $(($optional_type_2, $optional_field_2)),*})
+		get_varint_length_prefixed_tlv_length!(::util::ser::U8Wrapper, {$(($type, $field)),*} , {$(($optional_type, $optional_field)),*, $(($optional_type_2, $optional_field_2)),*})
 	}
 }
 macro_rules! _read_tlv_fields {
