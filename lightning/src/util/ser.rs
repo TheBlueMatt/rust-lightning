@@ -185,6 +185,16 @@ pub trait Writeable {
 		msg.0[..2].copy_from_slice(&(len as u16 - 2).to_be_bytes());
 		msg.0
 	}
+
+	/// Gets the length of this object after it has been serialized. This can be overridden to
+	/// optimize cases where we prepend an object with its length.
+	// Note that LLVM optimizes this away in most cases! Check that it isn't before you override!
+	#[inline]
+	fn serialized_length(&self) -> usize {
+		let mut len_calc = LengthCalculatingWriter(0);
+		self.write(&mut len_calc).expect("No in-memory data may fail to serialize");
+		len_calc.0
+	}
 }
 
 impl<'a, T: Writeable> Writeable for &'a T {
@@ -561,6 +571,10 @@ impl Writeable for PublicKey {
 	fn write<W: Writer>(&self, w: &mut W) -> Result<(), ::std::io::Error> {
 		self.serialize().write(w)
 	}
+	#[inline]
+	fn serialized_length(&self) -> usize {
+		PUBLIC_KEY_SIZE
+	}
 }
 
 impl Readable for PublicKey {
@@ -578,6 +592,10 @@ impl Writeable for SecretKey {
 		let mut ser = [0; 32];
 		ser.copy_from_slice(&self[..]);
 		ser.write(w)
+	}
+	#[inline]
+	fn serialized_length(&self) -> usize {
+		32
 	}
 }
 
@@ -609,6 +627,10 @@ impl Readable for Sha256dHash {
 impl Writeable for Signature {
 	fn write<W: Writer>(&self, w: &mut W) -> Result<(), ::std::io::Error> {
 		self.serialize_compact().write(w)
+	}
+	#[inline]
+	fn serialized_length(&self) -> usize {
+		COMPACT_SIGNATURE_SIZE
 	}
 }
 
@@ -666,9 +688,7 @@ impl<T: Writeable> Writeable for Option<T> {
 		match *self {
 			None => 0u8.write(w)?,
 			Some(ref data) => {
-				let mut len_calc = LengthCalculatingWriter(0);
-				data.write(&mut len_calc).expect("No in-memory data may fail to serialize");
-				BigSize(len_calc.0 as u64 + 1).write(w)?;
+				BigSize(data.serialized_length() as u64 + 1).write(w)?;
 				data.write(w)?;
 			}
 		}
