@@ -93,6 +93,10 @@ macro_rules! decode_tlv {
 	};
 	($name_ty: path, $stream: expr, {$(($reqtype: expr, $reqfield: ident)),*}, {$(($type: expr, $field: ident)),*}) => { {
 		use ln::msgs::DecodeError;
+		#[allow(unused_imports)]
+		use std::io::Read;
+		#[allow(unused_imports)]
+		use util::ser::Lulz;
 		let mut last_seen_type = None;
 		'tlv_read: loop {
 			use util::ser;
@@ -135,29 +139,72 @@ macro_rules! decode_tlv {
 			last_seen_type = Some(typ.0);
 
 			// Finally, read the length and value itself:
-			let length: ser::BigSize = Readable::read($stream)?;
-			let mut s = ser::FixedLengthReader::new($stream, length.0);
 			match typ.0 {
 				$($reqtype => {
-					$reqfield = ser::Readable::read(&mut s)?;
-					if s.bytes_remain() {
-						s.eat_remaining()?; // Return ShortRead if there's actually not enough bytes
-						Err(DecodeError::InvalidValue)?
+					match $reqfield.fixed_len_read() {
+						Some(len) if len != 0 => {
+							let mut v = [0u8; 9];
+							let bslen = {
+								let mut w = &mut v[..];
+								ser::BigSize(len as u64).write(&mut w).unwrap();
+								9 - w.len()
+							};
+							assert!(bslen < 9);
+							let mut r = [0; 9];
+							$stream.read_exact(&mut r[0..bslen])?;
+							if r[..bslen] != v[..bslen] {
+								Err(DecodeError::InvalidValue)?
+							}
+							$reqfield = ser::Readable::read($stream)?;
+						},
+						_ => {
+							let length: ser::BigSize = Readable::read($stream)?;
+							let mut s = ser::FixedLengthReader::new($stream, length.0);
+							$reqfield = ser::Readable::read(&mut s)?;
+							if s.bytes_remain() {
+								s.eat_remaining()?; // Return ShortRead if there's actually not enough bytes
+								Err(DecodeError::InvalidValue)?
+							}
+						}
 					}
 				},)*
 				$($type => {
-					$field = Some(ser::Readable::read(&mut s)?);
-					if s.bytes_remain() {
-						s.eat_remaining()?; // Return ShortRead if there's actually not enough bytes
-						Err(DecodeError::InvalidValue)?
+					match $field.lulz_len_read() {
+						Some(len) if len != 0 => {
+							let mut v = [0u8; 9];
+							let bslen = {
+								let mut w = &mut v[..];
+								ser::BigSize(len as u64).write(&mut w).unwrap();
+								9 - w.len()
+							};
+							assert!(bslen < 9);
+							let mut r = [0; 9];
+							$stream.read_exact(&mut r[0..bslen])?;
+							if r[..bslen] != v[..bslen] {
+								Err(DecodeError::InvalidValue)?
+							}
+							$field = Some(ser::Readable::read($stream)?);
+						},
+						_ => {
+							let length: ser::BigSize = Readable::read($stream)?;
+							let mut s = ser::FixedLengthReader::new($stream, length.0);
+							$field = Some(ser::Readable::read(&mut s)?);
+							if s.bytes_remain() {
+								s.eat_remaining()?; // Return ShortRead if there's actually not enough bytes
+								Err(DecodeError::InvalidValue)?
+							}
+						}
 					}
 				},)*
 				x if x % 2 == 0 => {
 					Err(DecodeError::UnknownRequiredFeature)?
 				},
-				_ => {},
+				_ => {
+					let length: ser::BigSize = Readable::read($stream)?;
+					let mut s = ser::FixedLengthReader::new($stream, length.0);
+					s.eat_remaining()?;
+				},
 			}
-			s.eat_remaining()?;
 		}
 		// Make sure we got to each required type after we've read every TLV:
 		$({
@@ -213,6 +260,7 @@ macro_rules! impl_writeable {
 					$($field: ::util::ser::Readable::read(r)?),*
 				})
 			}
+			const FIXED_LEN: Option<usize> = Some($len);
 		}
 	}
 }

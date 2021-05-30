@@ -218,6 +218,19 @@ pub trait Readable
 {
 	/// Reads a Self in from the given Read
 	fn read<R: Read>(reader: &mut R) -> Result<Self, DecodeError>;
+
+	const FIXED_LEN: Option<usize> = None;
+	///a
+	fn fixed_len_read(&self) -> Option<usize> { Self::FIXED_LEN }
+}
+pub(crate) trait Lulz {
+	fn lulz_len_read(&self) -> Option<usize>;
+}
+impl<T: Readable> Lulz for Option<T> {
+	#[inline]
+	fn lulz_len_read(&self) -> Option<usize> {
+		T::FIXED_LEN
+	}
 }
 
 /// A trait that various higher-level rust-lightning types implement allowing them to be read in
@@ -247,6 +260,7 @@ impl<T: Readable> Readable for OptionDeserWrapper<T> {
 	fn read<R: Read>(reader: &mut R) -> Result<Self, DecodeError> {
 		Ok(Self(Some(Readable::read(reader)?)))
 	}
+	const FIXED_LEN: Option<usize> = T::FIXED_LEN;
 }
 
 pub(crate) struct U8Wrapper(pub u8);
@@ -400,6 +414,7 @@ macro_rules! impl_writeable_primitive {
 				reader.read_exact(&mut buf)?;
 				Ok(<$val_type>::from_be_bytes(buf))
 			}
+			const FIXED_LEN: Option<usize> = Some($len);
 		}
 		impl Readable for HighZeroBytesDroppedVarInt<$val_type> {
 			#[inline]
@@ -447,6 +462,7 @@ impl Readable for u8 {
 		reader.read_exact(&mut buf)?;
 		Ok(buf[0])
 	}
+	const FIXED_LEN: Option<usize> = Some(1);
 }
 
 impl Writeable for bool {
@@ -465,6 +481,7 @@ impl Readable for bool {
 		}
 		Ok(buf[0] == 1)
 	}
+	const FIXED_LEN: Option<usize> = Some(1);
 }
 
 // u8 arrays
@@ -486,6 +503,7 @@ macro_rules! impl_array {
 				r.read_exact(&mut buf)?;
 				Ok(buf)
 			}
+			const FIXED_LEN: Option<usize> = Some($size);
 		}
 	);
 }
@@ -611,6 +629,7 @@ impl Readable for PublicKey {
 			Err(_) => return Err(DecodeError::InvalidValue),
 		}
 	}
+	const FIXED_LEN: Option<usize> = Some(PUBLIC_KEY_SIZE);
 }
 
 impl Writeable for SecretKey {
@@ -633,6 +652,7 @@ impl Readable for SecretKey {
 			Err(_) => return Err(DecodeError::InvalidValue),
 		}
 	}
+	const FIXED_LEN: Option<usize> = Some(32);
 }
 
 impl Writeable for Sha256dHash {
@@ -648,6 +668,7 @@ impl Readable for Sha256dHash {
 		let buf: [u8; 32] = Readable::read(r)?;
 		Ok(Sha256dHash::from_slice(&buf[..]).unwrap())
 	}
+	const FIXED_LEN: Option<usize> = Some(32);
 }
 
 impl Writeable for Signature {
@@ -668,6 +689,7 @@ impl Readable for Signature {
 			Err(_) => return Err(DecodeError::InvalidValue),
 		}
 	}
+	const FIXED_LEN: Option<usize> = Some(COMPACT_SIGNATURE_SIZE);
 }
 
 impl Writeable for PaymentPreimage {
@@ -681,6 +703,7 @@ impl Readable for PaymentPreimage {
 		let buf: [u8; 32] = Readable::read(r)?;
 		Ok(PaymentPreimage(buf))
 	}
+	const FIXED_LEN: Option<usize> = Some(32);
 }
 
 impl Writeable for PaymentHash {
@@ -694,6 +717,7 @@ impl Readable for PaymentHash {
 		let buf: [u8; 32] = Readable::read(r)?;
 		Ok(PaymentHash(buf))
 	}
+	const FIXED_LEN: Option<usize> = Some(32);
 }
 
 impl Writeable for PaymentSecret {
@@ -707,6 +731,7 @@ impl Readable for PaymentSecret {
 		let buf: [u8; 32] = Readable::read(r)?;
 		Ok(PaymentSecret(buf))
 	}
+	const FIXED_LEN: Option<usize> = Some(32);
 }
 
 impl<T: Writeable> Writeable for Option<T> {
@@ -748,6 +773,7 @@ impl Readable for Txid {
 		let buf: [u8; 32] = Readable::read(r)?;
 		Ok(Txid::from_slice(&buf[..]).unwrap())
 	}
+	const FIXED_LEN: Option<usize> = Some(32);
 }
 
 impl Writeable for BlockHash {
@@ -763,6 +789,7 @@ impl Readable for BlockHash {
 		let buf: [u8; 32] = Readable::read(r)?;
 		Ok(BlockHash::from_slice(&buf[..]).unwrap())
 	}
+	const FIXED_LEN: Option<usize> = Some(32);
 }
 
 impl Writeable for OutPoint {
