@@ -234,6 +234,13 @@ enum InitSyncTracker{
 	NodesSyncing(PublicKey),
 }
 
+/// When the outbound buffer has this many messages, we'll stop reading bytes from the peer until
+/// we manage to send messages until we reach this limit.
+const OUTBOUND_BUFFER_LIMIT_READ_PAUSE: usize = 10;
+/// When the outbound buffer has this many messages, we'll simply skip relaying gossip messages to
+/// the peer.
+const OUTBOUND_BUFFER_LIMIT_DROP_GOSSIP: usize = 20;
+
 struct Peer {
 	channel_encryptor: PeerChannelEncryptor,
 	their_node_id: Option<PublicKey>,
@@ -532,13 +539,12 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 				}
 			}
 		}
-		const MSG_BUFF_SIZE: usize = 10;
 		while !peer.awaiting_write_event {
-			if peer.pending_outbound_buffer.len() < MSG_BUFF_SIZE {
+			if peer.pending_outbound_buffer.len() < OUTBOUND_BUFFER_LIMIT_READ_PAUSE {
 				match peer.sync_status {
 					InitSyncTracker::NoSyncRequested => {},
 					InitSyncTracker::ChannelsSyncing(c) if c < 0xffff_ffff_ffff_ffff => {
-						let steps = ((MSG_BUFF_SIZE - peer.pending_outbound_buffer.len() + 2) / 3) as u8;
+						let steps = ((OUTBOUND_BUFFER_LIMIT_READ_PAUSE - peer.pending_outbound_buffer.len() + 2) / 3) as u8;
 						let all_messages = self.message_handler.route_handler.get_next_channel_announcements(c, steps);
 						for &(ref announce, ref update_a_option, ref update_b_option) in all_messages.iter() {
 							encode_and_send_msg!(announce);
@@ -555,7 +561,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 						}
 					},
 					InitSyncTracker::ChannelsSyncing(c) if c == 0xffff_ffff_ffff_ffff => {
-						let steps = (MSG_BUFF_SIZE - peer.pending_outbound_buffer.len()) as u8;
+						let steps = (OUTBOUND_BUFFER_LIMIT_READ_PAUSE - peer.pending_outbound_buffer.len()) as u8;
 						let all_messages = self.message_handler.route_handler.get_next_node_announcements(None, steps);
 						for msg in all_messages.iter() {
 							encode_and_send_msg!(msg);
@@ -567,7 +573,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 					},
 					InitSyncTracker::ChannelsSyncing(_) => unreachable!(),
 					InitSyncTracker::NodesSyncing(key) => {
-						let steps = (MSG_BUFF_SIZE - peer.pending_outbound_buffer.len()) as u8;
+						let steps = (OUTBOUND_BUFFER_LIMIT_READ_PAUSE - peer.pending_outbound_buffer.len()) as u8;
 						let all_messages = self.message_handler.route_handler.get_next_node_announcements(Some(&key), steps);
 						for msg in all_messages.iter() {
 							encode_and_send_msg!(msg);
@@ -586,7 +592,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 					Some(buff) => buff,
 				};
 
-				let should_be_reading = peer.pending_outbound_buffer.len() < MSG_BUFF_SIZE;
+				let should_be_reading = peer.pending_outbound_buffer.len() < OUTBOUND_BUFFER_LIMIT_READ_PAUSE;
 				let pending = &next_buff[peer.pending_outbound_buffer_first_msg_offset..];
 				let data_sent = descriptor.send_data(pending, should_be_reading);
 				peer.pending_outbound_buffer_first_msg_offset += data_sent;
@@ -815,7 +821,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 						}
 					}
 
-					peer.pending_outbound_buffer.len() > 10 // pause_read
+					peer.pending_outbound_buffer.len() > OUTBOUND_BUFFER_LIMIT_READ_PAUSE // pause_read
 				}
 			};
 
@@ -1028,6 +1034,9 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 							!peer.should_forward_channel_announcement(msg.contents.short_channel_id) {
 						continue
 					}
+					if peer.pending_outbound_buffer.len() > OUTBOUND_BUFFER_LIMIT_DROP_GOSSIP {
+						continue;
+					}
 					if peer.their_node_id.as_ref() == Some(&msg.contents.node_id_1) ||
 					   peer.their_node_id.as_ref() == Some(&msg.contents.node_id_2) {
 						continue;
@@ -1047,6 +1056,9 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 							!peer.should_forward_node_announcement(msg.contents.node_id) {
 						continue
 					}
+					if peer.pending_outbound_buffer.len() > OUTBOUND_BUFFER_LIMIT_DROP_GOSSIP {
+						continue;
+					}
 					if peer.their_node_id.as_ref() == Some(&msg.contents.node_id) {
 						continue;
 					}
@@ -1064,6 +1076,9 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 					if !peer.channel_encryptor.is_ready_for_encryption() || peer.their_features.is_none() ||
 							!peer.should_forward_channel_announcement(msg.contents.short_channel_id)  {
 						continue
+					}
+					if peer.pending_outbound_buffer.len() > OUTBOUND_BUFFER_LIMIT_DROP_GOSSIP {
+						continue;
 					}
 					if except_node.is_some() && peer.their_node_id.as_ref() == except_node {
 						continue;
