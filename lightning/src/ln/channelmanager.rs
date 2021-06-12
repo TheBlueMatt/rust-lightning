@@ -947,6 +947,11 @@ macro_rules! handle_chan_restoration_locked {
 						node_id: counterparty_node_id,
 						msg: announcement_sigs,
 					});
+				} else if $channel_entry.get().is_usable() {
+					$channel_state.pending_msg_events.push(events::MessageSendEvent::SendChannelUpdate {
+						node_id: counterparty_node_id,
+						msg: $self.get_channel_update_for_unicast($channel_entry.get()).unwrap(),
+					});
 				}
 				$channel_state.short_to_id.insert($channel_entry.get().get_short_channel_id().unwrap(), $channel_entry.get().channel_id());
 			}
@@ -2961,6 +2966,11 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 						node_id: counterparty_node_id.clone(),
 						msg: announcement_sigs,
 					});
+				} else if chan.get().is_usable() {
+					channel_state.pending_msg_events.push(events::MessageSendEvent::SendChannelUpdate {
+						node_id: counterparty_node_id.clone(),
+						msg: self.get_channel_update_for_unicast(chan.get()).unwrap(),
+					});
 				}
 				Ok(())
 			},
@@ -3954,6 +3964,12 @@ where
 								node_id: channel.get_counterparty_node_id(),
 								msg: announcement_sigs,
 							});
+						} else if channel.is_usable() {
+							log_trace!(self.logger, "Sending funding_locked WITHOUT announcement_signatures but with channel_update for {}", log_bytes!(channel.channel_id()));
+							pending_msg_events.push(events::MessageSendEvent::SendChannelUpdate {
+								node_id: channel.get_counterparty_node_id(),
+								msg: self.get_channel_update_for_unicast(channel).unwrap(),
+							});
 						} else {
 							log_trace!(self.logger, "Sending funding_locked WITHOUT announcement_signatures for {}", log_bytes!(channel.channel_id()));
 						}
@@ -4188,6 +4204,7 @@ impl<Signer: Sign, M: Deref , T: Deref , K: Deref , F: Deref , L: Deref >
 					&events::MessageSendEvent::BroadcastChannelAnnouncement { .. } => true,
 					&events::MessageSendEvent::BroadcastNodeAnnouncement { .. } => true,
 					&events::MessageSendEvent::BroadcastChannelUpdate { .. } => true,
+					&events::MessageSendEvent::SendChannelUpdate { ref node_id, .. } => node_id != counterparty_node_id,
 					&events::MessageSendEvent::HandleError { ref node_id, .. } => node_id != counterparty_node_id,
 					&events::MessageSendEvent::PaymentFailureNetworkUpdate { .. } => true,
 					&events::MessageSendEvent::SendChannelRangeQuery { .. } => false,
