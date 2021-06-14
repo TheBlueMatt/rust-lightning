@@ -40,6 +40,13 @@ where
 			Some(info) => info,
 			None => continue,
 		};
+		if let Some(invoice_amt) = amt_msat {
+			if let Some(max) = forwarding_info.htlc_maximum_msat {
+				if invoice_smat > max { continue; }
+				if invoice_amt < forwarding_info.htlc_minimum_msat { continue; }
+			}
+			if invoice_amt > channel.inbound_capacity_msat { continue; }
+		}
 		route_hints.push(vec![RouteHintHop {
 			src_node_id: channel.remote_network_id,
 			short_channel_id,

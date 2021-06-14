@@ -298,6 +298,13 @@ pub struct CounterpartyForwardingInfo {
 	/// such that the outgoing HTLC is forwardable to this counterparty. See `msgs::ChannelUpdate`'s
 	/// `cltv_expiry_delta` for more details.
 	pub cltv_expiry_delta: u16,
+	/// The minimum amount in millisatoshis which the counterparty is willing to forward to us.
+	/// Note that when reading serialized states from LDK versions <= 0.0.98, this field is set to
+	/// 0.
+	pub htlc_minimum_msat: u64,
+	/// The maximum amount in millisatoshis which the counterparty is willing to forward to us, if
+	/// they provided one which is lower than the value of the channel.
+	pub htlc_maximum_msat: Option<u64>,
 }
 
 // TODO: We should refactor this to be an Inbound/OutboundChannel until initial setup handshaking
@@ -4255,7 +4262,10 @@ impl<Signer: Sign> Channel<Signer> {
 		self.counterparty_forwarding_info = Some(CounterpartyForwardingInfo {
 			fee_base_msat: msg.contents.fee_base_msat,
 			fee_proportional_millionths: msg.contents.fee_proportional_millionths,
-			cltv_expiry_delta: msg.contents.cltv_expiry_delta
+			cltv_expiry_delta: msg.contents.cltv_expiry_delta,
+			htlc_minimum_msat: msg.contents.htlc_minimum_msat,
+			htlc_maximum_msat: if let OptionalField::Present(val) = msg.contents.htlc_maximum_msat {
+				Some(val) } else { None },
 		});
 
 		Ok(())
@@ -4583,12 +4593,16 @@ impl<Signer: Sign> Writeable for Channel<Signer> {
 		self.counterparty_max_accepted_htlcs.write(writer)?;
 		self.minimum_depth.write(writer)?;
 
+		let mut counterparty_htlc_minimum_msat = None;
+		let mut counterparty_htlc_maximum_msat = None;
 		match &self.counterparty_forwarding_info {
 			Some(info) => {
 				1u8.write(writer)?;
 				info.fee_base_msat.write(writer)?;
 				info.fee_proportional_millionths.write(writer)?;
 				info.cltv_expiry_delta.write(writer)?;
+				counterparty_htlc_minimum_msat = Some(info.htlc_minimum_msat);
+				counterparty_htlc_maximum_msat = info.htlc_maximum_msat;
 			},
 			None => 0u8.write(writer)?
 		}
@@ -4606,7 +4620,11 @@ impl<Signer: Sign> Writeable for Channel<Signer> {
 
 		self.channel_update_status.write(writer)?;
 
-		write_tlv_fields!(writer, {}, {(0, self.announcement_sigs)});
+		write_tlv_fields!(writer, {}, {
+			(0, self.announcement_sigs),
+			(1, counterparty_htlc_minimum_msat),
+			(3, counterparty_htlc_maximum_msat),
+		});
 
 		Ok(())
 	}
@@ -4755,12 +4773,14 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<&'a K> for Channel<Signer>
 		let counterparty_max_accepted_htlcs = Readable::read(reader)?;
 		let minimum_depth = Readable::read(reader)?;
 
-		let counterparty_forwarding_info = match <u8 as Readable>::read(reader)? {
+		let mut counterparty_forwarding_info = match <u8 as Readable>::read(reader)? {
 			0 => None,
 			1 => Some(CounterpartyForwardingInfo {
 				fee_base_msat: Readable::read(reader)?,
 				fee_proportional_millionths: Readable::read(reader)?,
 				cltv_expiry_delta: Readable::read(reader)?,
+				htlc_minimum_msat: 0,
+				htlc_maximum_msat: None,
 			}),
 			_ => return Err(DecodeError::InvalidValue),
 		};
@@ -4779,7 +4799,22 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<&'a K> for Channel<Signer>
 		let channel_update_status = Readable::read(reader)?;
 
 		let mut announcement_sigs = None;
-		read_tlv_fields!(reader, {}, {(0, announcement_sigs)});
+		let mut counterparty_htlc_maximum_msat = None;
+		let mut counterparty_htlc_minimum_msat = None;
+		read_tlv_fields!(reader, {}, {
+			(0, announcement_sigs),
+			(1, counterparty_htlc_minimum_msat),
+			(3, counterparty_htlc_maximum_msat),
+		});
+
+		if let Some(amt) = counterparty_htlc_minimum_msat {
+			if counterparty_forwarding_info.is_none() { return Err(DecodeError::InvalidValue); }
+			counterparty_forwarding_info.as_mut().unwrap().htlc_minimum_msat = amt;
+		}
+		if let Some(amt) = counterparty_htlc_maximum_msat {
+			if counterparty_forwarding_info.is_none() { return Err(DecodeError::InvalidValue); }
+			counterparty_forwarding_info.as_mut().unwrap().htlc_maximum_msat = Some(amt);
+		}
 
 		let mut secp_ctx = Secp256k1::new();
 		secp_ctx.seeded_randomize(&keys_source.get_secure_random_bytes());
