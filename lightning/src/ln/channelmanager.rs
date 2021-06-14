@@ -947,11 +947,6 @@ macro_rules! handle_chan_restoration_locked {
 						node_id: counterparty_node_id,
 						msg: announcement_sigs,
 					});
-				} else if $channel_entry.get().is_usable() {
-					$channel_state.pending_msg_events.push(events::MessageSendEvent::SendChannelUpdate {
-						node_id: counterparty_node_id,
-						msg: $self.get_channel_update_for_unicast($channel_entry.get()).unwrap(),
-					});
 				}
 				$channel_state.short_to_id.insert($channel_entry.get().get_short_channel_id().unwrap(), $channel_entry.get().channel_id());
 			}
@@ -2791,7 +2786,8 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 	pub fn channel_monitor_updated(&self, funding_txo: &OutPoint, highest_applied_update_id: u64) {
 		let _persistence_guard = PersistenceNotifierGuard::notify_on_drop(&self.total_consistency_lock, &self.persistence_notifier);
 
-		let (mut pending_failures, chan_restoration_res) = {
+		let chan_restoration_res;
+		let mut pending_failures = {
 			let mut channel_lock = self.channel_state.lock().unwrap();
 			let channel_state = &mut *channel_lock;
 			let mut channel = match channel_state.by_id.entry(funding_txo.to_channel_id()) {
@@ -2803,7 +2799,22 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 			}
 
 			let (raa, commitment_update, order, pending_forwards, pending_failures, funding_broadcastable, funding_locked) = channel.get_mut().monitor_updating_restored(&self.logger);
-			(pending_failures, handle_chan_restoration_locked!(self, channel_lock, channel_state, channel, raa, commitment_update, order, None, pending_forwards, funding_broadcastable, funding_locked))
+			let channel_update = if funding_locked.is_some() && channel.get().is_usable() {
+				Some(events::MessageSendEvent::SendChannelUpdate {
+					node_id: channel.get().get_counterparty_node_id(),
+					msg: self.get_channel_update_for_unicast(channel.get()).unwrap(),
+				})
+			} else { None };
+			chan_restoration_res = handle_chan_restoration_locked!(self, channel_lock, channel_state, channel, raa, commitment_update, order, None, pending_forwards, funding_broadcastable, funding_locked);
+			if let Some(upd) = channel_update {
+				// If we closed the channel due to a failed monitor update in
+				// handle_chan_restoration_locked this will send a bogus channel_update immediately
+				// after closure, but our direct peer should be fine with that, given they know the
+				// channel state as well. Further, we'll broadcast a channel_disabled channel_update
+				// in post_handle_chan_restoration below for public channels.
+				channel_state.pending_msg_events.push(upd);
+			}
+			pending_failures
 		};
 		post_handle_chan_restoration!(self, chan_restoration_res);
 		for failure in pending_failures.drain(..) {
@@ -3395,7 +3406,8 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 	}
 
 	fn internal_channel_reestablish(&self, counterparty_node_id: &PublicKey, msg: &msgs::ChannelReestablish) -> Result<(), MsgHandleErrInternal> {
-		let (htlcs_failed_forward, chan_restoration_res) = {
+		let chan_restoration_res;
+		let htlcs_failed_forward = {
 			let mut channel_state_lock = self.channel_state.lock().unwrap();
 			let channel_state = &mut *channel_state_lock;
 
@@ -3410,13 +3422,28 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					// add-HTLCs on disconnect, we may be handed HTLCs to fail backwards here.
 					let (funding_locked, revoke_and_ack, commitment_update, monitor_update_opt, order, htlcs_failed_forward, shutdown) =
 						try_chan_entry!(self, chan.get_mut().channel_reestablish(msg, &self.logger), channel_state, chan);
+					let mut channel_update = None;
 					if let Some(msg) = shutdown {
 						channel_state.pending_msg_events.push(events::MessageSendEvent::SendShutdown {
 							node_id: counterparty_node_id.clone(),
 							msg,
 						});
+					} else if chan.get().is_usable() {
+						channel_update = Some(events::MessageSendEvent::SendChannelUpdate {
+							node_id: chan.get().get_counterparty_node_id(),
+							msg: self.get_channel_update_for_unicast(chan.get()).unwrap(),
+						});
 					}
-					(htlcs_failed_forward, handle_chan_restoration_locked!(self, channel_state_lock, channel_state, chan, revoke_and_ack, commitment_update, order, monitor_update_opt, Vec::new(), None, funding_locked))
+					chan_restoration_res = handle_chan_restoration_locked!(self, channel_state_lock, channel_state, chan, revoke_and_ack, commitment_update, order, monitor_update_opt, Vec::new(), None, funding_locked);
+					if let Some(upd) = channel_update {
+						// If we closed the channel due to a failed monitor update in
+						// handle_chan_restoration_locked this will send a bogus channel_update immediately
+						// after closure, but our direct peer should be fine with that, given they know the
+						// channel state as well. Further, we'll broadcast a channel_disabled channel_update
+						// in post_handle_chan_restoration below for public channels.
+						channel_state.pending_msg_events.push(upd);
+					}
+					htlcs_failed_forward
 				},
 				hash_map::Entry::Vacant(_) => return Err(MsgHandleErrInternal::send_err_msg_no_close("Failed to find corresponding channel".to_owned(), msg.channel_id))
 			}
