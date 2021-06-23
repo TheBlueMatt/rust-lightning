@@ -1434,14 +1434,22 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				return_err!("Upstream node set CLTV to the wrong value", 18, &byte_utils::be32_to_array(msg.cltv_expiry));
 			}
 
-			let (payment_data, keysend_preimage) = match next_hop_data.format {
+			let (mut payment_data, keysend_preimage) = match next_hop_data.format {
 				msgs::OnionHopDataFormat::Legacy { .. } => (None, None),
 				msgs::OnionHopDataFormat::NonFinalNode { .. } => return_err!("Got non final data with an HMAC of 0", 0x4000 | 22, &[0;0]),
 				msgs::OnionHopDataFormat::FinalNode { payment_data, keysend_preimage } => (payment_data, keysend_preimage),
 			};
 
 			if payment_data.is_none() {
-				return_err!("We require payment_secrets", 0x4000|0x2000|3, &[0;0]);
+				match keysend_preimage {
+					Some(_) => {
+						payment_data = Some(msgs::FinalOnionHopData {
+							payment_secret: PaymentSecret([0; 32]),
+							total_msat: msg.amount_msat
+						});
+					},
+					None => return_err!("We require payment_secrets", 0x4000|0x2000|3, &[0;0])
+				}
 			}
 
 			// Note that we could obviously respond immediately with an update_fulfill_htlc
@@ -1623,7 +1631,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 	}
 
 	// Only public for testing, this should otherwise never be called direcly
-	pub(crate) fn send_payment_along_path(&self, path: &Vec<RouteHop>, payment_hash: &PaymentHash, payment_secret: &Option<PaymentSecret>, total_value: u64, cur_height: u32) -> Result<(), APIError> {
+	pub(crate) fn send_payment_along_path(&self, path: &Vec<RouteHop>, payment_hash: &PaymentHash, payment_secret: &Option<PaymentSecret>, total_value: u64, cur_height: u32, keysend_preimage: &Option<PaymentPreimage>) -> Result<(), APIError> {
 		log_trace!(self.logger, "Attempting to send payment for path with next hop {}", path.first().unwrap().short_channel_id);
 		let prng_seed = self.keys_manager.get_secure_random_bytes();
 		let session_priv_bytes = self.keys_manager.get_secure_random_bytes();
@@ -1631,7 +1639,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 
 		let onion_keys = onion_utils::construct_onion_keys(&self.secp_ctx, &path, &session_priv)
 			.map_err(|_| APIError::RouteError{err: "Pubkey along hop was maliciously selected"})?;
-		let (onion_payloads, htlc_msat, htlc_cltv) = onion_utils::build_onion_payloads(path, total_value, payment_secret, cur_height)?;
+		let (onion_payloads, htlc_msat, htlc_cltv) = onion_utils::build_onion_payloads(path, total_value, payment_secret, cur_height, keysend_preimage)?;
 		if onion_utils::route_size_insane(&onion_payloads) {
 			return Err(APIError::RouteError{err: "Route size too large considering onion data"});
 		}
@@ -1739,6 +1747,10 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 	/// bit set (either as required or as available). If multiple paths are present in the Route,
 	/// we assume the invoice had the basic_mpp feature set.
 	pub fn send_payment(&self, route: &Route, payment_hash: PaymentHash, payment_secret: &Option<PaymentSecret>) -> Result<(), PaymentSendFailure> {
+		self.send_payment_internal(route, payment_hash, payment_secret, None)
+	}
+
+	fn send_payment_internal(&self, route: &Route, payment_hash: PaymentHash, payment_secret: &Option<PaymentSecret>, keysend_preimage: Option<PaymentPreimage>) -> Result<(), PaymentSendFailure> {
 		if route.paths.len() < 1 {
 			return Err(PaymentSendFailure::ParameterError(APIError::RouteError{err: "There must be at least one path to send over"}));
 		}
@@ -1772,7 +1784,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		let cur_height = self.best_block.read().unwrap().height() + 1;
 		let mut results = Vec::new();
 		for path in route.paths.iter() {
-			results.push(self.send_payment_along_path(&path, &payment_hash, payment_secret, total_value, cur_height));
+			results.push(self.send_payment_along_path(&path, &payment_hash, payment_secret, total_value, cur_height, &keysend_preimage));
 		}
 		let mut has_ok = false;
 		let mut has_err = false;
@@ -1793,6 +1805,23 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 			Err(PaymentSendFailure::AllFailedRetrySafe(results.drain(..).map(|r| r.unwrap_err()).collect()))
 		} else {
 			Ok(())
+		}
+	}
+
+	/// Send a spontaneous payment, which is a payment that does not require the recipient to have
+	/// generated an invoice. Optionally, you may specify the preimage. If you do choose to specify
+	/// the preimage, it must be a secure, random value that no intermediate node would be able to
+	/// guess -- otherwise, an intermediate node may claim the payment and it will never reach the
+	/// recipient.
+	pub fn send_spontaneous_payment(&self, route: &Route, payment_preimage: Option<PaymentPreimage>) -> Result<PaymentHash, PaymentSendFailure> {
+		let preimage = match payment_preimage {
+			Some(p) => p,
+			None => PaymentPreimage(self.keys_manager.get_secure_random_bytes()),
+		};
+		let payment_hash = PaymentHash(Sha256::hash(&preimage.0).into_inner());
+		match self.send_payment_internal(route, payment_hash, &None, Some(preimage)) {
+			Ok(()) => Ok(payment_hash),
+			Err(e) => Err(e)
 		}
 	}
 
@@ -3058,6 +3087,23 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		let (pending_forward_info, mut channel_state_lock) = self.decode_update_add_htlc_onion(msg);
 		let channel_state = &mut *channel_state_lock;
 
+		// If we're receiving a keysend payment, then no payment will have been added to
+		// `self.pending_inbound_payments` in preparation to receive said payment. Thus, if a
+		// keysend_preimage is present, add the pending inbound payment now.
+		match pending_forward_info {
+			PendingHTLCStatus::Forward(PendingHTLCInfo { ref routing, .. }) => {
+				match routing {
+					PendingHTLCRouting::Receive { payment_data, keysend_preimage: Some(preimage), .. } => {
+						let hash = PaymentHash(Sha256::hash(&preimage.0[..]).into_inner());
+						let default_invoice_expiry_secs = 60 * 60; // 1 hour
+						self.set_payment_hash_secret_map(hash, Some(preimage.clone()), Some(payment_data.payment_secret), Some(payment_data.total_msat), default_invoice_expiry_secs, 0).unwrap();
+					},
+					_ => {}
+				}
+			},
+			_ => {}
+		}
+
 		match channel_state.by_id.entry(msg.channel_id) {
 			hash_map::Entry::Occupied(mut chan) => {
 				if chan.get().get_counterparty_node_id() != *counterparty_node_id {
@@ -3587,10 +3633,13 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		}
 	}
 
-	fn set_payment_hash_secret_map(&self, payment_hash: PaymentHash, payment_preimage: Option<PaymentPreimage>, min_value_msat: Option<u64>, invoice_expiry_delta_secs: u32, user_payment_id: u64) -> Result<PaymentSecret, APIError> {
+	fn set_payment_hash_secret_map(&self, payment_hash: PaymentHash, payment_preimage: Option<PaymentPreimage>, payment_secret: Option<PaymentSecret>, min_value_msat: Option<u64>, invoice_expiry_delta_secs: u32, user_payment_id: u64) -> Result<PaymentSecret, APIError> {
 		assert!(invoice_expiry_delta_secs <= 60*60*24*365); // Sadly bitcoin timestamps are u32s, so panic before 2106
 
-		let payment_secret = PaymentSecret(self.keys_manager.get_secure_random_bytes());
+		let payment_secret = match payment_secret {
+			Some(secret) => secret,
+			None => PaymentSecret(self.keys_manager.get_secure_random_bytes())
+		};
 
 		let _persistence_guard = PersistenceNotifierGuard::notify_on_drop(&self.total_consistency_lock, &self.persistence_notifier);
 		let mut payment_secrets = self.pending_inbound_payments.lock().unwrap();
@@ -3634,7 +3683,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		let payment_hash = PaymentHash(Sha256::hash(&payment_preimage.0).into_inner());
 
 		(payment_hash,
-			self.set_payment_hash_secret_map(payment_hash, Some(payment_preimage), min_value_msat, invoice_expiry_delta_secs, user_payment_id)
+			self.set_payment_hash_secret_map(payment_hash, Some(payment_preimage), None, min_value_msat, invoice_expiry_delta_secs, user_payment_id)
 				.expect("RNG Generated Duplicate PaymentHash"))
 	}
 
@@ -3684,7 +3733,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 	/// [`PaymentReceived`]: events::Event::PaymentReceived
 	/// [`PaymentReceived::user_payment_id`]: events::Event::PaymentReceived::user_payment_id
 	pub fn create_inbound_payment_for_hash(&self, payment_hash: PaymentHash, min_value_msat: Option<u64>, invoice_expiry_delta_secs: u32, user_payment_id: u64) -> Result<PaymentSecret, APIError> {
-		self.set_payment_hash_secret_map(payment_hash, None, min_value_msat, invoice_expiry_delta_secs, user_payment_id)
+		self.set_payment_hash_secret_map(payment_hash, None, None, min_value_msat, invoice_expiry_delta_secs, user_payment_id)
 	}
 
 	#[cfg(any(test, feature = "fuzztarget", feature = "_test_utils"))]
