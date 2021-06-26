@@ -99,7 +99,10 @@ enum PendingHTLCRouting {
 	Receive {
 		payment_data: msgs::FinalOnionHopData,
 		incoming_cltv_expiry: u32, // Used to track when we should expire pending HTLCs that go unclaimed
-		keysend_preimage: Option<PaymentPreimage>,
+	},
+	ReceiveKeysend {
+		incoming_cltv_expiry: u32, // Used to track when we should expire pending HTLCs that go unclaimed
+		payment_preimage: PaymentPreimage,
 	},
 }
 
@@ -1434,23 +1437,25 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				return_err!("Upstream node set CLTV to the wrong value", 18, &byte_utils::be32_to_array(msg.cltv_expiry));
 			}
 
-			let (mut payment_data, keysend_preimage) = match next_hop_data.format {
-				msgs::OnionHopDataFormat::Legacy { .. } => (None, None),
+			let routing = match next_hop_data.format {
+				msgs::OnionHopDataFormat::Legacy { .. } => return_err!("We require payment_secrets", 0x4000|0x2000|3, &[0;0]),
 				msgs::OnionHopDataFormat::NonFinalNode { .. } => return_err!("Got non final data with an HMAC of 0", 0x4000 | 22, &[0;0]),
-				msgs::OnionHopDataFormat::FinalNode { payment_data, keysend_preimage } => (payment_data, keysend_preimage),
+				msgs::OnionHopDataFormat::FinalNode { payment_data, keysend_preimage } => {
+					if let Some(data) = payment_data {
+						PendingHTLCRouting::Receive {
+							payment_data: data,
+							incoming_cltv_expiry: msg.cltv_expiry,
+						}
+					} else if let Some(payment_preimage) = keysend_preimage {
+						PendingHTLCRouting::ReceiveKeysend {
+							incoming_cltv_expiry: msg.cltv_expiry,
+							payment_preimage,
+						}
+					} else {
+						return_err!("We require payment_secrets", 0x4000|0x2000|3, &[0;0]);
+					}
+				},
 			};
-
-			if payment_data.is_none() {
-				match keysend_preimage {
-					Some(_) => {
-						payment_data = Some(msgs::FinalOnionHopData {
-							payment_secret: PaymentSecret([0; 32]),
-							total_msat: msg.amount_msat
-						});
-					},
-					None => return_err!("We require payment_secrets", 0x4000|0x2000|3, &[0;0])
-				}
-			}
 
 			// Note that we could obviously respond immediately with an update_fulfill_htlc
 			// message, however that would leak that we are the recipient of this payment, so
@@ -1458,11 +1463,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 			// delay) once they've send us a commitment_signed!
 
 			PendingHTLCStatus::Forward(PendingHTLCInfo {
-				routing: PendingHTLCRouting::Receive {
-					payment_data: payment_data.unwrap(),
-					incoming_cltv_expiry: msg.cltv_expiry,
-					keysend_preimage,
-				},
+				routing,
 				payment_hash: msg.payment_hash.clone(),
 				incoming_shared_secret: shared_secret,
 				amt_to_forward: next_hop_data.amt_to_forward,
@@ -2207,6 +2208,8 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				} else {
 					for forward_info in pending_forwards.drain(..) {
 						match forward_info {
+                            //XXX: Adapt this to handle both keysend and normal in the same
+                            //codeblock.
 							HTLCForwardInfo::AddHTLC { prev_short_channel_id, prev_htlc_id, forward_info: PendingHTLCInfo {
 									routing: PendingHTLCRouting::Receive { payment_data, incoming_cltv_expiry, .. },
 									incoming_shared_secret, payment_hash, amt_to_forward, .. },
@@ -3087,23 +3090,6 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		let (pending_forward_info, mut channel_state_lock) = self.decode_update_add_htlc_onion(msg);
 		let channel_state = &mut *channel_state_lock;
 
-		// If we're receiving a keysend payment, then no payment will have been added to
-		// `self.pending_inbound_payments` in preparation to receive said payment. Thus, if a
-		// keysend_preimage is present, add the pending inbound payment now.
-		match pending_forward_info {
-			PendingHTLCStatus::Forward(PendingHTLCInfo { ref routing, .. }) => {
-				match routing {
-					PendingHTLCRouting::Receive { payment_data, keysend_preimage: Some(preimage), .. } => {
-						let hash = PaymentHash(Sha256::hash(&preimage.0[..]).into_inner());
-						let default_invoice_expiry_secs = 60 * 60; // 1 hour
-						self.set_payment_hash_secret_map(hash, Some(preimage.clone()), Some(payment_data.payment_secret), Some(payment_data.total_msat), default_invoice_expiry_secs, 0).unwrap();
-					},
-					_ => {}
-				}
-			},
-			_ => {}
-		}
-
 		match channel_state.by_id.entry(msg.channel_id) {
 			hash_map::Entry::Occupied(mut chan) => {
 				if chan.get().get_counterparty_node_id() != *counterparty_node_id {
@@ -3273,6 +3259,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					match channel_state.forward_htlcs.entry(match forward_info.routing {
 							PendingHTLCRouting::Forward { short_channel_id, .. } => short_channel_id,
 							PendingHTLCRouting::Receive { .. } => 0,
+							PendingHTLCRouting::ReceiveKeysend { .. } => 0,
 					}) {
 						hash_map::Entry::Occupied(mut entry) => {
 							entry.get_mut().push(HTLCForwardInfo::AddHTLC { prev_short_channel_id, prev_funding_outpoint,
@@ -4377,8 +4364,11 @@ impl_writeable_tlv_based_enum!(PendingHTLCRouting,
 	(1, Receive) => {
 		(0, payment_data, required),
 		(2, incoming_cltv_expiry, required),
-		(4, keysend_preimage, option)
-	}
+	},
+	(2, ReceiveKeysend) => {
+		(0, incoming_cltv_expiry, required),
+		(2, payment_preimage, required)
+	},
 ;);
 
 impl_writeable_tlv_based!(PendingHTLCInfo, {
