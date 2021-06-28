@@ -2749,7 +2749,7 @@ impl<Signer: Sign> Channel<Signer> {
 			panic!("Cannot update fee while peer is disconnected/we're awaiting a monitor update (ChannelManager should have caught this)");
 		}
 
-		if (self.channel_state & (ChannelState::AwaitingRemoteRevoke as u32)) == (ChannelState::AwaitingRemoteRevoke as u32) {
+		if (self.channel_state & (ChannelState::AwaitingRemoteRevoke as u32 | ChannelState::MonitorUpdateFailed as u32)) != 0 {
 			self.holding_cell_update_fee = Some(feerate_per_kw);
 			return None;
 		}
@@ -3432,7 +3432,6 @@ impl<Signer: Sign> Channel<Signer> {
 		cmp::max(self.config.cltv_expiry_delta, MIN_CLTV_EXPIRY_DELTA)
 	}
 
-	#[cfg(test)]
 	pub fn get_feerate(&self) -> u32 {
 		self.feerate_per_kw
 	}
