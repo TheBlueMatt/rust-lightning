@@ -444,6 +444,15 @@ pub(super) struct Channel<Signer: Sign> {
 	///
 	/// See-also <https://github.com/lightningnetwork/lnd/issues/4006>
 	pub workaround_lnd_bug_4006: Option<msgs::FundingLocked>,
+
+	#[cfg(any(test, feature = "fuzztarget"))]
+	// When receive an HTLC fulfill on an outbound path, we may immediately fulfill the
+	// corresponding HTLC on the inbound path. If, then, the outbound path channel is
+	// disconnected and reconnected, they may re-broadcast their update_fulfill_htlc,
+	// causing a double-claim. This is fine, but as a sanity check in our failure to
+	// generate the second claim, we check here that the original was a claim, and that we
+	// aren't now trying to fulfill a failed HTLC.
+	historical_inbound_htlc_fulfills: HashSet<u64>,
 }
 
 #[cfg(any(test, feature = "fuzztarget"))]
@@ -644,6 +653,9 @@ impl<Signer: Sign> Channel<Signer> {
 			next_remote_commitment_tx_fee_info_cached: Mutex::new(None),
 
 			workaround_lnd_bug_4006: None,
+
+			#[cfg(any(test, feature = "fuzztarget"))]
+			historical_inbound_htlc_fulfills: HashSet::new(),
 		})
 	}
 
@@ -889,6 +901,9 @@ impl<Signer: Sign> Channel<Signer> {
 			next_remote_commitment_tx_fee_info_cached: Mutex::new(None),
 
 			workaround_lnd_bug_4006: None,
+
+			#[cfg(any(test, feature = "fuzztarget"))]
+			historical_inbound_htlc_fulfills: HashSet::new(),
 		};
 
 		Ok(chan)
@@ -1248,8 +1263,8 @@ impl<Signer: Sign> Channel<Signer> {
 						if let &InboundHTLCRemovalReason::Fulfill(_) = reason {
 						} else {
 							log_warn!(logger, "Have preimage and want to fulfill HTLC with payment hash {} we already failed against channel {}", log_bytes!(htlc.payment_hash.0), log_bytes!(self.channel_id()));
+							debug_assert!(false, "Tried to fulfill an HTLC that was already fail/fulfilled");
 						}
-						debug_assert!(false, "Tried to fulfill an HTLC that was already fail/fulfilled");
 						return Ok((None, None));
 					},
 					_ => {
@@ -1262,7 +1277,9 @@ impl<Signer: Sign> Channel<Signer> {
 			}
 		}
 		if pending_idx == core::usize::MAX {
-			return Err(ChannelError::Ignore("Unable to find a pending HTLC which matched the given HTLC ID".to_owned()));
+			#[cfg(any(test, feature = "fuzztarget"))]
+			debug_assert!(self.historical_inbound_htlc_fulfills.contains(&htlc_id_arg));
+			return Ok((None, None));
 		}
 
 		// Now update local state:
@@ -1284,7 +1301,8 @@ impl<Signer: Sign> Channel<Signer> {
 						if htlc_id_arg == htlc_id {
 							// Make sure we don't leave latest_monitor_update_id incremented here:
 							self.latest_monitor_update_id -= 1;
-							debug_assert!(false, "Tried to fulfill an HTLC that was already fulfilled");
+							#[cfg(any(test, feature = "fuzztarget"))]
+							debug_assert!(self.historical_inbound_htlc_fulfills.contains(&htlc_id_arg));
 							return Ok((None, None));
 						}
 					},
@@ -1304,8 +1322,12 @@ impl<Signer: Sign> Channel<Signer> {
 			self.holding_cell_htlc_updates.push(HTLCUpdateAwaitingACK::ClaimHTLC {
 				payment_preimage: payment_preimage_arg, htlc_id: htlc_id_arg,
 			});
+			#[cfg(any(test, feature = "fuzztarget"))]
+			self.historical_inbound_htlc_fulfills.insert(htlc_id_arg);
 			return Ok((None, Some(monitor_update)));
 		}
+		#[cfg(any(test, feature = "fuzztarget"))]
+		self.historical_inbound_htlc_fulfills.insert(htlc_id_arg);
 
 		{
 			let htlc = &mut self.pending_inbound_htlcs[pending_idx];
@@ -4684,6 +4706,13 @@ impl<Signer: Sign> Writeable for Channel<Signer> {
 
 		self.channel_update_status.write(writer)?;
 
+		#[cfg(any(test, feature = "fuzztarget"))]
+		(self.historical_inbound_htlc_fulfills.len() as u64).write(writer)?;
+		#[cfg(any(test, feature = "fuzztarget"))]
+		for htlc in self.historical_inbound_htlc_fulfills.iter() {
+			htlc.write(writer)?;
+		}
+
 		write_tlv_fields!(writer, {
 			(0, self.announcement_sigs, option),
 			// minimum_depth and counterparty_selected_channel_reserve_satoshis used to have a
@@ -4893,6 +4922,16 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<&'a K> for Channel<Signer>
 
 		let channel_update_status = Readable::read(reader)?;
 
+		#[cfg(any(test, feature = "fuzztarget"))]
+		let mut historical_inbound_htlc_fulfills = HashSet::new();
+		#[cfg(any(test, feature = "fuzztarget"))]
+		{
+			let htlc_fulfills_len: u64 = Readable::read(reader)?;
+			for _ in 0..htlc_fulfills_len {
+				assert!(historical_inbound_htlc_fulfills.insert(Readable::read(reader)?));
+			}
+		}
+
 		let mut announcement_sigs = None;
 		read_tlv_fields!(reader, {
 			(0, announcement_sigs, option),
@@ -4985,6 +5024,9 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<&'a K> for Channel<Signer>
 			next_remote_commitment_tx_fee_info_cached: Mutex::new(None),
 
 			workaround_lnd_bug_4006: None,
+
+			#[cfg(any(test, feature = "fuzztarget"))]
+			historical_inbound_htlc_fulfills,
 		})
 	}
 }
