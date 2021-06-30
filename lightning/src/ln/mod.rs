@@ -33,7 +33,11 @@ pub mod peer_channel_encryptor;
 #[cfg(not(feature = "fuzztarget"))]
 pub(crate) mod peer_channel_encryptor;
 
+#[cfg(fuzzing)]
+pub mod channel;
+#[cfg(not(fuzzing))]
 mod channel;
+
 mod onion_utils;
 mod wire;
 
