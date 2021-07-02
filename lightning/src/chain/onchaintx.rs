@@ -389,6 +389,16 @@ impl<ChannelSigner: Sign> OnchainTxHandler<ChannelSigner> {
 		let mut preprocessed_requests = Vec::with_capacity(requests.len());
 		let mut aggregated_request = None;
 
+		let mut bump_candidates = HashMap::new();
+		// Check if any pending claim request must be rescheduled
+		for (first_claim_txid, ref request) in self.pending_claim_requests.iter() {
+			if let Some(h) = request.timer() {
+				if cur_height >= h {
+					bump_candidates.insert(*first_claim_txid, (*request).clone());
+				}
+			}
+		}
+
 		// Try to aggregate outputs if their timelock expiration isn't imminent (package timelock
 		// <= CLTV_SHARED_CLAIM_BUFFER) and they don't require an immediate nLockTime (aggregable).
 		for req in requests {
@@ -453,7 +463,6 @@ impl<ChannelSigner: Sign> OnchainTxHandler<ChannelSigner> {
 			}
 		}
 
-		let mut bump_candidates = HashMap::new();
 		for tx in txn_matched {
 			// Scan all input to verify is one of the outpoint spent is of interest for us
 			let mut claimed_outputs_material = Vec::new();
@@ -552,15 +561,6 @@ impl<ChannelSigner: Sign> OnchainTxHandler<ChannelSigner> {
 				}
 			} else {
 				self.onchain_events_awaiting_threshold_conf.push(entry);
-			}
-		}
-
-		// Check if any pending claim request must be rescheduled
-		for (first_claim_txid, ref request) in self.pending_claim_requests.iter() {
-			if let Some(h) = request.timer() {
-				if cur_height >= h {
-					bump_candidates.insert(*first_claim_txid, (*request).clone());
-				}
 			}
 		}
 
