@@ -26,7 +26,7 @@ macro_rules! encode_tlv {
 }
 
 macro_rules! encode_tlv_stream {
-	($stream: expr, {$(($type: expr, $field: expr, $fieldty: ident)),*}) => { {
+	($stream: expr, {$(($type: expr, $field: expr, $fieldty: ident)),* $(,)*}) => { {
 		#[allow(unused_imports)]
 		use {
 			ln::msgs::DecodeError,
@@ -136,6 +136,7 @@ macro_rules! decode_tlv_stream {
 	($stream: expr, {$(($type: expr, $field: ident, $fieldty: ident)),* $(,)*}) => { {
 		use ln::msgs::DecodeError;
 		let mut last_seen_type: Option<u64> = None;
+		let mut stream_ref = $stream;
 		'tlv_read: loop {
 			use util::ser;
 
@@ -145,7 +146,7 @@ macro_rules! decode_tlv_stream {
 				// determine whether we should break or return ShortRead if we get an
 				// UnexpectedEof. This should in every case be largely cosmetic, but its nice to
 				// pass the TLV test vectors exactly, which requre this distinction.
-				let mut tracking_reader = ser::ReadTrackingReader::new($stream);
+				let mut tracking_reader = ser::ReadTrackingReader::new(&mut stream_ref);
 				match ser::Readable::read(&mut tracking_reader) {
 					Err(DecodeError::ShortRead) => {
 						if !tracking_reader.have_read {
@@ -173,8 +174,8 @@ macro_rules! decode_tlv_stream {
 			last_seen_type = Some(typ.0);
 
 			// Finally, read the length and value itself:
-			let length: ser::BigSize = ser::Readable::read($stream)?;
-			let mut s = ser::FixedLengthReader::new($stream, length.0);
+			let length: ser::BigSize = ser::Readable::read(&mut stream_ref)?;
+			let mut s = ser::FixedLengthReader::new(&mut stream_ref, length.0);
 			match typ.0 {
 				$($type => {
 					decode_tlv!(s, $field, $fieldty);
