@@ -3053,6 +3053,11 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					if chan_entry.get().get_counterparty_node_id() != *counterparty_node_id {
 						return Err(MsgHandleErrInternal::send_err_msg_no_close("Got a message for a channel from the wrong node!".to_owned(), msg.channel_id));
 					}
+					if !chan_entry.get().peer_wants_shutdown() {
+						log_info!(self.logger, "Received a shutdown message from our couterparty for channel {}{}.",
+							log_bytes!(msg.channel_id),
+							if chan_entry.get().we_want_shutdown() { " after we initiated shutdown" } else { "" });
+					}
 					let (shutdown, closing_signed, dropped_htlcs) = try_chan_entry!(self, chan_entry.get_mut().shutdown(&self.fee_estimator, &their_features, &msg), channel_state, chan_entry);
 					if let Some(msg) = shutdown {
 						channel_state.pending_msg_events.push(events::MessageSendEvent::SendShutdown {
