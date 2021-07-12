@@ -2069,10 +2069,15 @@ fn do_update_fee_resend_test(deliver_update: bool, parallel_updates: bool) {
 	let bs_connect_msg = get_event_msg!(nodes[1], MessageSendEvent::SendChannelReestablish, nodes[0].node.get_our_node_id());
 
 	nodes[1].node.handle_channel_reestablish(&nodes[0].node.get_our_node_id(), &as_connect_msg);
+	get_event_msg!(nodes[1], MessageSendEvent::SendChannelUpdate, nodes[0].node.get_our_node_id());
 	assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
 
 	nodes[0].node.handle_channel_reestablish(&nodes[1].node.get_our_node_id(), &bs_connect_msg);
-	let update_msgs = get_htlc_update_msgs!(nodes[0], nodes[1].node.get_our_node_id());
+	let mut as_reconnect_msgs = nodes[0].node.get_and_clear_pending_msg_events();
+	assert_eq!(as_reconnect_msgs.len(), 2);
+	if let MessageSendEvent::SendChannelUpdate { .. } = as_reconnect_msgs.pop().unwrap() {} else { panic!(); }
+	let update_msgs = if let MessageSendEvent::UpdateHTLCs { updates, .. } = as_reconnect_msgs.pop().unwrap()
+		{ updates } else { panic!(); };
 	assert!(update_msgs.update_fee.is_some());
 	nodes[1].node.handle_update_fee(&nodes[0].node.get_our_node_id(), update_msgs.update_fee.as_ref().unwrap());
 	if parallel_updates {
