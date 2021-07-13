@@ -448,10 +448,10 @@ pub(super) struct Channel<Signer: Sign> {
 	#[cfg(any(test, feature = "fuzztarget"))]
 	// When receive an HTLC fulfill on an outbound path, we may immediately fulfill the
 	// corresponding HTLC on the inbound path. If, then, the outbound path channel is
-	// disconnected and reconnected, they may re-broadcast their update_fulfill_htlc,
-	// causing a double-claim. This is fine, but as a sanity check in our failure to
-	// generate the second claim, we check here that the original was a claim, and that we
-	// aren't now trying to fulfill a failed HTLC.
+	// disconnected and reconnected (before we've exchange commitment_signed and revoke_and_ack
+	// messages), they may re-broadcast their update_fulfill_htlc, causing a duplicate claim. This
+	// is fine, but as a sanity check in our failure to generate the second claim, we check here
+	// that the original was a claim, and that we aren't now trying to fulfill a failed HTLC.
 	historical_inbound_htlc_fulfills: HashSet<u64>,
 }
 
@@ -1278,6 +1278,8 @@ impl<Signer: Sign> Channel<Signer> {
 		}
 		if pending_idx == core::usize::MAX {
 			#[cfg(any(test, feature = "fuzztarget"))]
+			// If we failed to find an HTLC to fulfill, make sure it was previously fulfilled and
+			// this is simply a duplicate claim, not previously failed and we lost funds.
 			debug_assert!(self.historical_inbound_htlc_fulfills.contains(&htlc_id_arg));
 			return Ok((None, None));
 		}
