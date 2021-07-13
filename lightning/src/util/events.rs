@@ -26,6 +26,7 @@ use bitcoin::secp256k1::key::PublicKey;
 
 use io;
 use prelude::*;
+use core::cmp;
 use core::time::Duration;
 use core::ops::Deref;
 
@@ -189,6 +190,14 @@ pub enum Event {
 		/// transaction.
 		claim_from_onchain_tx: bool,
 	},
+	/// Used to indicate that a channel was closed at the given timestamp.
+	ChannelClosed  {
+		/// The channel_id which has been barren from further off-chain updates but
+		/// funding output might still be not resolved yet.
+		channel_id: [u8; 32],
+		/// A human-readable error message
+		err: String
+	}
 }
 
 impl Writeable for Event {
@@ -264,6 +273,13 @@ impl Writeable for Event {
 					(0, fee_earned_msat, option),
 					(2, claim_from_onchain_tx, required),
 				});
+			},
+			&Event::ChannelClosed { ref channel_id, ref err } => {
+				6u8.write(writer)?;
+				channel_id.write(writer)?;
+				(err.len() as u16).write(writer)?;
+				writer.write_all(err.as_bytes())?;
+				write_tlv_fields!(writer, {});
 			},
 		}
 		Ok(())
@@ -380,6 +396,24 @@ impl MaybeReadable for Event {
 			},
 			// Versions prior to 0.0.100 did not ignore odd types, instead returning InvalidValue.
 			x if x % 2 == 1 => Ok(None),
+			6u8 => {
+				let f = || {
+					let channel_id = Readable::read(reader)?;
+					let err = {
+						let mut size: usize = <u16 as Readable>::read(reader)? as usize;
+						let mut data = vec![];
+						let data_len = reader.read_to_end(&mut data)?;
+						size = cmp::min(data_len, size);
+						match String::from_utf8(data[..size as usize].to_vec()) {
+							Ok(s) => s,
+							Err(_) => return Err(msgs::DecodeError::InvalidValue),
+						}
+					};
+					read_tlv_fields!(reader, {});
+					Ok(Some(Event::ChannelClosed { channel_id, err: err }))
+				};
+				f()
+			},
 			_ => Err(msgs::DecodeError::InvalidValue)
 		}
 	}
