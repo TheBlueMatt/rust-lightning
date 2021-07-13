@@ -16,6 +16,7 @@
 
 use chain::keysinterface::SpendableOutputDescriptor;
 use ln::msgs;
+use ln::msgs::DecodeError;
 use ln::{PaymentPreimage, PaymentHash, PaymentSecret};
 use routing::network_graph::NetworkUpdate;
 use util::ser::{Writeable, Writer, MaybeReadable, Readable, VecReadWrapper, VecWriteWrapper};
@@ -26,7 +27,6 @@ use bitcoin::secp256k1::key::PublicKey;
 
 use io;
 use prelude::*;
-use core::cmp;
 use core::time::Duration;
 use core::ops::Deref;
 
@@ -67,6 +67,47 @@ pub enum PaymentPurpose {
 	/// Because this is a spontaneous payment, the payer generated their own preimage rather than us
 	/// (the payee) providing a preimage.
 	SpontaneousPayment(PaymentPreimage),
+}
+
+#[derive(Clone, Debug)]
+pub enum ClosureDescriptor {
+	ForceClosed,
+	UserInitiated,
+	CounterpartyInitiated,
+	CooperativeClosure,
+	UnknownOnchainCommitment,
+	ProcessingError,
+	DisconnectedPeer,
+}
+
+impl Writeable for ClosureDescriptor {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ::std::io::Error> {
+		match self {
+			ClosureDescriptor::ForceClosed => 0u8.write(writer)?,
+			ClosureDescriptor::UserInitiated => 1u8.write(writer)?,
+			ClosureDescriptor::CounterpartyInitiated => 2u8.write(writer)?,
+			ClosureDescriptor::CooperativeClosure => 3u8.write(writer)?,
+			ClosureDescriptor::UnknownOnchainCommitment => 4u8.write(writer)?,
+			ClosureDescriptor::ProcessingError => 5u8.write(writer)?,
+			ClosureDescriptor::DisconnectedPeer => 6u8.write(writer)?,
+		}
+		Ok(())
+	}
+}
+
+impl Readable for ClosureDescriptor {
+	fn read<R: ::std::io::Read>(reader: &mut R) -> Result<Self, DecodeError> {
+		Ok(match <u8 as Readable>::read(reader)? {
+			0 => ClosureDescriptor::ForceClosed,
+			1 => ClosureDescriptor::UserInitiated,
+			2 => ClosureDescriptor::CounterpartyInitiated,
+			3 => ClosureDescriptor::CooperativeClosure,
+			4 => ClosureDescriptor::UnknownOnchainCommitment,
+			5 => ClosureDescriptor::ProcessingError,
+			6 => ClosureDescriptor::DisconnectedPeer,
+			_ => return Err(DecodeError::InvalidValue),
+		})
+	}
 }
 
 /// An Event which you should probably take some action in response to.
@@ -195,8 +236,8 @@ pub enum Event {
 		/// The channel_id which has been barren from further off-chain updates but
 		/// funding output might still be not resolved yet.
 		channel_id: [u8; 32],
-		/// A human-readable error message
-		err: String
+		/// A machine-readable error message
+		err: ClosureDescriptor
 	}
 }
 
@@ -277,8 +318,7 @@ impl Writeable for Event {
 			&Event::ChannelClosed { ref channel_id, ref err } => {
 				6u8.write(writer)?;
 				channel_id.write(writer)?;
-				(err.len() as u16).write(writer)?;
-				writer.write_all(err.as_bytes())?;
+				err.write(writer)?;
 				write_tlv_fields!(writer, {});
 			},
 		}
@@ -399,18 +439,9 @@ impl MaybeReadable for Event {
 			6u8 => {
 				let f = || {
 					let channel_id = Readable::read(reader)?;
-					let err = {
-						let mut size: usize = <u16 as Readable>::read(reader)? as usize;
-						let mut data = vec![];
-						let data_len = reader.read_to_end(&mut data)?;
-						size = cmp::min(data_len, size);
-						match String::from_utf8(data[..size as usize].to_vec()) {
-							Ok(s) => s,
-							Err(_) => return Err(msgs::DecodeError::InvalidValue),
-						}
-					};
+					let err = Readable::read(reader)?;
 					read_tlv_fields!(reader, {});
-					Ok(Some(Event::ChannelClosed { channel_id, err: err }))
+					Ok(Some(Event::ChannelClosed { channel_id, err}))
 				};
 				f()
 			},

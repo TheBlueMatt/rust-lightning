@@ -743,16 +743,16 @@ macro_rules! get_closing_signed_broadcast {
 #[macro_export]
 macro_rules! check_closed_broadcast {
 	($node: expr, $with_error_msg: expr) => {{
-		let events = $node.node.get_and_clear_pending_msg_events();
-		assert_eq!(events.len(), if $with_error_msg { 2 } else { 1 });
-		match events[0] {
+		let msg_events = $node.node.get_and_clear_pending_msg_events();
+		assert_eq!(msg_events.len(), if $with_error_msg { 2 } else { 1 });
+		match msg_events[0] {
 			MessageSendEvent::BroadcastChannelUpdate { ref msg } => {
 				assert_eq!(msg.contents.flags & 2, 2);
 			},
 			_ => panic!("Unexpected event"),
 		}
 		if $with_error_msg {
-			match events[1] {
+			match msg_events[1] {
 				MessageSendEvent::HandleError { action: ErrorAction::SendErrorMessage { ref msg }, node_id: _ } => {
 					// TODO: Check node_id
 					Some(msg.clone())
@@ -760,6 +760,19 @@ macro_rules! check_closed_broadcast {
 				_ => panic!("Unexpected event"),
 			}
 		} else { None }
+	}}
+}
+
+/// Check that a channel's closing channel event has been issued
+#[macro_export]
+macro_rules! check_closed_event {
+	($node: expr, $events: expr) => {{
+		let events = $node.node.get_and_clear_pending_events();
+		assert_eq!(events.len(), $events);
+		match events[0] {
+			Event::ChannelClosed { .. } => {}
+			_ => panic!("Unexpected event"),
+		}
 	}}
 }
 
@@ -927,7 +940,8 @@ macro_rules! commitment_signed_dance {
 		{
 			commitment_signed_dance!($node_a, $node_b, $commitment_signed, $fail_backwards, true);
 			if $fail_backwards {
-				expect_pending_htlcs_forwardable!($node_a);
+				let events = $node_a.node.get_and_clear_pending_events();
+				expect_pending_htlcs_forwardable!($node_a, events);
 				check_added_monitors!($node_a, 1);
 
 				let channel_state = $node_a.node.channel_state.lock().unwrap();
@@ -969,10 +983,9 @@ macro_rules! get_route_and_payment_hash {
 }
 
 macro_rules! expect_pending_htlcs_forwardable_ignore {
-	($node: expr) => {{
-		let events = $node.node.get_and_clear_pending_events();
-		assert_eq!(events.len(), 1);
-		match events[0] {
+	($node: expr, $events: expr) => {{
+		assert_eq!($events.len(), 1);
+		match $events[0] {
 			Event::PendingHTLCsForwardable { .. } => { },
 			_ => panic!("Unexpected event"),
 		};
@@ -980,8 +993,8 @@ macro_rules! expect_pending_htlcs_forwardable_ignore {
 }
 
 macro_rules! expect_pending_htlcs_forwardable {
-	($node: expr) => {{
-		expect_pending_htlcs_forwardable_ignore!($node);
+	($node: expr, $events: expr) => {{
+		expect_pending_htlcs_forwardable_ignore!($node, $events);
 		$node.node.process_pending_htlc_forwards();
 	}}
 }
@@ -1009,10 +1022,9 @@ macro_rules! expect_payment_received {
 }
 
 macro_rules! expect_payment_sent {
-	($node: expr, $expected_payment_preimage: expr) => {
-		let events = $node.node.get_and_clear_pending_events();
-		assert_eq!(events.len(), 1);
-		match events[0] {
+	($node: expr, $expected_payment_preimage: expr, $events: expr) => {
+		assert_eq!($events.len(), 1);
+		match $events[0] {
 			Event::PaymentSent { ref payment_preimage } => {
 				assert_eq!($expected_payment_preimage, *payment_preimage);
 			},
@@ -1066,8 +1078,8 @@ macro_rules! expect_payment_failed_with_update {
 
 #[cfg(test)]
 macro_rules! expect_payment_failed {
-	($node: expr, $expected_payment_hash: expr, $rejected_by_dest: expr $(, $expected_error_code: expr, $expected_error_data: expr)*) => {
-		let events = $node.node.get_and_clear_pending_events();
+	($node: expr, $events: expr, $expected_payment_hash: expr, $rejected_by_dest: expr $(, $expected_error_code: expr, $expected_error_data: expr)*) => {
+		let events: Vec<Event> = $events;
 		assert_eq!(events.len(), 1);
 		match events[0] {
 			Event::PaymentFailed { ref payment_hash, rejected_by_dest, network_update: _, ref error_code, ref error_data, .. } => {
@@ -1102,7 +1114,8 @@ pub fn pass_along_path<'a, 'b, 'c>(origin_node: &Node<'a, 'b, 'c>, expected_path
 		check_added_monitors!(node, 0);
 		commitment_signed_dance!(node, prev_node, payment_event.commitment_msg, false);
 
-		expect_pending_htlcs_forwardable!(node);
+		let events = node.node.get_and_clear_pending_events();
+		expect_pending_htlcs_forwardable!(node, events);
 
 		if idx == expected_path.len() - 1 {
 			let events_2 = node.node.get_and_clear_pending_events();
@@ -1245,7 +1258,8 @@ pub fn claim_payment_along_route<'a, 'b, 'c>(origin_node: &Node<'a, 'b, 'c>, exp
 		}
 	}
 	if !skip_last {
-		expect_payment_sent!(origin_node, our_payment_preimage);
+		let events = origin_node.node.get_and_clear_pending_events();
+		expect_payment_sent!(origin_node, our_payment_preimage, events);
 	}
 }
 
@@ -1295,7 +1309,8 @@ pub fn fail_payment_along_route<'a, 'b, 'c>(origin_node: &Node<'a, 'b, 'c>, expe
 		assert_eq!(path.last().unwrap().node.get_our_node_id(), expected_paths[0].last().unwrap().node.get_our_node_id());
 	}
 	assert!(expected_paths[0].last().unwrap().node.fail_htlc_backwards(&our_payment_hash));
-	expect_pending_htlcs_forwardable!(expected_paths[0].last().unwrap());
+	let events = expected_paths[0].last().unwrap().node.get_and_clear_pending_events();
+	expect_pending_htlcs_forwardable!(expected_paths[0].last().unwrap(), events);
 	check_added_monitors!(expected_paths[0].last().unwrap(), expected_paths.len());
 
 	let mut per_path_msgs: Vec<((msgs::UpdateFailHTLC, msgs::CommitmentSigned), PublicKey)> = Vec::with_capacity(expected_paths.len());
@@ -1330,7 +1345,8 @@ pub fn fail_payment_along_route<'a, 'b, 'c>(origin_node: &Node<'a, 'b, 'c>, expe
 				node.node.handle_update_fail_htlc(&prev_node.node.get_our_node_id(), &next_msgs.as_ref().unwrap().0);
 				commitment_signed_dance!(node, prev_node, next_msgs.as_ref().unwrap().1, update_next_node);
 				if !update_next_node {
-					expect_pending_htlcs_forwardable!(node);
+					let events = node.node.get_and_clear_pending_events();
+					expect_pending_htlcs_forwardable!(node, events);
 				}
 			}
 			let events = node.node.get_and_clear_pending_msg_events();

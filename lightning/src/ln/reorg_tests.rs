@@ -81,6 +81,7 @@ fn do_test_onchain_htlc_reorg(local_commitment: bool, claim: bool) {
 		connect_block(&nodes[2], &Block { header, txdata: node_1_commitment_txn.clone() });
 		check_added_monitors!(nodes[2], 1);
 		check_closed_broadcast!(nodes[2], true); // We should get a BroadcastChannelUpdate (and *only* a BroadcstChannelUpdate)
+		check_closed_event!(nodes[2], 1);
 		let node_2_commitment_txn = nodes[2].tx_broadcaster.txn_broadcasted.lock().unwrap();
 		assert_eq!(node_2_commitment_txn.len(), 3); // ChannelMonitor: 1 offered HTLC-Claim, ChannelManger: 1 local commitment tx, 1 Received HTLC-Claim
 		assert_eq!(node_2_commitment_txn[1].output.len(), 2); // to-remote and Received HTLC (to-self is dust)
@@ -122,6 +123,7 @@ fn do_test_onchain_htlc_reorg(local_commitment: bool, claim: bool) {
 	};
 	check_added_monitors!(nodes[1], 1);
 	check_closed_broadcast!(nodes[1], true); // We should get a BroadcastChannelUpdate (and *only* a BroadcstChannelUpdate)
+	check_closed_event!(nodes[1], 1);
 	// Connect ANTI_REORG_DELAY - 2 blocks, giving us a confirmation count of ANTI_REORG_DELAY - 1.
 	connect_blocks(&nodes[1], ANTI_REORG_DELAY - 2);
 	check_added_monitors!(nodes[1], 0);
@@ -147,7 +149,8 @@ fn do_test_onchain_htlc_reorg(local_commitment: bool, claim: bool) {
 			txdata: vec![],
 		};
 		connect_block(&nodes[1], &block);
-		expect_pending_htlcs_forwardable!(nodes[1]);
+		let events = nodes[1].node.get_and_clear_pending_events();
+		expect_pending_htlcs_forwardable!(nodes[1], events);
 	}
 
 	check_added_monitors!(nodes[1], 1);
@@ -162,7 +165,8 @@ fn do_test_onchain_htlc_reorg(local_commitment: bool, claim: bool) {
 	}
 	commitment_signed_dance!(nodes[0], nodes[1], htlc_updates.commitment_signed, false, true);
 	if claim {
-		expect_payment_sent!(nodes[0], our_payment_preimage);
+		let events = nodes[0].node.get_and_clear_pending_events();
+		expect_payment_sent!(nodes[0], our_payment_preimage, events);
 	} else {
 		expect_payment_failed_with_update!(nodes[0], our_payment_hash, false, chan_2.0.contents.short_channel_id, true);
 	}
@@ -298,6 +302,8 @@ fn do_test_unconf_chan(reload_node: bool, reorg_after_reload: bool, use_funding_
 	*nodes[0].chain_monitor.expect_channel_force_closed.lock().unwrap() = Some((chan.2, true));
 	nodes[0].node.test_process_background_events(); // Required to free the pending background monitor update
 	check_added_monitors!(nodes[0], 1);
+	check_closed_event!(nodes[0], 1);
+	check_closed_event!(nodes[1], 1);
 	assert_eq!(nodes[0].tx_broadcaster.txn_broadcasted.lock().unwrap().len(), 1);
 	nodes[0].tx_broadcaster.txn_broadcasted.lock().unwrap().clear();
 
@@ -369,6 +375,7 @@ fn test_set_outpoints_partial_claiming() {
 	// Connect blocks on node A commitment transaction
 	mine_transaction(&nodes[0], &remote_txn[0]);
 	check_closed_broadcast!(nodes[0], true);
+	check_closed_event!(nodes[0], 1);
 	check_added_monitors!(nodes[0], 1);
 	// Verify node A broadcast tx claiming both HTLCs
 	{
@@ -386,6 +393,7 @@ fn test_set_outpoints_partial_claiming() {
 	// Connect blocks on node B
 	connect_blocks(&nodes[1], 135);
 	check_closed_broadcast!(nodes[1], true);
+	check_closed_event!(nodes[1], 1);
 	check_added_monitors!(nodes[1], 1);
 	// Verify node B broadcast 2 HTLC-timeout txn
 	let partial_claim_tx = {
