@@ -37,7 +37,7 @@ use lightning::chain::chaininterface::{BroadcasterInterface, ConfirmationTarget,
 use lightning::chain::keysinterface::{KeysInterface, InMemorySigner};
 use lightning::ln::{PaymentHash, PaymentPreimage, PaymentSecret};
 use lightning::ln::channelmanager::{ChainParameters, ChannelManager, PaymentSendFailure, ChannelManagerReadArgs};
-use lightning::ln::channel::CHAN_STUCK_FEE_INCREASE_MULTIPLE;
+use lightning::ln::channel::FEE_SPIKE_BUFFER_FEE_INCREASE_MULTIPLE;
 use lightning::ln::features::{ChannelFeatures, InitFeatures, NodeFeatures};
 use lightning::ln::msgs::{CommitmentUpdate, ChannelMessageHandler, DecodeError, UpdateAddHTLC, Init};
 use lightning::util::enforcing_trait_impls::{EnforcingSigner, INITIAL_REVOKED_COMMITMENT_NUMBER};
@@ -1034,7 +1034,7 @@ pub fn do_test<Out: test_logger::Output>(data: &[u8], out: Out) {
 			0x6d => { send_hop_payment(&nodes[2], &nodes[1], chan_b, &nodes[0], chan_a, 1, &mut payment_id); },
 
 			0x80 => {
-				let max_feerate = last_htlc_clear_fee_a * CHAN_STUCK_FEE_INCREASE_MULTIPLE as u32;
+				let max_feerate = last_htlc_clear_fee_a * FEE_SPIKE_BUFFER_FEE_INCREASE_MULTIPLE as u32;
 				if fee_est_a.ret_val.fetch_add(250, atomic::Ordering::AcqRel) + 250 > max_feerate {
 					fee_est_a.ret_val.store(max_feerate, atomic::Ordering::Release);
 				}
@@ -1043,7 +1043,7 @@ pub fn do_test<Out: test_logger::Output>(data: &[u8], out: Out) {
 			0x81 => { fee_est_a.ret_val.store(253, atomic::Ordering::Release); nodes[0].maybe_update_chan_fees(); },
 
 			0x84 => {
-				let max_feerate = last_htlc_clear_fee_b * CHAN_STUCK_FEE_INCREASE_MULTIPLE as u32;
+				let max_feerate = last_htlc_clear_fee_b * FEE_SPIKE_BUFFER_FEE_INCREASE_MULTIPLE as u32;
 				if fee_est_b.ret_val.fetch_add(250, atomic::Ordering::AcqRel) + 250 > max_feerate {
 					fee_est_b.ret_val.store(max_feerate, atomic::Ordering::Release);
 				}
@@ -1052,7 +1052,7 @@ pub fn do_test<Out: test_logger::Output>(data: &[u8], out: Out) {
 			0x85 => { fee_est_b.ret_val.store(253, atomic::Ordering::Release); nodes[1].maybe_update_chan_fees(); },
 
 			0x88 => {
-				let max_feerate = last_htlc_clear_fee_c * CHAN_STUCK_FEE_INCREASE_MULTIPLE as u32;
+				let max_feerate = last_htlc_clear_fee_c * FEE_SPIKE_BUFFER_FEE_INCREASE_MULTIPLE as u32;
 				if fee_est_c.ret_val.fetch_add(250, atomic::Ordering::AcqRel) + 250 > max_feerate {
 					fee_est_c.ret_val.store(max_feerate, atomic::Ordering::Release);
 				}
