@@ -2232,7 +2232,7 @@ enum HTLCStatusAtDupClaim {
 	HoldingCell,
 	Cleared,
 }
-fn do_test_reconnect_dup_htlc_claims(htlc_status: HTLCStatusAtDupClaim) {
+fn do_test_reconnect_dup_htlc_claims(htlc_status: HTLCStatusAtDupClaim, second_fails: bool) {
 	// When receiving an update_fulfill_htlc message, we immediately forward the claim backwards
 	// along the payment path before waiting for a full commitment_signed dance. This is great, but
 	// can cause duplicative claims if a node sends an update_fulfill_htlc message, disconnects,
@@ -2245,9 +2245,9 @@ fn do_test_reconnect_dup_htlc_claims(htlc_status: HTLCStatusAtDupClaim) {
 	let mut nodes = create_network(3, &node_cfgs, &node_chanmgrs);
 
 	create_announced_chan_between_nodes(&nodes, 0, 1, InitFeatures::known(), InitFeatures::known());
-	create_announced_chan_between_nodes(&nodes, 1, 2, InitFeatures::known(), InitFeatures::known());
+	let chan_2 = create_announced_chan_between_nodes(&nodes, 1, 2, InitFeatures::known(), InitFeatures::known()).2;
 
-	let preimage = route_payment(&nodes[0], &[&nodes[1], &nodes[2]], 100_000).0;
+	let (payment_preimage, payment_hash, _) = route_payment(&nodes[0], &[&nodes[1], &nodes[2]], 100_000);
 
 	let mut as_raa = None;
 	if htlc_status == HTLCStatusAtDupClaim::HoldingCell {
@@ -2273,11 +2273,25 @@ fn do_test_reconnect_dup_htlc_claims(htlc_status: HTLCStatusAtDupClaim) {
 		as_raa = Some(get_event_msg!(nodes[0], MessageSendEvent::SendRevokeAndACK, nodes[1].node.get_our_node_id()));
 	}
 
-	assert!(nodes[2].node.claim_funds(preimage));
-	check_added_monitors!(nodes[2], 1);
-	let cs_updates = get_htlc_update_msgs!(nodes[2], nodes[1].node.get_our_node_id());
-	assert_eq!(cs_updates.update_fulfill_htlcs.len(), 1);
-	nodes[1].node.handle_update_fulfill_htlc(&nodes[2].node.get_our_node_id(), &cs_updates.update_fulfill_htlcs[0]);
+	let fulfill_msg = msgs::UpdateFulfillHTLC {
+		channel_id: chan_2,
+		htlc_id: 0,
+		payment_preimage,
+	};
+	if second_fails {
+		assert!(nodes[2].node.fail_htlc_backwards(&payment_hash));
+		expect_pending_htlcs_forwardable!(nodes[2]);
+		check_added_monitors!(nodes[2], 1);
+		get_htlc_update_msgs!(nodes[2], nodes[1].node.get_our_node_id());
+	} else {
+		assert!(nodes[2].node.claim_funds(payment_preimage));
+		check_added_monitors!(nodes[2], 1);
+		let cs_updates = get_htlc_update_msgs!(nodes[2], nodes[1].node.get_our_node_id());
+		assert_eq!(cs_updates.update_fulfill_htlcs.len(), 1);
+		// Check that the message we're about to deliver matches the one generated:
+		assert_eq!(fulfill_msg, cs_updates.update_fulfill_htlcs[0]);
+	}
+	nodes[1].node.handle_update_fulfill_htlc(&nodes[2].node.get_our_node_id(), &fulfill_msg);
 	check_added_monitors!(nodes[1], 1);
 
 	let mut bs_updates = None;
@@ -2285,7 +2299,7 @@ fn do_test_reconnect_dup_htlc_claims(htlc_status: HTLCStatusAtDupClaim) {
 		bs_updates = Some(get_htlc_update_msgs!(nodes[1], nodes[0].node.get_our_node_id()));
 		assert_eq!(bs_updates.as_ref().unwrap().update_fulfill_htlcs.len(), 1);
 		nodes[0].node.handle_update_fulfill_htlc(&nodes[1].node.get_our_node_id(), &bs_updates.as_ref().unwrap().update_fulfill_htlcs[0]);
-		expect_payment_sent!(nodes[0], preimage);
+		expect_payment_sent!(nodes[0], payment_preimage);
 		if htlc_status == HTLCStatusAtDupClaim::Cleared {
 			commitment_signed_dance!(nodes[0], nodes[1], &bs_updates.as_ref().unwrap().commitment_signed, false);
 		}
@@ -2296,7 +2310,12 @@ fn do_test_reconnect_dup_htlc_claims(htlc_status: HTLCStatusAtDupClaim) {
 	nodes[1].node.peer_disconnected(&nodes[2].node.get_our_node_id(), false);
 	nodes[2].node.peer_disconnected(&nodes[1].node.get_our_node_id(), false);
 
-	reconnect_nodes(&nodes[1], &nodes[2], (false, false), (0, 0), (1, 0), (0, 0), (0, 0), (false, false));
+	if second_fails {
+		reconnect_nodes(&nodes[1], &nodes[2], (false, false), (0, 0), (0, 0), (1, 0), (0, 0), (0, 0), (false, false));
+		expect_pending_htlcs_forwardable!(nodes[1]);
+	} else {
+		reconnect_nodes(&nodes[1], &nodes[2], (false, false), (0, 0), (1, 0), (0, 0), (0, 0), (0, 0), (false, false));
+	}
 
 	if htlc_status == HTLCStatusAtDupClaim::HoldingCell {
 		nodes[1].node.handle_revoke_and_ack(&nodes[0].node.get_our_node_id(), &as_raa.unwrap());
@@ -2306,7 +2325,7 @@ fn do_test_reconnect_dup_htlc_claims(htlc_status: HTLCStatusAtDupClaim) {
 		bs_updates = Some(get_htlc_update_msgs!(nodes[1], nodes[0].node.get_our_node_id()));
 		assert_eq!(bs_updates.as_ref().unwrap().update_fulfill_htlcs.len(), 1);
 		nodes[0].node.handle_update_fulfill_htlc(&nodes[1].node.get_our_node_id(), &bs_updates.as_ref().unwrap().update_fulfill_htlcs[0]);
-		expect_payment_sent!(nodes[0], preimage);
+		expect_payment_sent!(nodes[0], payment_preimage);
 	}
 	if htlc_status != HTLCStatusAtDupClaim::Cleared {
 		commitment_signed_dance!(nodes[0], nodes[1], &bs_updates.as_ref().unwrap().commitment_signed, false);
@@ -2315,7 +2334,10 @@ fn do_test_reconnect_dup_htlc_claims(htlc_status: HTLCStatusAtDupClaim) {
 
 #[test]
 fn test_reconnect_dup_htlc_claims() {
-	do_test_reconnect_dup_htlc_claims(HTLCStatusAtDupClaim::Received);
-	do_test_reconnect_dup_htlc_claims(HTLCStatusAtDupClaim::HoldingCell);
-	do_test_reconnect_dup_htlc_claims(HTLCStatusAtDupClaim::Cleared);
+	do_test_reconnect_dup_htlc_claims(HTLCStatusAtDupClaim::Received, false);
+	do_test_reconnect_dup_htlc_claims(HTLCStatusAtDupClaim::HoldingCell, false);
+	do_test_reconnect_dup_htlc_claims(HTLCStatusAtDupClaim::Cleared, false);
+	do_test_reconnect_dup_htlc_claims(HTLCStatusAtDupClaim::Received, true);
+	do_test_reconnect_dup_htlc_claims(HTLCStatusAtDupClaim::HoldingCell, true);
+	do_test_reconnect_dup_htlc_claims(HTLCStatusAtDupClaim::Cleared, true);
 }
