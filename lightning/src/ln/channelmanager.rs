@@ -2453,13 +2453,16 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		(retain_channel, should_persist, ret_err)
 	}
 
-	/// If a peer is disconnected we mark any channels with that peer as 'disabled'.
-	/// After some time, if channels are still disabled we need to broadcast a ChannelUpdate
-	/// to inform the network about the uselessness of these channels.
+	/// Performs actions which should happen roughly once per minute.
 	///
-	/// This method handles all the details, and must be called roughly once per minute.
+	/// This currently includes:
+	///  * Increasing or decreasing the on-chain feerate estimates for our outbound channels,
+	///  * Broadcasting `ChannelUpdate` messages if we've been disconnected from our peer for more
+	///    than a minute, informing the network that they should no longer attempt to route over
+	///    the channel.
 	///
-	/// Note that in some rare cases this may generate a `chain::Watch::update_channel` call.
+	/// Note that this may cause reentrancy through a `chain::Watch::update_channel` calls or
+	/// feerate estimate fetches.
 	pub fn timer_tick_occurred(&self) {
 		PersistenceNotifierGuard::optionally_notify(&self.total_consistency_lock, &self.persistence_notifier, || {
 			let mut should_persist = NotifyOption::SkipPersist;
