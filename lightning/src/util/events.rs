@@ -433,7 +433,7 @@ pub enum MessageSendEvent {
 		node_id: PublicKey,
 		/// The reply_channel_range which should be sent.
 		msg: msgs::ReplyChannelRange,
-	}
+	},
 }
 
 /// A trait indicating an object may generate message send events

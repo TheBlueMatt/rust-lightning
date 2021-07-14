@@ -62,6 +62,13 @@ pub enum Message {
 #[derive(Clone, Copy, Debug)]
 pub struct MessageType(u16);
 
+impl ::std::ops::Deref for MessageType {
+	type Target = u16;
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
 impl Message {
 	#[allow(dead_code)] // This method is only used in tests
 	/// Returns the type that was used to decode the message payload.

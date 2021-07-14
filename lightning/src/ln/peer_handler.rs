@@ -68,6 +68,47 @@ impl Deref for IgnoringMessageHandler {
 	fn deref(&self) -> &Self { self }
 }
 
+/// A dummy implementation of `UnknownMessageHandler` that does nothing.
+pub struct IgnoringUnknownMessageHandler{}
+impl MessageSendEventsProvider for IgnoringUnknownMessageHandler {
+	fn get_and_clear_pending_msg_events(&self) -> Vec<MessageSendEvent> {
+		Vec::new()
+	}
+}
+
+/// Define a dummy type to satisfy the constraint of UnknownMessageHandle `Message`
+/// associated type for implementing it for IgnoringUnknownMessageHandler.
+type DummyType = ();
+impl Encode for DummyType {
+	const TYPE: u16 = 0;
+}
+impl Writeable for DummyType {
+	fn write<W: ::util::ser::Writer>(&self, _writer: &mut W) -> Result<(), ::std::io::Error> {
+		Ok(())
+	}
+}
+
+impl UnknownMessageHandler for IgnoringUnknownMessageHandler {
+	type MessageEnum = ();
+	type Message = DummyType;
+	fn read<R: ::std::io::Read>(&self, _message_type: u16, _buffer: &mut R) -> Result<Option<Self::MessageEnum>, msgs::DecodeError> {
+		Ok(None)
+	}
+
+	fn handle_unknown_message(&self, _msg: Self::MessageEnum) -> Result<(), MessageHandlingError> {
+		// Since we always return `None` in the read the handle method should never be called.
+		unreachable!();
+	}
+
+	fn get_and_clear_pending_msgs(&self) -> Vec<(&PublicKey, Self::Message)> {
+		Vec::new()
+	}
+}
+impl Deref for IgnoringUnknownMessageHandler {
+	type Target = IgnoringUnknownMessageHandler;
+	fn deref(&self) -> &Self { self }
+}
+
 /// A dummy struct which implements `ChannelMessageHandler` without having any channels.
 /// You can provide one of these as the route_handler in a MessageHandler.
 pub struct ErroringMessageHandler {
@@ -171,6 +212,23 @@ pub struct MessageHandler<CM: Deref, RM: Deref> where
 	///
 	/// [`NetGraphMsgHandler`]: crate::routing::network_graph::NetGraphMsgHandler
 	pub route_handler: RM,
+}
+
+/// Handler for messages external to the LN protocol.
+pub trait UnknownMessageHandler where Self::Message : Encode + Writeable + Debug {
+	/// A type that represents a message that can be sent over the wire
+	type Message;
+	/// A type that represents an enumeration of messages that can be handled by the handler.
+	type MessageEnum;
+	///
+	fn read<R: ::std::io::Read>(&self, msg_type: u16, buffer: &mut R) -> Result<Option<Self::MessageEnum>, msgs::DecodeError>;
+	/// Called with the message type that was received and the buffer to be read. If the handler
+	/// could handle the message, should return `Ok(Some(wire::Message::HandledUnknownMessage(msg_type)))`,
+	/// otherwise Ok(None). Can also return a `DecodingError` if the buffer contained unexpected data
+	/// for the given message type.
+	fn handle_unknown_message(&self, msg: Self::MessageEnum) -> Result<(), MessageHandlingError>;
+	/// Get messages to be sent to specified peers.
+	fn get_and_clear_pending_msgs(&self) -> Vec<(&PublicKey, Self::Message)>;
 }
 
 /// Provides an object which can be used to send data to and which uniquely identifies a connection
@@ -311,7 +369,7 @@ fn _check_usize_is_32_or_64() {
 /// lifetimes). Other times you can afford a reference, which is more efficient, in which case
 /// SimpleRefPeerManager is the more appropriate type. Defining these type aliases prevents
 /// issues such as overly long function definitions.
-pub type SimpleArcPeerManager<SD, M, T, F, C, L> = PeerManager<SD, Arc<SimpleArcChannelManager<M, T, F, L>>, Arc<NetGraphMsgHandler<Arc<C>, Arc<L>>>, Arc<L>>;
+pub type SimpleArcPeerManager<SD, M, T, F, C, L, UMH> = PeerManager<SD, Arc<SimpleArcChannelManager<M, T, F, L>>, Arc<NetGraphMsgHandler<Arc<C>, Arc<L>>>, Arc<L>, UMH>;
 
 /// SimpleRefPeerManager is a type alias for a PeerManager reference, and is the reference
 /// counterpart to the SimpleArcPeerManager type alias. Use this type by default when you don't
@@ -319,7 +377,7 @@ pub type SimpleArcPeerManager<SD, M, T, F, C, L> = PeerManager<SD, Arc<SimpleArc
 /// usage of lightning-net-tokio (since tokio::spawn requires parameters with static lifetimes).
 /// But if this is not necessary, using a reference is more efficient. Defining these type aliases
 /// helps with issues such as long function definitions.
-pub type SimpleRefPeerManager<'a, 'b, 'c, 'd, 'e, 'f, 'g, SD, M, T, F, C, L> = PeerManager<SD, SimpleRefChannelManager<'a, 'b, 'c, 'd, 'e, M, T, F, L>, &'e NetGraphMsgHandler<&'g C, &'f L>, &'f L>;
+pub type SimpleRefPeerManager<'a, 'b, 'c, 'd, 'e, 'f, 'g, SD, M, T, F, C, L, UMH> = PeerManager<SD, SimpleRefChannelManager<'a, 'b, 'c, 'd, 'e, M, T, F, L>, &'e NetGraphMsgHandler<&'g C, &'f L>, &'f L, UMH>;
 
 /// A PeerManager manages a set of peers, described by their [`SocketDescriptor`] and marshalls
 /// socket events into messages which it passes on to its [`MessageHandler`].
@@ -340,14 +398,16 @@ pub type SimpleRefPeerManager<'a, 'b, 'c, 'd, 'e, 'f, 'g, SD, M, T, F, C, L> = P
 /// you're using lightning-net-tokio.
 ///
 /// [`read_event`]: PeerManager::read_event
-pub struct PeerManager<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> where
+pub struct PeerManager<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, UMH: Deref> where
 		CM::Target: ChannelMessageHandler,
 		RM::Target: RoutingMessageHandler,
-		L::Target: Logger {
+		L::Target: Logger,
+		UMH::Target: UnknownMessageHandler {
 	message_handler: MessageHandler<CM, RM>,
 	peers: Mutex<PeerHolder<Descriptor>>,
 	our_node_secret: SecretKey,
 	ephemeral_key_midstate: Sha256Engine,
+	unknown_message_handler: UMH,
 
 	// Usize needs to be at least 32 bits to avoid overflowing both low and high. If usize is 64
 	// bits we will never realistically count into high:
@@ -357,8 +417,11 @@ pub struct PeerManager<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: De
 	logger: L,
 }
 
-enum MessageHandlingError {
+/// An error indicating a failure to handle a received message.
+pub enum MessageHandlingError {
+	/// An error related to communication with a peer.
 	PeerHandleError(PeerHandleError),
+	/// An error related to the LN protocol.
 	LightningError(LightningError),
 }
 
@@ -382,7 +445,7 @@ macro_rules! encode_msg {
 	}}
 }
 
-impl<Descriptor: SocketDescriptor, CM: Deref, L: Deref> PeerManager<Descriptor, CM, IgnoringMessageHandler, L> where
+impl<Descriptor: SocketDescriptor, CM: Deref, L: Deref> PeerManager<Descriptor, CM, IgnoringMessageHandler, L, IgnoringUnknownMessageHandler> where
 		CM::Target: ChannelMessageHandler,
 		L::Target: Logger {
 	/// Constructs a new PeerManager with the given ChannelMessageHandler. No routing message
@@ -396,11 +459,11 @@ impl<Descriptor: SocketDescriptor, CM: Deref, L: Deref> PeerManager<Descriptor, 
 		Self::new(MessageHandler {
 			chan_handler: channel_message_handler,
 			route_handler: IgnoringMessageHandler{},
-		}, our_node_secret, ephemeral_random_data, logger)
+		}, our_node_secret, ephemeral_random_data, logger, IgnoringUnknownMessageHandler{})
 	}
 }
 
-impl<Descriptor: SocketDescriptor, RM: Deref, L: Deref> PeerManager<Descriptor, ErroringMessageHandler, RM, L> where
+impl<Descriptor: SocketDescriptor, RM: Deref, L: Deref> PeerManager<Descriptor, ErroringMessageHandler, RM, L, IgnoringUnknownMessageHandler> where
 		RM::Target: RoutingMessageHandler,
 		L::Target: Logger {
 	/// Constructs a new PeerManager with the given RoutingMessageHandler. No channel message
@@ -416,18 +479,19 @@ impl<Descriptor: SocketDescriptor, RM: Deref, L: Deref> PeerManager<Descriptor, 
 		Self::new(MessageHandler {
 			chan_handler: ErroringMessageHandler::new(),
 			route_handler: routing_message_handler,
-		}, our_node_secret, ephemeral_random_data, logger)
+		}, our_node_secret, ephemeral_random_data, logger, IgnoringUnknownMessageHandler{})
 	}
 }
 
-impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<Descriptor, CM, RM, L> where
+impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, UMH: Deref> PeerManager<Descriptor, CM, RM, L, UMH> where
 		CM::Target: ChannelMessageHandler,
 		RM::Target: RoutingMessageHandler,
-		L::Target: Logger {
+		L::Target: Logger,
+		UMH::Target: UnknownMessageHandler {
 	/// Constructs a new PeerManager with the given message handlers and node_id secret key
 	/// ephemeral_random_data is used to derive per-connection ephemeral keys and must be
 	/// cryptographically secure random bytes.
-	pub fn new(message_handler: MessageHandler<CM, RM>, our_node_secret: SecretKey, ephemeral_random_data: &[u8; 32], logger: L) -> Self {
+	pub fn new(message_handler: MessageHandler<CM, RM>, our_node_secret: SecretKey, ephemeral_random_data: &[u8; 32], logger: L, unknown_message_handler: UMH) -> Self {
 		let mut ephemeral_key_midstate = Sha256::engine();
 		ephemeral_key_midstate.input(ephemeral_random_data);
 
@@ -442,6 +506,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 			peer_counter_low: AtomicUsize::new(0),
 			peer_counter_high: AtomicUsize::new(0),
 			logger,
+			unknown_message_handler,
 		}
 	}
 
@@ -801,47 +866,81 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 										peer.pending_read_buffer = [0; 18].to_vec();
 										peer.pending_read_is_header = true;
 
-										let mut reader = ::std::io::Cursor::new(&msg_data[..]);
-										let message_result = wire::read(&mut reader);
-										let message = match message_result {
-											Ok(x) => x,
-											Err(e) => {
+										let mut message_result = wire::read(&mut ::std::io::Cursor::new(&msg_data[..]));
+
+										// Need an Init as first message
+										if let Ok(wire::Message::Init(_)) = message_result {
+										} else if peer.their_features.is_none() {
+											log_debug!(self.logger, "Peer {} sent non-Init first message", log_pubkey!(peer.their_node_id.unwrap()));
+											return Err(PeerHandleError{ no_connection_possible: false }.into());
+										}
+
+										let mut message_err = Ok(());
+										let mut handle_err = Ok(());
+										match message_result {
+											Ok(wire::Message::Unknown(msg_type)) => {
+												let mut type_bytes = [0; 2];
+												let mut reader = ::std::io::Cursor::new(&msg_data[..]);
+												reader.read_exact(&mut type_bytes).expect("How did we read these to begin with?");
+												match self.unknown_message_handler.read(*msg_type, &mut reader) {
+													Ok(Some(msg)) => {
+														handle_err = self.unknown_message_handler.handle_unknown_message(msg);
+													},
+													Ok(None) => {
+														if *msg_type % 2 == 0 {
+															return Err(PeerHandleError { no_connection_possible: true });
+														}
+													}
+													Err(e) => { message_err = Err(e); },
+												}
+											},
+											Ok(msg) => {
+												match self.handle_message(peer, msg) {
+													Ok(Some(forward_msg)) => {
+														peer_node_id = Some(peer.their_node_id.expect("After noise is complete, their_node_id is always set"));
+														msgs_to_forward.push(forward_msg);
+													},
+													Ok(None) => {},
+													Err(e) => { handle_err = Err(e); },
+												}
+											},
+											Err(e) => { message_err = Err(e); },
+										}
+
+										match message_err {
+											Ok(()) => {},
+											Err(e) => match e {
+												msgs::DecodeError::UnknownVersion => return Err(PeerHandleError { no_connection_possible: false }),
+												msgs::DecodeError::UnknownRequiredFeature => {
+													log_trace!(self.logger, "Got a channel/node announcement with an known required feature flag, you may want to update!");
+													continue;
+												}
+												msgs::DecodeError::InvalidValue => {
+													log_debug!(self.logger, "Got an invalid value while deserializing message");
+													return Err(PeerHandleError { no_connection_possible: false });
+												}
+												msgs::DecodeError::ShortRead => {
+													log_debug!(self.logger, "Deserialization failed due to shortness of message");
+													return Err(PeerHandleError { no_connection_possible: false });
+												}
+												msgs::DecodeError::BadLengthDescriptor => return Err(PeerHandleError { no_connection_possible: false }),
+												msgs::DecodeError::Io(_) => return Err(PeerHandleError { no_connection_possible: false }),
+												msgs::DecodeError::UnsupportedCompression => {
+													log_trace!(self.logger, "We don't support zlib-compressed message fields, ignoring message");
+													continue;
+												}
+											},
+										}
+
+										match handle_err {
+											Ok(()) => {},
+											Err(e) =>
 												match e {
-													msgs::DecodeError::UnknownVersion => return Err(PeerHandleError { no_connection_possible: false }),
-													msgs::DecodeError::UnknownRequiredFeature => {
-														log_trace!(self.logger, "Got a channel/node announcement with an known required feature flag, you may want to update!");
-														continue;
-													}
-													msgs::DecodeError::InvalidValue => {
-														log_debug!(self.logger, "Got an invalid value while deserializing message");
-														return Err(PeerHandleError { no_connection_possible: false });
-													}
-													msgs::DecodeError::ShortRead => {
-														log_debug!(self.logger, "Deserialization failed due to shortness of message");
-														return Err(PeerHandleError { no_connection_possible: false });
-													}
-													msgs::DecodeError::BadLengthDescriptor => return Err(PeerHandleError { no_connection_possible: false }),
-													msgs::DecodeError::Io(_) => return Err(PeerHandleError { no_connection_possible: false }),
-													msgs::DecodeError::UnsupportedCompression => {
-														log_trace!(self.logger, "We don't support zlib-compressed message fields, ignoring message");
-														continue;
+													MessageHandlingError::PeerHandleError(e) => { return Err(e) },
+													MessageHandlingError::LightningError(e) => {
+														try_potential_handleerror!(Err(e));
 													}
 												}
-											}
-										};
-
-										match self.handle_message(peer, message) {
-											Err(handling_error) => match handling_error {
-												MessageHandlingError::PeerHandleError(e) => { return Err(e) },
-												MessageHandlingError::LightningError(e) => {
-													try_potential_handleerror!(Err(e));
-												},
-											},
-											Ok(Some(msg)) => {
-												peer_node_id = Some(peer.their_node_id.expect("After noise is complete, their_node_id is always set"));
-												msgs_to_forward.push(msg);
-											},
-											Ok(None) => {},
 										}
 									}
 								}
@@ -867,13 +966,6 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 	/// Returns the message back if it needs to be broadcasted to all other peers.
 	fn handle_message(&self, peer: &mut Peer, message: wire::Message) -> Result<Option<wire::Message>, MessageHandlingError> {
 		log_trace!(self.logger, "Received message {:?} from {}", message, log_pubkey!(peer.their_node_id.unwrap()));
-
-		// Need an Init as first message
-		if let wire::Message::Init(_) = message {
-		} else if peer.their_features.is_none() {
-			log_debug!(self.logger, "Peer {} sent non-Init first message", log_pubkey!(peer.their_node_id.unwrap()));
-			return Err(PeerHandleError{ no_connection_possible: false }.into());
-		}
 
 		let mut should_forward = None;
 
@@ -1033,14 +1125,9 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 			},
 
 			// Unknown messages:
-			wire::Message::Unknown(msg_type) if msg_type.is_even() => {
-				log_debug!(self.logger, "Received unknown even message of type {}, disconnecting peer!", msg_type);
-				// Fail the channel if message is an even, unknown type as per BOLT #1.
-				return Err(PeerHandleError{ no_connection_possible: true }.into());
+			wire::Message::Unknown(_msg) => {
+				// Handled in `do_read_event`.
 			},
-			wire::Message::Unknown(msg_type) => {
-				log_trace!(self.logger, "Received unknown odd message of type {}, ignoring", msg_type);
-			}
 		};
 		Ok(should_forward)
 	}
@@ -1135,27 +1222,29 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 			let mut events_generated = self.message_handler.chan_handler.get_and_clear_pending_msg_events();
 			events_generated.append(&mut self.message_handler.route_handler.get_and_clear_pending_msg_events());
 			let peers = &mut *peers_lock;
-			for event in events_generated.drain(..) {
-				macro_rules! get_peer_for_forwarding {
-					($node_id: expr) => {
-						{
-							match peers.node_id_to_descriptor.get($node_id) {
-								Some(descriptor) => match peers.peers.get_mut(&descriptor) {
-									Some(peer) => {
-										if peer.their_features.is_none() {
-											continue;
-										}
-										peer
-									},
-									None => panic!("Inconsistent peers set state!"),
+
+			macro_rules! get_peer_for_forwarding {
+				($node_id: expr) => {
+					{
+						match peers.node_id_to_descriptor.get($node_id) {
+							Some(descriptor) => match peers.peers.get_mut(&descriptor) {
+								Some(peer) => {
+									if peer.their_features.is_none() {
+										continue;
+									}
+									peer
 								},
-								None => {
-									continue;
-								},
-							}
+								None => panic!("Inconsistent peers set state!"),
+							},
+							None => {
+								continue;
+							},
 						}
 					}
 				}
+			}
+
+			for event in events_generated.drain(..) {
 				match event {
 					MessageSendEvent::SendAcceptChannel { ref node_id, ref msg } => {
 						log_debug!(self.logger, "Handling SendAcceptChannel event in peer_handler for node {} for channel {}",
@@ -1322,8 +1411,12 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 							msg.number_of_blocks,
 							msg.sync_complete);
 						self.enqueue_message(get_peer_for_forwarding!(node_id), msg);
-					}
+					},
 				}
+			}
+
+			for (node_id, message) in self.unknown_message_handler.get_and_clear_pending_msgs() {
+				self.enqueue_message(get_peer_for_forwarding!(node_id), &message);
 			}
 
 			for (descriptor, peer) in peers.peers.iter_mut() {
@@ -1438,7 +1531,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref> PeerManager<D
 
 #[cfg(test)]
 mod tests {
-	use ln::peer_handler::{PeerManager, MessageHandler, SocketDescriptor};
+	use ln::peer_handler::{PeerManager, MessageHandler, SocketDescriptor, IgnoringUnknownMessageHandler};
 	use ln::msgs;
 	use util::events;
 	use util::test_utils;
@@ -1497,20 +1590,20 @@ mod tests {
 		cfgs
 	}
 
-	fn create_network<'a>(peer_count: usize, cfgs: &'a Vec<PeerManagerCfg>) -> Vec<PeerManager<FileDescriptor, &'a test_utils::TestChannelMessageHandler, &'a test_utils::TestRoutingMessageHandler, &'a test_utils::TestLogger>> {
+	fn create_network<'a>(peer_count: usize, cfgs: &'a Vec<PeerManagerCfg>) -> Vec<PeerManager<FileDescriptor, &'a test_utils::TestChannelMessageHandler, &'a test_utils::TestRoutingMessageHandler, &'a test_utils::TestLogger, IgnoringUnknownMessageHandler>> {
 		let mut peers = Vec::new();
 		for i in 0..peer_count {
 			let node_secret = SecretKey::from_slice(&[42 + i as u8; 32]).unwrap();
 			let ephemeral_bytes = [i as u8; 32];
 			let msg_handler = MessageHandler { chan_handler: &cfgs[i].chan_handler, route_handler: &cfgs[i].routing_handler };
-			let peer = PeerManager::new(msg_handler, node_secret, &ephemeral_bytes, &cfgs[i].logger);
+			let peer = PeerManager::new(msg_handler, node_secret, &ephemeral_bytes, &cfgs[i].logger, IgnoringUnknownMessageHandler {});
 			peers.push(peer);
 		}
 
 		peers
 	}
 
-	fn establish_connection<'a>(peer_a: &PeerManager<FileDescriptor, &'a test_utils::TestChannelMessageHandler, &'a test_utils::TestRoutingMessageHandler, &'a test_utils::TestLogger>, peer_b: &PeerManager<FileDescriptor, &'a test_utils::TestChannelMessageHandler, &'a test_utils::TestRoutingMessageHandler, &'a test_utils::TestLogger>) -> (FileDescriptor, FileDescriptor) {
+	fn establish_connection<'a>(peer_a: &PeerManager<FileDescriptor, &'a test_utils::TestChannelMessageHandler, &'a test_utils::TestRoutingMessageHandler, &'a test_utils::TestLogger, IgnoringUnknownMessageHandler>, peer_b: &PeerManager<FileDescriptor, &'a test_utils::TestChannelMessageHandler, &'a test_utils::TestRoutingMessageHandler, &'a test_utils::TestLogger, IgnoringUnknownMessageHandler>) -> (FileDescriptor, FileDescriptor) {
 		let secp_ctx = Secp256k1::new();
 		let a_id = PublicKey::from_secret_key(&secp_ctx, &peer_a.our_node_secret);
 		let mut fd_a = FileDescriptor { fd: 1, outbound_data: Arc::new(Mutex::new(Vec::new())) };
