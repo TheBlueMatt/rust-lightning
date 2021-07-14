@@ -1264,7 +1264,7 @@ impl<Signer: Sign> Channel<Signer> {
 						if let &InboundHTLCRemovalReason::Fulfill(_) = reason {
 						} else {
 							log_warn!(logger, "Have preimage and want to fulfill HTLC with payment hash {} we already failed against channel {}", log_bytes!(htlc.payment_hash.0), log_bytes!(self.channel_id()));
-							debug_assert!(false, "Tried to fulfill an HTLC that was already fail/fulfilled");
+							debug_assert!(false, "Tried to fulfill an HTLC that was already failed");
 						}
 						return Ok((None, None));
 					},
@@ -1390,8 +1390,11 @@ impl<Signer: Sign> Channel<Signer> {
 			if htlc.htlc_id == htlc_id_arg {
 				match htlc.state {
 					InboundHTLCState::Committed => {},
-					InboundHTLCState::LocalRemoved(_) => {
-						debug_assert!(false, "Tried to fail an HTLC that was already fail/fulfilled");
+					InboundHTLCState::LocalRemoved(ref reason) => {
+						if let &InboundHTLCRemovalReason::Fulfill(_) = reason {
+						} else {
+							debug_assert!(false, "Tried to fail an HTLC that was already failed");
+						}
 						return Ok(None);
 					},
 					_ => {
@@ -1403,7 +1406,11 @@ impl<Signer: Sign> Channel<Signer> {
 			}
 		}
 		if pending_idx == core::usize::MAX {
-			return Err(ChannelError::Ignore("Unable to find a pending HTLC which matched the given HTLC ID".to_owned()));
+			#[cfg(any(test, feature = "fuzztarget"))]
+			// If we failed to find an HTLC to fail, make sure it was previously fulfilled and this
+			// is simply a duplicate fail, not previously failed and we failed-back too early.
+			debug_assert!(self.historical_inbound_htlc_fulfills.contains(&htlc_id_arg));
+			return Ok(None);
 		}
 
 		// Now update local state:
@@ -1412,8 +1419,9 @@ impl<Signer: Sign> Channel<Signer> {
 				match pending_update {
 					&HTLCUpdateAwaitingACK::ClaimHTLC { htlc_id, .. } => {
 						if htlc_id_arg == htlc_id {
-							debug_assert!(false, "Tried to fail an HTLC that was already fulfilled");
-							return Err(ChannelError::Ignore("Unable to find a pending HTLC which matched the given HTLC ID".to_owned()));
+							#[cfg(any(test, feature = "fuzztarget"))]
+							debug_assert!(self.historical_inbound_htlc_fulfills.contains(&htlc_id_arg));
+							return Ok(None);
 						}
 					},
 					&HTLCUpdateAwaitingACK::FailHTLC { htlc_id, .. } => {
