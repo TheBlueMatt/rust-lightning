@@ -483,10 +483,10 @@ pub struct ChannelManager<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, 
 	/// PersistenceNotifier the lock contains sends out a notification when the lock is released.
 	total_consistency_lock: RwLock<()>,
 
-	/// We want to (optionally) send fee updates on our outbound channels at least once after after
-	/// startup and then on the timer. We thus hook it up to `get_and_clear_pending_msg_events`,
-	/// but use this to detect if we've already run once (by setting to 0 on startup and 1 after
-	/// the first message events clear).
+	/// If feerates have gone up, we want to send fee updates on our outbound channels at least
+	/// once after startup and then on the timer. We thus hook it up to
+	/// `get_and_clear_pending_msg_events`, but use this to detect if we've already run once (by
+	/// setting to 0 on startup and 1 after the first message events clear).
 	startup_complete: AtomicUsize,
 
 	persistence_notifier: PersistenceNotifier,
