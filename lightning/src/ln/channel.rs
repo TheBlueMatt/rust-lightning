@@ -1344,10 +1344,13 @@ impl<Signer: Sign> Channel<Signer> {
 		}), Some(monitor_update))
 	}
 
-	pub fn get_update_fulfill_htlc_and_commit<L: Deref>(&mut self, htlc_id: u64, payment_preimage: PaymentPreimage, logger: &L) -> Result<(Option<(msgs::UpdateFulfillHTLC, msgs::CommitmentSigned)>, Option<ChannelMonitorUpdate>), ChannelError> where L::Target: Logger {
+	pub fn get_update_fulfill_htlc_and_commit<L: Deref>(&mut self, htlc_id: u64, payment_preimage: PaymentPreimage, logger: &L) -> Result<(Option<(msgs::UpdateFulfillHTLC, msgs::CommitmentSigned)>, Option<ChannelMonitorUpdate>), (ChannelError, ChannelMonitorUpdate)> where L::Target: Logger {
 		match self.get_update_fulfill_htlc(htlc_id, payment_preimage, logger) {
 			(Some(update_fulfill_htlc), Some(mut monitor_update)) => {
-				let (commitment, mut additional_update) = self.send_commitment_no_status_check(logger)?;
+				let (commitment, mut additional_update) = match self.send_commitment_no_status_check(logger) {
+					Err(e) => return Err((e, monitor_update)),
+					Ok(res) => res
+				};
 				// send_commitment_no_status_check may bump latest_monitor_id but we want them to be
 				// strictly increasing by one, so decrement it here.
 				self.latest_monitor_update_id = monitor_update.update_id;

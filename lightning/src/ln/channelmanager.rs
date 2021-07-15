@@ -2679,16 +2679,14 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		};
 
 		if let hash_map::Entry::Occupied(mut chan) = channel_state.by_id.entry(chan_id) {
-			let was_frozen_for_monitor = chan.get().is_awaiting_monitor_update();
 			match chan.get_mut().get_update_fulfill_htlc_and_commit(prev_hop.htlc_id, payment_preimage, &self.logger) {
 				Ok((msgs, monitor_option)) => {
 					if let Some(monitor_update) = monitor_option {
 						if let Err(e) = self.chain_monitor.update_channel(chan.get().get_funding_txo().unwrap(), monitor_update) {
-							if was_frozen_for_monitor {
-								assert!(msgs.is_none());
-							} else {
-								return Err(Some((chan.get().get_counterparty_node_id(), handle_monitor_err!(self, e, channel_state, chan, RAACommitmentOrder::CommitmentFirst, false, msgs.is_some()).unwrap_err())));
-							}
+							return Err(Some((
+								chan.get().get_counterparty_node_id(),
+								handle_monitor_err!(self, e, channel_state, chan, RAACommitmentOrder::CommitmentFirst, false, msgs.is_some()).unwrap_err(),
+							)));
 						}
 					}
 					if let Some((msg, commitment_signed)) = msgs {
@@ -2708,16 +2706,17 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					}
 					return Ok(())
 				},
-				Err(e) => {
-					// TODO: Do something with e?
-					// This should only occur if we are claiming an HTLC at the same time as the
-					// HTLC is being failed (eg because a block is being connected and this caused
-					// an HTLC to time out). This should, of course, only occur if the user is the
-					// one doing the claiming (as it being a part of a peer claim would imply we're
-					// about to lose funds) and only if the lock in claim_funds was dropped as a
-					// previous HTLC was failed (thus not for an MPP payment).
-					debug_assert!(false, "This shouldn't be reachable except in absurdly rare cases between monitor updates and HTLC timeouts: {:?}", e);
-					return Err(None)
+				Err((e, monitor_update)) => {
+					if let Err(e) = self.chain_monitor.update_channel(chan.get().get_funding_txo().unwrap(), monitor_update) {
+						log_error!(self.logger, "Critical error: failed to update channel monitor with preimage {:?}: {:?}",
+							payment_preimage, e);
+					}
+					let counterparty_node_id = chan.get().get_counterparty_node_id();
+					let (drop, res) = convert_chan_err!(self, e, channel_state.short_to_id, chan.get_mut(), &chan_id);
+					if drop {
+						chan.remove_entry();
+					}
+					return Err(Some((counterparty_node_id, res)));
 				},
 			}
 		} else { unreachable!(); }
