@@ -1232,13 +1232,7 @@ impl<Signer: Sign> Channel<Signer> {
 		make_funding_redeemscript(&self.get_holder_pubkeys().funding_pubkey, self.counterparty_funding_pubkey())
 	}
 
-	/// Per HTLC, only one get_update_fail_htlc or get_update_fulfill_htlc call may be made.
-	/// In such cases we debug_assert!(false) and return a ChannelError::Ignore. Thus, will always
-	/// return Ok(_) if debug assertions are turned on or preconditions are met.
-	///
-	/// Note that it is still possible to hit these assertions in case we find a preimage on-chain
-	/// but then have a reorg which settles on an HTLC-failure on chain.
-	fn get_update_fulfill_htlc<L: Deref>(&mut self, htlc_id_arg: u64, payment_preimage_arg: PaymentPreimage, logger: &L) -> Result<(Option<msgs::UpdateFulfillHTLC>, Option<ChannelMonitorUpdate>), ChannelError> where L::Target: Logger {
+	fn get_update_fulfill_htlc<L: Deref>(&mut self, htlc_id_arg: u64, payment_preimage_arg: PaymentPreimage, logger: &L) -> (Option<msgs::UpdateFulfillHTLC>, Option<ChannelMonitorUpdate>) where L::Target: Logger {
 		// Either ChannelFunded got set (which means it won't be unset) or there is no way any
 		// caller thought we could have something claimed (cause we wouldn't have accepted in an
 		// incoming HTLC anyway). If we got to ShutdownComplete, callers aren't allowed to call us,
@@ -1266,7 +1260,7 @@ impl<Signer: Sign> Channel<Signer> {
 							log_warn!(logger, "Have preimage and want to fulfill HTLC with payment hash {} we already failed against channel {}", log_bytes!(htlc.payment_hash.0), log_bytes!(self.channel_id()));
 							debug_assert!(false, "Tried to fulfill an HTLC that was already failed");
 						}
-						return Ok((None, None));
+						return (None, None);
 					},
 					_ => {
 						debug_assert!(false, "Have an inbound HTLC we tried to claim before it was fully committed to");
@@ -1282,7 +1276,7 @@ impl<Signer: Sign> Channel<Signer> {
 			// If we failed to find an HTLC to fulfill, make sure it was previously fulfilled and
 			// this is simply a duplicate claim, not previously failed and we lost funds.
 			debug_assert!(self.historical_inbound_htlc_fulfills.contains(&htlc_id_arg));
-			return Ok((None, None));
+			return (None, None);
 		}
 
 		// Now update local state:
@@ -1306,7 +1300,7 @@ impl<Signer: Sign> Channel<Signer> {
 							self.latest_monitor_update_id -= 1;
 							#[cfg(any(test, feature = "fuzztarget"))]
 							debug_assert!(self.historical_inbound_htlc_fulfills.contains(&htlc_id_arg));
-							return Ok((None, None));
+							return (None, None);
 						}
 					},
 					&HTLCUpdateAwaitingACK::FailHTLC { htlc_id, .. } => {
@@ -1315,7 +1309,7 @@ impl<Signer: Sign> Channel<Signer> {
 							// TODO: We may actually be able to switch to a fulfill here, though its
 							// rare enough it may not be worth the complexity burden.
 							debug_assert!(false, "Tried to fulfill an HTLC that was already failed");
-							return Ok((None, Some(monitor_update)));
+							return (None, Some(monitor_update));
 						}
 					},
 					_ => {}
@@ -1327,7 +1321,7 @@ impl<Signer: Sign> Channel<Signer> {
 			});
 			#[cfg(any(test, feature = "fuzztarget"))]
 			self.historical_inbound_htlc_fulfills.insert(htlc_id_arg);
-			return Ok((None, Some(monitor_update)));
+			return (None, Some(monitor_update));
 		}
 		#[cfg(any(test, feature = "fuzztarget"))]
 		self.historical_inbound_htlc_fulfills.insert(htlc_id_arg);
@@ -1337,21 +1331,21 @@ impl<Signer: Sign> Channel<Signer> {
 			if let InboundHTLCState::Committed = htlc.state {
 			} else {
 				debug_assert!(false, "Have an inbound HTLC we tried to claim before it was fully committed to");
-				return Ok((None, Some(monitor_update)));
+				return (None, Some(monitor_update));
 			}
 			log_trace!(logger, "Upgrading HTLC {} to LocalRemoved with a Fulfill in channel {}!", log_bytes!(htlc.payment_hash.0), log_bytes!(self.channel_id));
 			htlc.state = InboundHTLCState::LocalRemoved(InboundHTLCRemovalReason::Fulfill(payment_preimage_arg.clone()));
 		}
 
-		Ok((Some(msgs::UpdateFulfillHTLC {
+		(Some(msgs::UpdateFulfillHTLC {
 			channel_id: self.channel_id(),
 			htlc_id: htlc_id_arg,
 			payment_preimage: payment_preimage_arg,
-		}), Some(monitor_update)))
+		}), Some(monitor_update))
 	}
 
 	pub fn get_update_fulfill_htlc_and_commit<L: Deref>(&mut self, htlc_id: u64, payment_preimage: PaymentPreimage, logger: &L) -> Result<(Option<(msgs::UpdateFulfillHTLC, msgs::CommitmentSigned)>, Option<ChannelMonitorUpdate>), ChannelError> where L::Target: Logger {
-		match self.get_update_fulfill_htlc(htlc_id, payment_preimage, logger)? {
+		match self.get_update_fulfill_htlc(htlc_id, payment_preimage, logger) {
 			(Some(update_fulfill_htlc), Some(mut monitor_update)) => {
 				let (commitment, mut additional_update) = self.send_commitment_no_status_check(logger)?;
 				// send_commitment_no_status_check may bump latest_monitor_id but we want them to be
@@ -1360,21 +1354,22 @@ impl<Signer: Sign> Channel<Signer> {
 				monitor_update.updates.append(&mut additional_update.updates);
 				Ok((Some((update_fulfill_htlc, commitment)), Some(monitor_update)))
 			},
-			(Some(update_fulfill_htlc), None) => {
-				let (commitment, monitor_update) = self.send_commitment_no_status_check(logger)?;
-				Ok((Some((update_fulfill_htlc, commitment)), Some(monitor_update)))
+			(Some(_), None) => {
+				// If we generated a claim message, we absolutely should have generated a
+				// ChannelMonitorUpdate, otherwise we are going to probably lose funds.
+				unreachable!();
 			},
 			(None, Some(monitor_update)) => Ok((None, Some(monitor_update))),
 			(None, None) => Ok((None, None))
 		}
 	}
 
-	/// Per HTLC, only one get_update_fail_htlc or get_update_fulfill_htlc call may be made.
-	/// In such cases we debug_assert!(false) and return a ChannelError::Ignore. Thus, will always
-	/// return Ok(_) if debug assertions are turned on or preconditions are met.
-	///
-	/// Note that it is still possible to hit these assertions in case we find a preimage on-chain
-	/// but then have a reorg which settles on an HTLC-failure on chain.
+	/// We can only have one resolution per HTLC. In some cases around reconnect, we may fulfill
+	/// and HTLC more than once or fulfill once and then attempt to fail after reconnect. We
+	/// cannot, however, fail more than once as we wait for an upstream failure to be irrevocably
+	/// committed before we fail backwards.
+	/// If we do fail twice, we debug_assert!(false) and return a ChannelError::Ignore. Thus, will
+	/// always return Ok(_) if debug assertions are turned on or preconditions are met.
 	pub fn get_update_fail_htlc<L: Deref>(&mut self, htlc_id_arg: u64, err_packet: msgs::OnionErrorPacket, logger: &L) -> Result<Option<msgs::UpdateFailHTLC>, ChannelError> where L::Target: Logger {
 		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
 			panic!("Was asked to fail an HTLC when channel was not in an operational state");
@@ -2468,19 +2463,10 @@ impl<Signer: Sign> Channel<Signer> {
 						}
 					},
 					&HTLCUpdateAwaitingACK::ClaimHTLC { ref payment_preimage, htlc_id, .. } => {
-						match self.get_update_fulfill_htlc(htlc_id, *payment_preimage, logger) {
-							Ok((update_fulfill_msg_option, additional_monitor_update_opt)) => {
-								update_fulfill_htlcs.push(update_fulfill_msg_option.unwrap());
-								if let Some(mut additional_monitor_update) = additional_monitor_update_opt {
-									monitor_update.updates.append(&mut additional_monitor_update.updates);
-								}
-							},
-							Err(e) => {
-								if let ChannelError::Ignore(_) = e {}
-								else {
-									panic!("Got a non-IgnoreError action trying to fulfill holding cell HTLC");
-								}
-							}
+						let (update_fulfill_msg_option, additional_monitor_update_opt) = self.get_update_fulfill_htlc(htlc_id, *payment_preimage, logger);
+						update_fulfill_htlcs.push(update_fulfill_msg_option.unwrap());
+						if let Some(mut additional_monitor_update) = additional_monitor_update_opt {
+							monitor_update.updates.append(&mut additional_monitor_update.updates);
 						}
 					},
 					&HTLCUpdateAwaitingACK::FailHTLC { htlc_id, ref err_packet } => {
