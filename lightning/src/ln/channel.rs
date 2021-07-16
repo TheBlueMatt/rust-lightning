@@ -309,6 +309,9 @@ pub struct CounterpartyForwardingInfo {
 // Holder designates channel data owned for the benefice of the user client.
 // Counterparty designates channel data owned by the another channel participant entity.
 pub(super) struct Channel<Signer: Sign> {
+	#[cfg(any(test, feature = "_test_utils"))]
+	pub(crate) config: ChannelConfig,
+	#[cfg(not(any(test, feature = "_test_utils")))]
 	config: ChannelConfig,
 
 	user_id: u64,
@@ -1231,7 +1234,7 @@ impl<Signer: Sign> Channel<Signer> {
 		make_funding_redeemscript(&self.get_holder_pubkeys().funding_pubkey, self.counterparty_funding_pubkey())
 	}
 
-	fn get_update_fulfill_htlc<L: Deref>(&mut self, htlc_id_arg: u64, payment_preimage_arg: PaymentPreimage, logger: &L) -> (Option<msgs::UpdateFulfillHTLC>, Option<ChannelMonitorUpdate>) where L::Target: Logger {
+	fn get_update_fulfill_htlc<L: Deref>(&mut self, htlc_id_arg: u64, payment_preimage_arg: PaymentPreimage, logger: &L) -> (Option<msgs::UpdateFulfillHTLC>, Option<(ChannelMonitorUpdate, u64)>) where L::Target: Logger {
 		// Either ChannelFunded got set (which means it won't be unset) or there is no way any
 		// caller thought we could have something claimed (cause we wouldn't have accepted in an
 		// incoming HTLC anyway). If we got to ShutdownComplete, callers aren't allowed to call us,
@@ -1248,6 +1251,7 @@ impl<Signer: Sign> Channel<Signer> {
 		// these, but for now we just have to treat them as normal.
 
 		let mut pending_idx = core::usize::MAX;
+		let mut htlc_value_msat = 0;
 		for (idx, htlc) in self.pending_inbound_htlcs.iter().enumerate() {
 			if htlc.htlc_id == htlc_id_arg {
 				assert_eq!(htlc.payment_hash, payment_hash_calc);
@@ -1267,6 +1271,7 @@ impl<Signer: Sign> Channel<Signer> {
 					}
 				}
 				pending_idx = idx;
+				htlc_value_msat = htlc.amount_msat;
 				break;
 			}
 		}
@@ -1308,7 +1313,7 @@ impl<Signer: Sign> Channel<Signer> {
 							// TODO: We may actually be able to switch to a fulfill here, though its
 							// rare enough it may not be worth the complexity burden.
 							debug_assert!(false, "Tried to fulfill an HTLC that was already failed");
-							return (None, Some(monitor_update));
+							return (None, Some((monitor_update, htlc_value_msat)));
 						}
 					},
 					_ => {}
@@ -1320,7 +1325,7 @@ impl<Signer: Sign> Channel<Signer> {
 			});
 			#[cfg(any(test, feature = "fuzztarget"))]
 			self.historical_inbound_htlc_fulfills.insert(htlc_id_arg);
-			return (None, Some(monitor_update));
+			return (None, Some((monitor_update, htlc_value_msat)));
 		}
 		#[cfg(any(test, feature = "fuzztarget"))]
 		self.historical_inbound_htlc_fulfills.insert(htlc_id_arg);
@@ -1330,7 +1335,7 @@ impl<Signer: Sign> Channel<Signer> {
 			if let InboundHTLCState::Committed = htlc.state {
 			} else {
 				debug_assert!(false, "Have an inbound HTLC we tried to claim before it was fully committed to");
-				return (None, Some(monitor_update));
+				return (None, Some((monitor_update, htlc_value_msat)));
 			}
 			log_trace!(logger, "Upgrading HTLC {} to LocalRemoved with a Fulfill in channel {}!", log_bytes!(htlc.payment_hash.0), log_bytes!(self.channel_id));
 			htlc.state = InboundHTLCState::LocalRemoved(InboundHTLCRemovalReason::Fulfill(payment_preimage_arg.clone()));
@@ -1340,12 +1345,14 @@ impl<Signer: Sign> Channel<Signer> {
 			channel_id: self.channel_id(),
 			htlc_id: htlc_id_arg,
 			payment_preimage: payment_preimage_arg,
-		}), Some(monitor_update))
+		}), Some((monitor_update, htlc_value_msat)))
 	}
 
-	pub fn get_update_fulfill_htlc_and_commit<L: Deref>(&mut self, htlc_id: u64, payment_preimage: PaymentPreimage, logger: &L) -> Result<(Option<(msgs::UpdateFulfillHTLC, msgs::CommitmentSigned)>, Option<ChannelMonitorUpdate>), (ChannelError, ChannelMonitorUpdate)> where L::Target: Logger {
+	pub fn get_update_fulfill_htlc_and_commit<L: Deref>(&mut self, htlc_id: u64, payment_preimage: PaymentPreimage, logger: &L)
+		-> Result<(Option<(msgs::UpdateFulfillHTLC, msgs::CommitmentSigned)>, Option<(ChannelMonitorUpdate, u64)>),
+		          (ChannelError, ChannelMonitorUpdate)> where L::Target: Logger {
 		match self.get_update_fulfill_htlc(htlc_id, payment_preimage, logger) {
-			(Some(update_fulfill_htlc), Some(mut monitor_update)) => {
+			(Some(update_fulfill_htlc), Some((mut monitor_update, htlc_value_msat))) => {
 				let (commitment, mut additional_update) = match self.send_commitment_no_status_check(logger) {
 					Err(e) => return Err((e, monitor_update)),
 					Ok(res) => res
@@ -1354,14 +1361,14 @@ impl<Signer: Sign> Channel<Signer> {
 				// strictly increasing by one, so decrement it here.
 				self.latest_monitor_update_id = monitor_update.update_id;
 				monitor_update.updates.append(&mut additional_update.updates);
-				Ok((Some((update_fulfill_htlc, commitment)), Some(monitor_update)))
+				Ok((Some((update_fulfill_htlc, commitment)), Some((monitor_update, htlc_value_msat))))
 			},
 			(Some(_), None) => {
 				// If we generated a claim message, we absolutely should have generated a
 				// ChannelMonitorUpdate, otherwise we are going to probably lose funds.
 				unreachable!();
 			},
-			(None, Some(monitor_update)) => Ok((None, Some(monitor_update))),
+			(None, Some(monitor_and_value)) => Ok((None, Some(monitor_and_value))),
 			(None, None) => Ok((None, None))
 		}
 	}
@@ -2138,7 +2145,7 @@ impl<Signer: Sign> Channel<Signer> {
 
 	/// Marks an outbound HTLC which we have received update_fail/fulfill/malformed
 	#[inline]
-	fn mark_outbound_htlc_removed(&mut self, htlc_id: u64, check_preimage: Option<PaymentHash>, fail_reason: Option<HTLCFailReason>) -> Result<&HTLCSource, ChannelError> {
+	fn mark_outbound_htlc_removed(&mut self, htlc_id: u64, check_preimage: Option<PaymentHash>, fail_reason: Option<HTLCFailReason>) -> Result<&OutboundHTLCOutput, ChannelError> {
 		for htlc in self.pending_outbound_htlcs.iter_mut() {
 			if htlc.htlc_id == htlc_id {
 				match check_preimage {
@@ -2157,13 +2164,13 @@ impl<Signer: Sign> Channel<Signer> {
 					OutboundHTLCState::AwaitingRemoteRevokeToRemove(_) | OutboundHTLCState::AwaitingRemovedRemoteRevoke(_) | OutboundHTLCState::RemoteRemoved(_) =>
 						return Err(ChannelError::Close(format!("Remote tried to fulfill/fail HTLC ({}) that they'd already fulfilled/failed", htlc_id))),
 				}
-				return Ok(&htlc.source);
+				return Ok(htlc);
 			}
 		}
 		Err(ChannelError::Close("Remote tried to fulfill/fail an HTLC we couldn't find".to_owned()))
 	}
 
-	pub fn update_fulfill_htlc(&mut self, msg: &msgs::UpdateFulfillHTLC) -> Result<HTLCSource, ChannelError> {
+	pub fn update_fulfill_htlc(&mut self, msg: &msgs::UpdateFulfillHTLC) -> Result<(HTLCSource, u64), ChannelError> {
 		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
 			return Err(ChannelError::Close("Got fulfill HTLC message when channel was not in an operational state".to_owned()));
 		}
@@ -2172,7 +2179,7 @@ impl<Signer: Sign> Channel<Signer> {
 		}
 
 		let payment_hash = PaymentHash(Sha256::hash(&msg.payment_preimage.0[..]).into_inner());
-		self.mark_outbound_htlc_removed(msg.htlc_id, Some(payment_hash), None).map(|source| source.clone())
+		self.mark_outbound_htlc_removed(msg.htlc_id, Some(payment_hash), None).map(|htlc| (htlc.source.clone(), htlc.amount_msat))
 	}
 
 	pub fn update_fail_htlc(&mut self, msg: &msgs::UpdateFailHTLC, fail_reason: HTLCFailReason) -> Result<(), ChannelError> {
@@ -2467,7 +2474,7 @@ impl<Signer: Sign> Channel<Signer> {
 					&HTLCUpdateAwaitingACK::ClaimHTLC { ref payment_preimage, htlc_id, .. } => {
 						let (update_fulfill_msg_option, additional_monitor_update_opt) = self.get_update_fulfill_htlc(htlc_id, *payment_preimage, logger);
 						update_fulfill_htlcs.push(update_fulfill_msg_option.unwrap());
-						if let Some(mut additional_monitor_update) = additional_monitor_update_opt {
+						if let Some((mut additional_monitor_update, _)) = additional_monitor_update_opt {
 							monitor_update.updates.append(&mut additional_monitor_update.updates);
 						}
 					},

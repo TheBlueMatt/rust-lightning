@@ -135,6 +135,21 @@ pub enum Event {
 		/// The outputs which you should store as spendable by you.
 		outputs: Vec<SpendableOutputDescriptor>,
 	},
+	/// This event is generated when a payment has been successfully forwarded through us and a
+	/// forwarding fee earned.
+	PaymentForwarded {
+		/// The fee, in milli-satoshis, which was earned as a result of the payment.
+		///
+		/// Note that if we force-closed a channel while a forwarded HTLC was pending, the amount
+		/// the next hop claimed may have been rounded down, causing a higher fee than expected.
+		///
+		/// If the channel which sent us the payment has been force-closed, we will claim the funds
+		/// via an on-chain transaction. In that case we do not consider the on-chain transaction
+		/// fees involved in such a claim and this value will be `None`.
+		fee_earned_msat: Option<u64>,
+		/// If this is `true`, the forwarded HTLC was claimed on-chain after a force-closure.
+		claim_from_onchain_tx: bool,
+	},
 }
 
 impl Writeable for Event {
@@ -187,6 +202,13 @@ impl Writeable for Event {
 				5u8.write(writer)?;
 				write_tlv_fields!(writer, {
 					(0, VecWriteWrapper(outputs), required),
+				});
+			},
+			&Event::PaymentForwarded { fee_earned_msat, claim_from_onchain_tx } => {
+				7u8.write(writer)?;
+				write_tlv_fields!(writer, {
+					(0, fee_earned_msat, option),
+					(2, claim_from_onchain_tx, required),
 				});
 			},
 		}
@@ -272,6 +294,18 @@ impl MaybeReadable for Event {
 						(0, outputs, required),
 					});
 					Ok(Some(Event::SpendableOutputs { outputs: outputs.0 }))
+				};
+				f()
+			},
+			7u8 => {
+				let f = || {
+					let mut fee_earned_msat = None;
+					let mut claim_from_onchain_tx = false;
+					read_tlv_fields!(reader, {
+						(0, fee_earned_msat, option),
+						(2, claim_from_onchain_tx, required),
+					});
+					Ok(Some(Event::PaymentForwarded { fee_earned_msat, claim_from_onchain_tx }))
 				};
 				f()
 			},
