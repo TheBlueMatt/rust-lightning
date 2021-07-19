@@ -2169,9 +2169,8 @@ impl<Signer: Sign> Channel<Signer> {
 		Ok(())
 	}
 
-	pub fn commitment_signed<F: Deref, L: Deref>(&mut self, msg: &msgs::CommitmentSigned, fee_estimator: &F, logger: &L) -> Result<(msgs::RevokeAndACK, Option<msgs::CommitmentSigned>, Option<msgs::ClosingSigned>, ChannelMonitorUpdate), (Option<ChannelMonitorUpdate>, ChannelError)>
-	where F::Target: FeeEstimator,
-				L::Target: Logger
+	pub fn commitment_signed<L: Deref>(&mut self, msg: &msgs::CommitmentSigned, logger: &L) -> Result<(msgs::RevokeAndACK, Option<msgs::CommitmentSigned>, ChannelMonitorUpdate), (Option<ChannelMonitorUpdate>, ChannelError)>
+		where L::Target: Logger
 	{
 		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
 			return Err((None, ChannelError::Close("Got commitment signed message when channel was not in an operational state".to_owned())));
@@ -2346,12 +2345,10 @@ impl<Signer: Sign> Channel<Signer> {
 			}
 			log_debug!(logger, "Received valid commitment_signed from peer in channel {}, updated HTLC state but awaiting a monitor update resolution to reply.",
 				log_bytes!(self.channel_id));
-			// TODO: Call maybe_propose_first_closing_signed on restoration (or call it here and
-			// re-send the message on restoration)
 			return Err((Some(monitor_update), ChannelError::Ignore("Previous monitor update failure prevented generation of RAA".to_owned())));
 		}
 
-		let (commitment_signed, closing_signed) = if need_commitment && (self.channel_state & (ChannelState::AwaitingRemoteRevoke as u32)) == 0 {
+		let commitment_signed = if need_commitment && (self.channel_state & (ChannelState::AwaitingRemoteRevoke as u32)) == 0 {
 			// If we're AwaitingRemoteRevoke we can't send a new commitment here, but that's ok -
 			// we'll send one right away when we get the revoke_and_ack when we
 			// free_holding_cell_htlcs().
@@ -2360,10 +2357,8 @@ impl<Signer: Sign> Channel<Signer> {
 			// strictly increasing by one, so decrement it here.
 			self.latest_monitor_update_id = monitor_update.update_id;
 			monitor_update.updates.append(&mut additional_update.updates);
-			(Some(msg), None)
-		} else if !need_commitment {
-			(None, self.maybe_propose_first_closing_signed(fee_estimator))
-		} else { (None, None) };
+			Some(msg)
+		} else { None };
 
 		log_debug!(logger, "Received valid commitment_signed from peer in channel {}, updating HTLC state and responding with{} a revoke_and_ack.",
 			log_bytes!(self.channel_id()), if commitment_signed.is_some() { " our own commitment_signed and" } else { "" });
@@ -2372,7 +2367,7 @@ impl<Signer: Sign> Channel<Signer> {
 			channel_id: self.channel_id,
 			per_commitment_secret,
 			next_per_commitment_point,
-		}, commitment_signed, closing_signed, monitor_update))
+		}, commitment_signed, monitor_update))
 	}
 
 	/// Public version of the below, checking relevant preconditions first.
@@ -2504,9 +2499,8 @@ impl<Signer: Sign> Channel<Signer> {
 	/// waiting on this revoke_and_ack. The generation of this new commitment_signed may also fail,
 	/// generating an appropriate error *after* the channel state has been updated based on the
 	/// revoke_and_ack message.
-	pub fn revoke_and_ack<F: Deref, L: Deref>(&mut self, msg: &msgs::RevokeAndACK, fee_estimator: &F, logger: &L) -> Result<(Option<msgs::CommitmentUpdate>, Vec<(PendingHTLCInfo, u64)>, Vec<(HTLCSource, PaymentHash, HTLCFailReason)>, Option<msgs::ClosingSigned>, ChannelMonitorUpdate, Vec<(HTLCSource, PaymentHash)>), ChannelError>
-		where F::Target: FeeEstimator,
-					L::Target: Logger,
+	pub fn revoke_and_ack<L: Deref>(&mut self, msg: &msgs::RevokeAndACK, logger: &L) -> Result<(Option<msgs::CommitmentUpdate>, Vec<(PendingHTLCInfo, u64)>, Vec<(HTLCSource, PaymentHash, HTLCFailReason)>, ChannelMonitorUpdate, Vec<(HTLCSource, PaymentHash)>), ChannelError>
+		where L::Target: Logger,
 	{
 		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
 			return Err(ChannelError::Close("Got revoke/ACK message when channel was not in an operational state".to_owned()));
@@ -2686,7 +2680,7 @@ impl<Signer: Sign> Channel<Signer> {
 			self.monitor_pending_forwards.append(&mut to_forward_infos);
 			self.monitor_pending_failures.append(&mut revoked_htlcs);
 			log_debug!(logger, "Received a valid revoke_and_ack for channel {} but awaiting a monitor update resolution to reply.", log_bytes!(self.channel_id()));
-			return Ok((None, Vec::new(), Vec::new(), None, monitor_update, Vec::new()))
+			return Ok((None, Vec::new(), Vec::new(), monitor_update, Vec::new()))
 		}
 
 		match self.free_holding_cell_htlcs(logger)? {
@@ -2705,7 +2699,7 @@ impl<Signer: Sign> Channel<Signer> {
 				self.latest_monitor_update_id = monitor_update.update_id;
 				monitor_update.updates.append(&mut additional_update.updates);
 
-				Ok((Some(commitment_update), to_forward_infos, revoked_htlcs, None, monitor_update, htlcs_to_fail))
+				Ok((Some(commitment_update), to_forward_infos, revoked_htlcs, monitor_update, htlcs_to_fail))
 			},
 			(None, htlcs_to_fail) => {
 				if require_commitment {
@@ -2725,14 +2719,13 @@ impl<Signer: Sign> Channel<Signer> {
 						update_fail_malformed_htlcs,
 						update_fee: None,
 						commitment_signed
-					}), to_forward_infos, revoked_htlcs, None, monitor_update, htlcs_to_fail))
+					}), to_forward_infos, revoked_htlcs, monitor_update, htlcs_to_fail))
 				} else {
 					log_debug!(logger, "Received a valid revoke_and_ack for channel {} with no reply necessary.", log_bytes!(self.channel_id()));
-					Ok((None, to_forward_infos, revoked_htlcs, self.maybe_propose_first_closing_signed(fee_estimator), monitor_update, htlcs_to_fail))
+					Ok((None, to_forward_infos, revoked_htlcs, monitor_update, htlcs_to_fail))
 				}
 			}
 		}
-
 	}
 
 	/// Adds a pending update to this channel. See the doc for send_htlc for
@@ -3119,13 +3112,17 @@ impl<Signer: Sign> Channel<Signer> {
 		}
 	}
 
-	fn maybe_propose_first_closing_signed<F: Deref>(&mut self, fee_estimator: &F) -> Option<msgs::ClosingSigned>
-		where F::Target: FeeEstimator
+	pub fn maybe_propose_first_closing_signed<F: Deref, L: Deref>(&mut self, fee_estimator: &F, logger: &L)
+		-> Result<Option<msgs::ClosingSigned>, ChannelError>
+		where F::Target: FeeEstimator, L::Target: Logger
 	{
 		if !self.is_outbound() || !self.pending_inbound_htlcs.is_empty() || !self.pending_outbound_htlcs.is_empty() ||
-				self.channel_state & (BOTH_SIDES_SHUTDOWN_MASK | ChannelState::AwaitingRemoteRevoke as u32) != BOTH_SIDES_SHUTDOWN_MASK ||
+				self.channel_state &
+					(BOTH_SIDES_SHUTDOWN_MASK | ChannelState::AwaitingRemoteRevoke as u32 |
+					 ChannelState::PeerDisconnected as u32 | ChannelState::MonitorUpdateFailed as u32)
+				!= BOTH_SIDES_SHUTDOWN_MASK ||
 				self.last_sent_closing_fee.is_some() || self.pending_update_fee.is_some() {
-			return None;
+			return Ok(None);
 		}
 
 		let mut proposed_feerate = fee_estimator.get_est_sat_per_1000_weight(ConfirmationTarget::Background);
@@ -3134,26 +3131,24 @@ impl<Signer: Sign> Channel<Signer> {
 		}
 		let tx_weight = self.get_closing_transaction_weight(Some(&self.get_closing_scriptpubkey()), Some(self.counterparty_shutdown_scriptpubkey.as_ref().unwrap()));
 		let proposed_total_fee_satoshis = proposed_feerate as u64 * tx_weight / 1000;
+		log_trace!(logger, "Proposing initial closing signed for our counterparty with a feerate of {} sat/kWeight (= {} sats)",
+			proposed_feerate, proposed_total_fee_satoshis);
 
 		let (closing_tx, total_fee_satoshis) = self.build_closing_transaction(proposed_total_fee_satoshis, false);
 		let sig = self.holder_signer
 			.sign_closing_transaction(&closing_tx, &self.secp_ctx)
-			.ok();
-		assert!(closing_tx.get_weight() as u64 <= tx_weight);
-		if sig.is_none() { return None; }
+			.map_err(|()| ChannelError::Close("Failed to get signature for closing transaction.".to_owned()))?;
 
-		self.last_sent_closing_fee = Some((proposed_feerate, total_fee_satoshis, sig.clone().unwrap()));
-		Some(msgs::ClosingSigned {
+		self.last_sent_closing_fee = Some((proposed_feerate, total_fee_satoshis, sig.clone()));
+		Ok(Some(msgs::ClosingSigned {
 			channel_id: self.channel_id,
 			fee_satoshis: total_fee_satoshis,
-			signature: sig.unwrap(),
+			signature: sig,
 			fee_range: None,
-		})
+		}))
 	}
 
-	pub fn shutdown<F: Deref>(&mut self, fee_estimator: &F, their_features: &InitFeatures, msg: &msgs::Shutdown) -> Result<(Option<msgs::Shutdown>, Option<msgs::ClosingSigned>, Vec<(HTLCSource, PaymentHash)>), ChannelError>
-		where F::Target: FeeEstimator
-	{
+	pub fn shutdown(&mut self, their_features: &InitFeatures, msg: &msgs::Shutdown) -> Result<(Option<msgs::Shutdown>, Vec<(HTLCSource, PaymentHash)>), ChannelError> {
 		if self.channel_state & (ChannelState::PeerDisconnected as u32) == ChannelState::PeerDisconnected as u32 {
 			return Err(ChannelError::Close("Peer sent shutdown when we needed a channel_reestablish".to_owned()));
 		}
@@ -3217,7 +3212,7 @@ impl<Signer: Sign> Channel<Signer> {
 		self.channel_state |= ChannelState::LocalShutdownSent as u32;
 		self.update_time_counter += 1;
 
-		Ok((shutdown, self.maybe_propose_first_closing_signed(fee_estimator), dropped_outbound_htlcs))
+		Ok((shutdown, dropped_outbound_htlcs))
 	}
 
 	fn build_signed_closing_transaction(&self, tx: &mut Transaction, counterparty_sig: &Signature, sig: &Signature) {
