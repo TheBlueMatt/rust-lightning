@@ -379,7 +379,9 @@ pub(super) struct Channel<Signer: Sign> {
 	/// Max to_local and to_remote outputs in a remote-generated commitment transaction
 	counterparty_max_commitment_tx_output: ::std::sync::Mutex<(u64, u64)>,
 
-	last_sent_closing_fee: Option<(u32, u64, Signature)>, // (feerate, fee, holder_sig)
+	last_sent_closing_fee: Option<(u64, Signature)>, // (fee, holder_sig)
+	closing_fee_limits: Option<(u64, u64)>,
+	target_closing_feerate_sats_per_1000_weight: Option<u32>,
 
 	/// The hash of the block in which the funding transaction was included.
 	funding_tx_confirmed_in: Option<BlockHash>,
@@ -600,6 +602,8 @@ impl<Signer: Sign> Channel<Signer> {
 			counterparty_max_commitment_tx_output: ::std::sync::Mutex::new((channel_value_satoshis * 1000 - push_msat, push_msat)),
 
 			last_sent_closing_fee: None,
+			closing_fee_limits: None,
+			target_closing_feerate_sats_per_1000_weight: None,
 
 			funding_tx_confirmed_in: None,
 			funding_tx_confirmation_height: 0,
@@ -841,6 +845,8 @@ impl<Signer: Sign> Channel<Signer> {
 			counterparty_max_commitment_tx_output: ::std::sync::Mutex::new((msg.push_msat, msg.funding_satoshis * 1000 - msg.push_msat)),
 
 			last_sent_closing_fee: None,
+			closing_fee_limits: None,
+			target_closing_feerate_sats_per_1000_weight: None,
 
 			funding_tx_confirmed_in: None,
 			funding_tx_confirmation_height: 0,
@@ -2780,6 +2786,7 @@ impl<Signer: Sign> Channel<Signer> {
 		// Upon reconnect we have to start the closing_signed dance over, but shutdown messages
 		// will be retransmitted.
 		self.last_sent_closing_fee = None;
+		self.closing_fee_limits = None;
 
 		let mut inbound_drop_count = 0;
 		self.pending_inbound_htlcs.retain(|htlc| {
@@ -3112,6 +3119,50 @@ impl<Signer: Sign> Channel<Signer> {
 		}
 	}
 
+	fn calculate_closing_feerate_limits<F: Deref>(&mut self, fee_estimator: &F)
+		where F::Target: FeeEstimator
+	{
+		if self.closing_fee_limits.is_some() { return; }
+
+		// Propose a range from our current Background feerate to our Normal feerate plus 10
+		// sat/vbyte. If we fail to come to consensus, we'll have to force-close.
+		let mut proposed_feerate = fee_estimator.get_est_sat_per_1000_weight(ConfirmationTarget::Background);
+		let mut proposed_max_feerate = if self.is_outbound() {
+				fee_estimator.get_est_sat_per_1000_weight(ConfirmationTarget::Normal)
+			} else {
+				u32::max_value()
+			};
+
+		// The spec requires that (when the channel does not have anchors) we only send absolute
+		// channel fees no greater than the absolute channel fee on the current commitment
+		// transaction. Its unclear *which* commitment transaction this refers to, and there isn't
+		// very good reason to apply such a limit in any case. We don't bother doing so, risking
+		// some force-closure by old nodes, but we wanted to close the channel anyway.
+
+		if let Some(target_feerate) = self.target_closing_feerate_sats_per_1000_weight {
+			let min_feerate = if self.is_outbound() { target_feerate } else { cmp::min(self.feerate_per_kw, target_feerate) };
+			proposed_feerate = cmp::max(proposed_feerate, min_feerate);
+			proposed_max_feerate = cmp::max(proposed_max_feerate, min_feerate);
+		}
+
+		// Note that technically we could end up with a lower minimum fee if one sides' balance is
+		// below our dust limit, causing the output to disappear. We don't bother handling this
+		// case, however, as this should only happen if a channel is closed before any (material)
+		// payments have been made on it. This may cause slight fee overpayment and/or failure to
+		// come to consensus with our counterparty on appropriate fees, however it should be a
+		// relatively rare case. We can revisit this later, though note that in order to determine
+		// if the funders' output is dust we have to know the absolute fee we're going to use.
+		let tx_weight = self.get_closing_transaction_weight(Some(&self.get_closing_scriptpubkey()), Some(self.counterparty_shutdown_scriptpubkey.as_ref().unwrap()));
+		let proposed_total_fee_satoshis = proposed_feerate as u64 * tx_weight / 1000;
+		let proposed_max_total_fee_satoshis = if self.is_outbound() {
+				proposed_max_feerate as u64 * tx_weight / 1000 + self.config.force_close_avoidance_max_fee_satoshis
+			} else {
+				u64::max_value()
+			};
+
+		self.closing_fee_limits = Some((proposed_total_fee_satoshis, proposed_max_total_fee_satoshis));
+	}
+
 	pub fn maybe_propose_first_closing_signed<F: Deref, L: Deref>(&mut self, fee_estimator: &F, logger: &L)
 		-> Result<Option<msgs::ClosingSigned>, ChannelError>
 		where F::Target: FeeEstimator, L::Target: Logger
@@ -3125,26 +3176,26 @@ impl<Signer: Sign> Channel<Signer> {
 			return Ok(None);
 		}
 
-		let mut proposed_feerate = fee_estimator.get_est_sat_per_1000_weight(ConfirmationTarget::Background);
-		if self.feerate_per_kw > proposed_feerate {
-			proposed_feerate = self.feerate_per_kw;
-		}
-		let tx_weight = self.get_closing_transaction_weight(Some(&self.get_closing_scriptpubkey()), Some(self.counterparty_shutdown_scriptpubkey.as_ref().unwrap()));
-		let proposed_total_fee_satoshis = proposed_feerate as u64 * tx_weight / 1000;
-		log_trace!(logger, "Proposing initial closing signed for our counterparty with a feerate of {} sat/kWeight (= {} sats)",
-			proposed_feerate, proposed_total_fee_satoshis);
+		self.calculate_closing_feerate_limits(fee_estimator);
+		let (our_min_fee, our_max_fee) = self.closing_fee_limits.unwrap();
 
-		let (closing_tx, total_fee_satoshis) = self.build_closing_transaction(proposed_total_fee_satoshis, false);
+		let (closing_tx, total_fee_satoshis) = self.build_closing_transaction(our_min_fee, false);
+		log_trace!(logger, "Proposing initial closing signed for our counterparty with a fee range of {}-{} sat (with initial proposal {} sats)",
+			our_min_fee, our_max_fee, total_fee_satoshis);
+
 		let sig = self.holder_signer
 			.sign_closing_transaction(&closing_tx, &self.secp_ctx)
 			.map_err(|()| ChannelError::Close("Failed to get signature for closing transaction.".to_owned()))?;
 
-		self.last_sent_closing_fee = Some((proposed_feerate, total_fee_satoshis, sig.clone()));
+		self.last_sent_closing_fee = Some((total_fee_satoshis, sig.clone()));
 		Ok(Some(msgs::ClosingSigned {
 			channel_id: self.channel_id,
 			fee_satoshis: total_fee_satoshis,
 			signature: sig,
-			fee_range: None,
+			fee_range: Some(msgs::ClosingSignedFeeRange {
+				min_fee_satoshis: our_min_fee,
+				max_fee_satoshis: our_max_fee,
+			}),
 		}))
 	}
 
@@ -3253,6 +3304,10 @@ impl<Signer: Sign> Channel<Signer> {
 			return Err(ChannelError::Close("Remote tried to send us a closing tx with > 21 million BTC fee".to_owned()));
 		}
 
+		if self.is_outbound() && self.last_sent_closing_fee.is_none() {
+			return Err(ChannelError::Close("Remote tried to send a closing_signed when we were supposed to propose the first one".to_owned()));
+		}
+
 		let funding_redeemscript = self.get_funding_redeemscript();
 		let (mut closing_tx, used_total_fee) = self.build_closing_transaction(msg.fee_satoshis, false);
 		if used_total_fee != msg.fee_satoshis {
@@ -3271,77 +3326,104 @@ impl<Signer: Sign> Channel<Signer> {
 			},
 		};
 
-		let closing_tx_max_weight = self.get_closing_transaction_weight(
-			if let Some(oup) = closing_tx.output.get(0) { Some(&oup.script_pubkey) } else { None },
-			if let Some(oup) = closing_tx.output.get(1) { Some(&oup.script_pubkey) } else { None });
-		if let Some((_, last_fee, sig)) = self.last_sent_closing_fee {
+		if let Some((last_fee, sig)) = self.last_sent_closing_fee {
 			if last_fee == msg.fee_satoshis {
 				self.build_signed_closing_transaction(&mut closing_tx, &msg.signature, &sig);
-				assert!(closing_tx.get_weight() as u64 <= closing_tx_max_weight);
-				debug_assert!(closing_tx.get_weight() as u64 >= closing_tx_max_weight - 2);
 				self.channel_state = ChannelState::ShutdownComplete as u32;
 				self.update_time_counter += 1;
 				return Ok((None, Some(closing_tx)));
 			}
 		}
 
-		macro_rules! propose_new_feerate {
-			($new_feerate: expr) => {
-				let tx_weight = self.get_closing_transaction_weight(Some(&self.get_closing_scriptpubkey()), Some(self.counterparty_shutdown_scriptpubkey.as_ref().unwrap()));
-				let (closing_tx, used_total_fee) = self.build_closing_transaction($new_feerate as u64 * tx_weight / 1000, false);
+		self.calculate_closing_feerate_limits(fee_estimator);
+		let (our_min_fee, our_max_fee) = self.closing_fee_limits.unwrap();
+
+		macro_rules! propose_new_fee {
+			($new_fee: expr) => {
+				let (mut tx, used_fee) = if $new_fee == msg.fee_satoshis {
+					(closing_tx, $new_fee)
+				} else {
+					self.build_closing_transaction($new_fee, false)
+				};
+
 				let sig = self.holder_signer
-					.sign_closing_transaction(&closing_tx, &self.secp_ctx)
+					.sign_closing_transaction(&tx, &self.secp_ctx)
 					.map_err(|_| ChannelError::Close("External signer refused to sign closing transaction".to_owned()))?;
-				assert!(closing_tx.get_weight() as u64 <= tx_weight);
-				self.last_sent_closing_fee = Some(($new_feerate, used_total_fee, sig.clone()));
+
+				let signed_tx = if $new_fee == msg.fee_satoshis {
+					self.channel_state = ChannelState::ShutdownComplete as u32;
+					self.update_time_counter += 1;
+					self.build_signed_closing_transaction(&mut tx, &msg.signature, &sig);
+					Some(tx)
+				} else { None };
+
+				self.last_sent_closing_fee = Some((used_fee, sig.clone()));
 				return Ok((Some(msgs::ClosingSigned {
 					channel_id: self.channel_id,
-					fee_satoshis: used_total_fee,
+					fee_satoshis: used_fee,
 					signature: sig,
-					fee_range: None,
-				}), None))
+					fee_range: Some(msgs::ClosingSignedFeeRange {
+						min_fee_satoshis: our_min_fee,
+						max_fee_satoshis: our_max_fee,
+					}),
+				}), signed_tx))
 			}
 		}
 
-		let mut min_feerate = 253;
-		if self.is_outbound() {
-			let max_feerate = fee_estimator.get_est_sat_per_1000_weight(ConfirmationTarget::Normal);
-			if (msg.fee_satoshis as u64) > max_feerate as u64 * closing_tx_max_weight / 1000 {
-				if let Some((last_feerate, _, _)) = self.last_sent_closing_fee {
-					if max_feerate <= last_feerate {
-						return Err(ChannelError::Close(format!("Unable to come to consensus about closing feerate, remote wanted something higher ({}) than our Normal feerate ({})", last_feerate, max_feerate)));
-					}
+		if let Some(msgs::ClosingSignedFeeRange { min_fee_satoshis, max_fee_satoshis }) = msg.fee_range {
+			if msg.fee_satoshis < min_fee_satoshis || msg.fee_satoshis > max_fee_satoshis {
+				return Err(ChannelError::Close(format!("Peer sent a bogus closing_signed - suggested fee of {} sat was not in their desired range of {} sat - {} sat", msg.fee_satoshis, min_fee_satoshis, max_fee_satoshis)));
+			}
+			if max_fee_satoshis < our_min_fee {
+				return Err(ChannelError::Close(format!("Unable to come to consensus about closing feerate, remote's max fee ({} sat) was smaller than our min fee ({} sat)", max_fee_satoshis, our_min_fee)));
+			}
+			if min_fee_satoshis > our_max_fee {
+				return Err(ChannelError::Close(format!("Unable to come to consensus about closing feerate, remote's min fee ({} sat) was greater than our max fee ({} sat)", min_fee_satoshis, our_max_fee)));
+			}
+
+			if !self.is_outbound() {
+				// They have to pay, so pick the highest fee in the overlapping range.
+				debug_assert_eq!(our_max_fee, u64::max_value()); // Note that we always allow any fee
+				propose_new_fee!(cmp::min(max_fee_satoshis, our_max_fee));
+			} else {
+				if msg.fee_satoshis < our_min_fee || msg.fee_satoshis > our_max_fee {
+					return Err(ChannelError::Close(format!("Peer sent a bogus closing_signed - suggested fee of {} sat was not in our desired range of {} sat - {} sat after we informed them of our range.",
+						msg.fee_satoshis, our_min_fee, our_max_fee)));
 				}
-				propose_new_feerate!(max_feerate);
+				// The proposed fee is in our acceptable range, accept it and broadcast!
+				propose_new_fee!(msg.fee_satoshis);
 			}
 		} else {
-			min_feerate = fee_estimator.get_est_sat_per_1000_weight(ConfirmationTarget::Background);
-		}
-		if (msg.fee_satoshis as u64) < min_feerate as u64 * closing_tx_max_weight / 1000 {
-			if let Some((last_feerate, _, _)) = self.last_sent_closing_fee {
-				if min_feerate >= last_feerate {
-					return Err(ChannelError::Close(format!("Unable to come to consensus about closing feerate, remote wanted something lower ({}) than our Background feerate ({}).", last_feerate, min_feerate)));
+			// Old fee style negotiation. We don't bother to enforce whether they are complying
+			// with the "making progress" requirements, we just comply and hope for the best.
+			if let Some((last_fee, _)) = self.last_sent_closing_fee {
+				if msg.fee_satoshis > last_fee {
+					if msg.fee_satoshis < our_max_fee {
+						propose_new_fee!(msg.fee_satoshis);
+					} else if last_fee < our_max_fee {
+						propose_new_fee!(our_max_fee);
+					} else {
+						return Err(ChannelError::Close(format!("Unable to come to consensus about closing feerate, remote wants something ({} sat) higher than our max fee ({} sat)", msg.fee_satoshis, our_max_fee)));
+					}
+				} else {
+					if msg.fee_satoshis > our_min_fee {
+						propose_new_fee!(msg.fee_satoshis);
+					} else if last_fee > our_min_fee {
+						propose_new_fee!(our_min_fee);
+					} else {
+						return Err(ChannelError::Close(format!("Unable to come to consensus about closing feerate, remote wants something ({} sat) lower than our min fee ({} sat)", msg.fee_satoshis, our_min_fee)));
+					}
+				}
+			} else {
+				if msg.fee_satoshis < our_min_fee {
+					propose_new_fee!(our_min_fee);
+				} else if msg.fee_satoshis > our_max_fee {
+					propose_new_fee!(our_max_fee);
+				} else {
+					propose_new_fee!(msg.fee_satoshis);
 				}
 			}
-			propose_new_feerate!(min_feerate);
 		}
-
-		let sig = self.holder_signer
-			.sign_closing_transaction(&closing_tx, &self.secp_ctx)
-			.map_err(|_| ChannelError::Close("External signer refused to sign closing transaction".to_owned()))?;
-		self.build_signed_closing_transaction(&mut closing_tx, &msg.signature, &sig);
-		assert!(closing_tx.get_weight() as u64 <= closing_tx_max_weight);
-		debug_assert!(closing_tx.get_weight() as u64 >= closing_tx_max_weight - 2);
-
-		self.channel_state = ChannelState::ShutdownComplete as u32;
-		self.update_time_counter += 1;
-
-		Ok((Some(msgs::ClosingSigned {
-			channel_id: self.channel_id,
-			fee_satoshis: msg.fee_satoshis,
-			signature: sig,
-			fee_range: None,
-		}), Some(closing_tx)))
 	}
 
 	// Public utilities:
@@ -4338,7 +4420,7 @@ impl<Signer: Sign> Channel<Signer> {
 
 	/// Begins the shutdown process, getting a message for the remote peer and returning all
 	/// holding cell HTLCs for payment failure.
-	pub fn get_shutdown(&mut self) -> Result<(msgs::Shutdown, Vec<(HTLCSource, PaymentHash)>), APIError> {
+	pub fn get_shutdown(&mut self, target_feerate_sats_per_1000_weight: Option<u32>) -> Result<(msgs::Shutdown, Vec<(HTLCSource, PaymentHash)>), APIError> {
 		for htlc in self.pending_outbound_htlcs.iter() {
 			if let OutboundHTLCState::LocalAnnounced(_) = htlc.state {
 				return Err(APIError::APIMisuseError{err: "Cannot begin shutdown with pending HTLCs. Process pending events first".to_owned()});
@@ -4360,6 +4442,7 @@ impl<Signer: Sign> Channel<Signer> {
 		let closing_script = self.get_closing_scriptpubkey();
 
 		// From here on out, we may not fail!
+		self.target_closing_feerate_sats_per_1000_weight = target_feerate_sats_per_1000_weight;
 		if self.channel_state < ChannelState::FundingSent as u32 {
 			self.channel_state = ChannelState::ShutdownComplete as u32;
 		} else {
@@ -4699,6 +4782,8 @@ impl<Signer: Sign> Writeable for Channel<Signer> {
 			(1, self.minimum_depth, option),
 			(3, self.counterparty_selected_channel_reserve_satoshis, option),
 			(5, self.config, required),
+			(7, self.closing_fee_limits, option),
+			(9, self.target_closing_feerate_sats_per_1000_weight, option),
 		});
 
 		Ok(())
@@ -4906,11 +4991,15 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<&'a K> for Channel<Signer>
 		let channel_update_status = Readable::read(reader)?;
 
 		let mut announcement_sigs = None;
+		let mut closing_fee_limits = None;
+		let mut target_closing_feerate_sats_per_1000_weight = None;
 		read_tlv_fields!(reader, {
 			(0, announcement_sigs, option),
 			(1, minimum_depth, option),
 			(3, counterparty_selected_channel_reserve_satoshis, option),
 			(5, config, option), // Note that if none is provided we will *not* overwrite the existing one.
+			(7, closing_fee_limits, option),
+			(9, target_closing_feerate_sats_per_1000_weight, option),
 		});
 
 		let mut secp_ctx = Secp256k1::new();
@@ -4960,6 +5049,8 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<&'a K> for Channel<Signer>
 			counterparty_max_commitment_tx_output: ::std::sync::Mutex::new((0, 0)),
 
 			last_sent_closing_fee: None,
+			closing_fee_limits,
+			target_closing_feerate_sats_per_1000_weight,
 
 			funding_tx_confirmed_in,
 			funding_tx_confirmation_height,

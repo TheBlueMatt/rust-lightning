@@ -206,7 +206,26 @@ pub struct ChannelConfig {
 	/// This cannot be changed after a channel has been initialized.
 	///
 	/// Default value: true.
-	pub commit_upfront_shutdown_pubkey: bool
+	pub commit_upfront_shutdown_pubkey: bool,
+	/// When we close a channel cooperatively with our counterparty, we negotiate a fee for the
+	/// closing transaction which both sides find acceptable, ultimately paid by the channel
+	/// funder/initiator.
+	///
+	/// When we are the funder, because we have to pay the channel closing fee, we bound the
+	/// acceptable fee by our [`Background`] and [`Normal`] fees, with the upper bound increased by
+	/// this value. Because the on-chain fee we'd pay to force-close the channel is kept near our
+	/// [`Normal`] feerate during normal operation, this value represents the additional fee we're
+	/// willing to pay in order to avoid waiting for our counterparty's to_self_delay to reclaim our
+	/// funds.
+	///
+	/// When we are not the funder, we require the closing transaction fee pay at least our
+	/// [`Background`] fee estimate, but allow our counterparty to pay as much fee as they like.
+	///
+	/// Default value: 1000 satoshis.
+	///
+	/// [`Normal`]: crate::chain::chaininterface::ConfirmationTarget::Normal
+	/// [`Background`]: crate::chain::chaininterface::ConfirmationTarget::Background
+	pub force_close_avoidance_max_fee_satoshis: u64,
 }
 
 impl Default for ChannelConfig {
@@ -218,12 +237,14 @@ impl Default for ChannelConfig {
 			cltv_expiry_delta: 6 * 12, // 6 blocks/hour * 12 hours
 			announced_channel: false,
 			commit_upfront_shutdown_pubkey: true,
+			force_close_avoidance_max_fee_satoshis: 1000,
 		}
 	}
 }
 
 impl_writeable_tlv_based!(ChannelConfig, {
 	(0, forwarding_fee_proportional_millionths, required),
+	(1, force_close_avoidance_max_fee_satoshis, (default_value, 1000)),
 	(2, cltv_expiry_delta, required),
 	(4, announced_channel, required),
 	(6, commit_upfront_shutdown_pubkey, required),

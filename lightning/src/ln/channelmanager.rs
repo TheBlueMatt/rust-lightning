@@ -1237,8 +1237,22 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 	/// will be accepted on the given channel, and after additional timeout/the closing of all
 	/// pending HTLCs, the channel will be closed on chain.
 	///
+	/// `target_feerate_sat_per_1000_weight`, if provided, has different meanings depending on if
+	/// we initiated the channel being closed or not:
+	///  * If we are the channel initiator, we will pay at least this feerate on the closing
+	///    transaction. The upper-bound is set by
+	///    [`ChannelConfig::force_close_avoidance_max_fee_satoshis`] plus our [`Normal`] fee
+	///    estimate.
+	///    estimates (or `target_feerate_sat_per_1000_weight`, if it is greater).
+	///  * If our counterparty is the channel initiator, we will refuse to accept a channel closure
+	///    transaction feerate below `target_feerate_sat_per_1000_weight` (or the feerate which
+	///    will appear on a force-closure transaction, whichever is lower).
+	///
 	/// May generate a SendShutdown message event on success, which should be relayed.
-	pub fn close_channel(&self, channel_id: &[u8; 32]) -> Result<(), APIError> {
+	///
+	/// [`ChannelConfig::force_close_avoidance_max_fee_satoshis`]: crate::util::config::ChannelConfig::force_close_avoidance_max_fee_satoshis
+	/// [`Normal`]: crate::chain::chaininterface::ConfirmationTarget::Normal
+	pub fn close_channel(&self, channel_id: &[u8; 32], target_feerate_sats_per_1000_weight: Option<u32>) -> Result<(), APIError> {
 		let _persistence_guard = PersistenceNotifierGuard::notify_on_drop(&self.total_consistency_lock, &self.persistence_notifier);
 
 		let (mut failed_htlcs, chan_option) = {
@@ -1246,7 +1260,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 			let channel_state = &mut *channel_state_lock;
 			match channel_state.by_id.entry(channel_id.clone()) {
 				hash_map::Entry::Occupied(mut chan_entry) => {
-					let (shutdown_msg, failed_htlcs) = chan_entry.get_mut().get_shutdown()?;
+					let (shutdown_msg, failed_htlcs) = chan_entry.get_mut().get_shutdown(target_feerate_sats_per_1000_weight)?;
 					channel_state.pending_msg_events.push(events::MessageSendEvent::SendShutdown {
 						node_id: chan_entry.get().get_counterparty_node_id(),
 						msg: shutdown_msg
