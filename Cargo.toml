@@ -27,3 +27,6 @@ panic = "abort"
 opt-level = 3
 codegen-units = 1
 lto = true
+
+[patch.crates-io]
+core2 = { git = "https://github.com/TheBlueMatt/core2", branch = "main" }
