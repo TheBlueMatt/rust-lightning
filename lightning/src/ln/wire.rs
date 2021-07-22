@@ -28,6 +28,7 @@ use util::ser::{Readable, Writeable, Writer};
 pub enum Message {
 	Init(msgs::Init),
 	Error(msgs::ErrorMessage),
+	Warning(msgs::WarningMessage),
 	Ping(msgs::Ping),
 	Pong(msgs::Pong),
 	OpenChannel(msgs::OpenChannel),
@@ -69,6 +70,7 @@ impl Message {
 		match self {
 			&Message::Init(ref msg) => msg.type_id(),
 			&Message::Error(ref msg) => msg.type_id(),
+			&Message::Warning(ref msg) => msg.type_id(),
 			&Message::Ping(ref msg) => msg.type_id(),
 			&Message::Pong(ref msg) => msg.type_id(),
 			&Message::OpenChannel(ref msg) => msg.type_id(),
@@ -127,6 +129,9 @@ pub fn read<R: ::std::io::Read>(buffer: &mut R) -> Result<Message, msgs::DecodeE
 		},
 		msgs::ErrorMessage::TYPE => {
 			Ok(Message::Error(Readable::read(buffer)?))
+		},
+		msgs::WarningMessage::TYPE => {
+			Ok(Message::Warning(Readable::read(buffer)?))
 		},
 		msgs::Ping::TYPE => {
 			Ok(Message::Ping(Readable::read(buffer)?))
@@ -243,6 +248,10 @@ impl Encode for msgs::Init {
 
 impl Encode for msgs::ErrorMessage {
 	const TYPE: u16 = 17;
+}
+
+impl Encode for msgs::WarningMessage {
+	const TYPE: u16 = 1;
 }
 
 impl Encode for msgs::Ping {
