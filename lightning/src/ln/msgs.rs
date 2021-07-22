@@ -88,6 +88,18 @@ pub struct ErrorMessage {
 	pub data: String,
 }
 
+/// An warning message to be sent or received from a peer
+#[derive(Clone, Debug, PartialEq)]
+pub struct WarningMessage {
+	/// The channel ID involved in the warning
+	pub channel_id: [u8; 32],
+	/// A possibly human-readable warning description.
+	/// The string should be sanitized before it is used (e.g. emitted to logs
+	/// or printed to stdout).  Otherwise, a well crafted error message may trigger a security
+	/// vulnerability in the terminal emulator or the logging subsystem.
+	pub data: String,
+}
+
 /// A ping message to be sent or received from a peer
 #[derive(Clone, Debug, PartialEq)]
 pub struct Ping {
@@ -1553,6 +1565,34 @@ impl Readable for ErrorMessage {
 	}
 }
 
+impl Writeable for WarningMessage {
+	fn write<W: Writer>(&self, w: &mut W) -> Result<(), ::std::io::Error> {
+		w.size_hint(32 + 2 + self.data.len());
+		self.channel_id.write(w)?;
+		(self.data.len() as u16).write(w)?;
+		w.write_all(self.data.as_bytes())?;
+		Ok(())
+	}
+}
+
+impl Readable for WarningMessage {
+	fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
+		Ok(Self {
+			channel_id: Readable::read(r)?,
+			data: {
+				let mut sz: usize = <u16 as Readable>::read(r)? as usize;
+				let mut data = vec![];
+				let data_len = r.read_to_end(&mut data)?;
+				sz = cmp::min(data_len, sz);
+				match String::from_utf8(data[..sz as usize].to_vec()) {
+					Ok(s) => s,
+					Err(_) => return Err(DecodeError::InvalidValue),
+				}
+			}
+		})
+	}
+}
+
 impl Writeable for UnsignedNodeAnnouncement {
 	fn write<W: Writer>(&self, w: &mut W) -> Result<(), ::std::io::Error> {
 		w.size_hint(76 + self.features.byte_count() + self.addresses.len()*38 + self.excess_address_data.len() + self.excess_data.len());
@@ -2466,6 +2506,17 @@ mod tests {
 	#[test]
 	fn encoding_error() {
 		let error = msgs::ErrorMessage {
+			channel_id: [2; 32],
+			data: String::from("rust-lightning"),
+		};
+		let encoded_value = error.encode();
+		let target_value = hex::decode("0202020202020202020202020202020202020202020202020202020202020202000e727573742d6c696768746e696e67").unwrap();
+		assert_eq!(encoded_value, target_value);
+	}
+
+	#[test]
+	fn encoding_warning() {
+		let error = msgs::WarningMessage {
 			channel_id: [2; 32],
 			data: String::from("rust-lightning"),
 		};

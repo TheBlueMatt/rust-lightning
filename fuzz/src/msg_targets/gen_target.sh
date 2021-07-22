@@ -38,6 +38,7 @@ GEN_TEST GossipTimestampFilter test_msg ""
 
 GEN_TEST UpdateAddHTLC test_msg_hole ", 85, 33"
 GEN_TEST ErrorMessage test_msg_hole ", 32, 2"
+GEN_TEST WarningMessage test_msg_hole ", 32, 2"
 GEN_TEST ChannelUpdate test_msg_hole ", 108, 1"
 
 GEN_TEST Init test_msg_simple ""
