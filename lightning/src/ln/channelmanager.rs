@@ -4950,10 +4950,6 @@ impl<'a, Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref>
 
 #[cfg(test)]
 mod tests {
-	use ln::channelmanager::PersistenceNotifier;
-	use sync::Arc;
-	use core::sync::atomic::{AtomicBool, Ordering};
-	use std::thread;
 	use core::time::Duration;
 	use ln::functional_test_utils::*;
 	use ln::features::InitFeatures;
@@ -4962,6 +4958,11 @@ mod tests {
 	#[cfg(feature = "std")]
 	#[test]
 	fn test_wait_timeout() {
+		use ln::channelmanager::PersistenceNotifier;
+		use sync::Arc;
+		use core::sync::atomic::{AtomicBool, Ordering};
+		use std::thread;
+
 		let persistence_notifier = Arc::new(PersistenceNotifier::new());
 		let thread_notifier = Arc::clone(&persistence_notifier);
 
