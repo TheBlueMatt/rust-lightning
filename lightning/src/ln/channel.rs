@@ -595,6 +595,12 @@ impl<Signer: Sign> Channel<Signer> {
 		let mut secp_ctx = Secp256k1::new();
 		secp_ctx.seeded_randomize(&keys_provider.get_secure_random_bytes());
 
+		let shutdown_scriptpubkey = if config.channel_options.commit_upfront_shutdown_pubkey {
+			Some(keys_provider.get_shutdown_scriptpubkey())
+		} else {
+			None
+		};
+
 		Ok(Channel {
 			user_id,
 			config: config.channel_options.clone(),
@@ -607,7 +613,7 @@ impl<Signer: Sign> Channel<Signer> {
 			latest_monitor_update_id: 0,
 
 			holder_signer,
-			shutdown_scriptpubkey: Some(keys_provider.get_shutdown_scriptpubkey()),
+			shutdown_scriptpubkey,
 			destination_script: keys_provider.get_destination_script(),
 
 			cur_holder_commitment_transaction_number: INITIAL_COMMITMENT_NUMBER,
@@ -840,6 +846,12 @@ impl<Signer: Sign> Channel<Signer> {
 		let mut secp_ctx = Secp256k1::new();
 		secp_ctx.seeded_randomize(&keys_provider.get_secure_random_bytes());
 
+		let shutdown_scriptpubkey = if config.channel_options.commit_upfront_shutdown_pubkey {
+			Some(keys_provider.get_shutdown_scriptpubkey())
+		} else {
+			None
+		};
+
 		let chan = Channel {
 			user_id,
 			config: local_config,
@@ -851,7 +863,7 @@ impl<Signer: Sign> Channel<Signer> {
 			latest_monitor_update_id: 0,
 
 			holder_signer,
-			shutdown_scriptpubkey: Some(keys_provider.get_shutdown_scriptpubkey()),
+			shutdown_scriptpubkey,
 			destination_script: keys_provider.get_destination_script(),
 
 			cur_holder_commitment_transaction_number: INITIAL_COMMITMENT_NUMBER,
@@ -1196,6 +1208,7 @@ impl<Signer: Sign> Channel<Signer> {
 			}, ()));
 		}
 
+		assert!(self.shutdown_scriptpubkey.is_some());
 		if value_to_self as u64 > self.holder_dust_limit_satoshis {
 			txouts.push((TxOut {
 				script_pubkey: self.get_closing_scriptpubkey(),
@@ -3082,6 +3095,7 @@ impl<Signer: Sign> Channel<Signer> {
 		self.channel_state &= !(ChannelState::PeerDisconnected as u32);
 
 		let shutdown_msg = if self.channel_state & (ChannelState::LocalShutdownSent as u32) != 0 {
+			assert!(self.shutdown_scriptpubkey.is_some());
 			Some(msgs::Shutdown {
 				channel_id: self.channel_id,
 				scriptpubkey: self.get_closing_scriptpubkey(),
@@ -3193,6 +3207,7 @@ impl<Signer: Sign> Channel<Signer> {
 		if self.feerate_per_kw > proposed_feerate {
 			proposed_feerate = self.feerate_per_kw;
 		}
+		assert!(self.shutdown_scriptpubkey.is_some());
 		let tx_weight = self.get_closing_transaction_weight(Some(&self.get_closing_scriptpubkey()), Some(self.counterparty_shutdown_scriptpubkey.as_ref().unwrap()));
 		let proposed_total_fee_satoshis = proposed_feerate as u64 * tx_weight / 1000;
 
@@ -3211,8 +3226,12 @@ impl<Signer: Sign> Channel<Signer> {
 		})
 	}
 
-	pub fn shutdown<F: Deref>(&mut self, fee_estimator: &F, their_features: &InitFeatures, msg: &msgs::Shutdown) -> Result<(Option<msgs::Shutdown>, Option<msgs::ClosingSigned>, Vec<(HTLCSource, PaymentHash)>), ChannelError>
-		where F::Target: FeeEstimator
+	pub fn shutdown<F: Deref, K: Deref>(
+		&mut self, fee_estimator: &F, keys_provider: &K, their_features: &InitFeatures, msg: &msgs::Shutdown
+	) -> Result<(Option<msgs::Shutdown>, Option<msgs::ClosingSigned>, Option<ChannelMonitorUpdate>, Vec<(HTLCSource, PaymentHash)>), ChannelError>
+	where
+		F::Target: FeeEstimator,
+		K::Target: KeysInterface<Signer = Signer>
 	{
 		if self.channel_state & (ChannelState::PeerDisconnected as u32) == ChannelState::PeerDisconnected as u32 {
 			return Err(ChannelError::Close("Peer sent shutdown when we needed a channel_reestablish".to_owned()));
@@ -3262,23 +3281,36 @@ impl<Signer: Sign> Channel<Signer> {
 				_ => true
 			}
 		});
+
 		// If we have any LocalAnnounced updates we'll probably just get back a update_fail_htlc
 		// immediately after the commitment dance, but we can send a Shutdown cause we won't send
 		// any further commitment updates after we set LocalShutdownSent.
-
-		let shutdown = if (self.channel_state & ChannelState::LocalShutdownSent as u32) == ChannelState::LocalShutdownSent as u32 {
-			None
-		} else {
+		let send_shutdown = (self.channel_state & ChannelState::LocalShutdownSent as u32) != ChannelState::LocalShutdownSent as u32;
+		let monitor_update = match self.shutdown_scriptpubkey {
+			Some(_) => None,
+			None => {
+				assert!(send_shutdown);
+				self.shutdown_scriptpubkey = Some(keys_provider.get_shutdown_scriptpubkey());
+				self.latest_monitor_update_id += 1;
+				Some(ChannelMonitorUpdate {
+					update_id: self.latest_monitor_update_id,
+					updates: vec![ChannelMonitorUpdateStep::ShutdownScript {
+						scriptpubkey: self.get_closing_scriptpubkey(),
+					}],
+				})
+			},
+		};
+		let shutdown = if send_shutdown {
 			Some(msgs::Shutdown {
 				channel_id: self.channel_id,
 				scriptpubkey: self.get_closing_scriptpubkey(),
 			})
-		};
+		} else { None };
 
 		self.channel_state |= ChannelState::LocalShutdownSent as u32;
 		self.update_time_counter += 1;
 
-		Ok((shutdown, self.maybe_propose_first_closing_signed(fee_estimator), dropped_outbound_htlcs))
+		Ok((shutdown, self.maybe_propose_first_closing_signed(fee_estimator), monitor_update, dropped_outbound_htlcs))
 	}
 
 	fn build_signed_closing_transaction(&self, tx: &mut Transaction, counterparty_sig: &Signature, sig: &Signature) {
@@ -3353,6 +3385,7 @@ impl<Signer: Sign> Channel<Signer> {
 
 		macro_rules! propose_new_feerate {
 			($new_feerate: expr) => {
+				assert!(self.shutdown_scriptpubkey.is_some());
 				let tx_weight = self.get_closing_transaction_weight(Some(&self.get_closing_scriptpubkey()), Some(self.counterparty_shutdown_scriptpubkey.as_ref().unwrap()));
 				let (closing_tx, used_total_fee) = self.build_closing_transaction($new_feerate as u64 * tx_weight / 1000, false);
 				let sig = self.holder_signer
@@ -3851,7 +3884,10 @@ impl<Signer: Sign> Channel<Signer> {
 			htlc_basepoint: keys.htlc_basepoint,
 			first_per_commitment_point,
 			channel_flags: if self.config.announced_channel {1} else {0},
-			shutdown_scriptpubkey: OptionalField::Present(if self.config.commit_upfront_shutdown_pubkey { self.get_closing_scriptpubkey() } else { Builder::new().into_script() })
+			shutdown_scriptpubkey: OptionalField::Present(match &self.shutdown_scriptpubkey {
+				Some(script) => script.clone().into_inner(),
+				None => Builder::new().into_script(),
+			}),
 		}
 	}
 
@@ -3884,7 +3920,10 @@ impl<Signer: Sign> Channel<Signer> {
 			delayed_payment_basepoint: keys.delayed_payment_basepoint,
 			htlc_basepoint: keys.htlc_basepoint,
 			first_per_commitment_point,
-			shutdown_scriptpubkey: OptionalField::Present(if self.config.commit_upfront_shutdown_pubkey { self.get_closing_scriptpubkey() } else { Builder::new().into_script() })
+			shutdown_scriptpubkey: OptionalField::Present(match &self.shutdown_scriptpubkey {
+				Some(script) => script.clone().into_inner(),
+				None => Builder::new().into_script(),
+			}),
 		}
 	}
 
@@ -4392,7 +4431,8 @@ impl<Signer: Sign> Channel<Signer> {
 
 	/// Begins the shutdown process, getting a message for the remote peer and returning all
 	/// holding cell HTLCs for payment failure.
-	pub fn get_shutdown(&mut self) -> Result<(msgs::Shutdown, Vec<(HTLCSource, PaymentHash)>), APIError> {
+	pub fn get_shutdown<K: Deref>(&mut self, keys_provider: &K) -> Result<(msgs::Shutdown, Option<ChannelMonitorUpdate>, Vec<(HTLCSource, PaymentHash)>), APIError>
+	where K::Target: KeysInterface<Signer = Signer> {
 		for htlc in self.pending_outbound_htlcs.iter() {
 			if let OutboundHTLCState::LocalAnnounced(_) = htlc.state {
 				return Err(APIError::APIMisuseError{err: "Cannot begin shutdown with pending HTLCs. Process pending events first".to_owned()});
@@ -4411,7 +4451,16 @@ impl<Signer: Sign> Channel<Signer> {
 			return Err(APIError::ChannelUnavailable{err: "Cannot begin shutdown while peer is disconnected or we're waiting on a monitor update, maybe force-close instead?".to_owned()});
 		}
 
-		let closing_script = self.get_closing_scriptpubkey();
+		let monitor_update = if self.shutdown_scriptpubkey.is_none() {
+			self.shutdown_scriptpubkey = Some(keys_provider.get_shutdown_scriptpubkey());
+			self.latest_monitor_update_id += 1;
+			Some(ChannelMonitorUpdate {
+				update_id: self.latest_monitor_update_id,
+				updates: vec![ChannelMonitorUpdateStep::ShutdownScript {
+					scriptpubkey: self.get_closing_scriptpubkey(),
+				}],
+			})
+		} else { None };
 
 		// From here on out, we may not fail!
 		if self.channel_state < ChannelState::FundingSent as u32 {
@@ -4437,8 +4486,8 @@ impl<Signer: Sign> Channel<Signer> {
 
 		Ok((msgs::Shutdown {
 			channel_id: self.channel_id,
-			scriptpubkey: closing_script,
-		}, dropped_outbound_htlcs))
+			scriptpubkey: self.get_closing_scriptpubkey(),
+		}, monitor_update, dropped_outbound_htlcs))
 	}
 
 	/// Gets the latest commitment transaction and any dependent transactions for relay (forcing

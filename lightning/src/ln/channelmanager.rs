@@ -1256,11 +1256,17 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 			let channel_state = &mut *channel_state_lock;
 			match channel_state.by_id.entry(channel_id.clone()) {
 				hash_map::Entry::Occupied(mut chan_entry) => {
-					let (shutdown_msg, failed_htlcs) = chan_entry.get_mut().get_shutdown()?;
+					let (shutdown_msg, monitor_update, failed_htlcs) = chan_entry.get_mut().get_shutdown(&self.keys_manager)?;
 					channel_state.pending_msg_events.push(events::MessageSendEvent::SendShutdown {
 						node_id: chan_entry.get().get_counterparty_node_id(),
 						msg: shutdown_msg
 					});
+					if let Some(monitor_update) = monitor_update {
+						if let Err(_) = self.chain_monitor.update_channel(chan_entry.get().get_funding_txo().unwrap(), monitor_update) {
+							// TODO: How should this be handled?
+							unimplemented!();
+						}
+					}
 					if chan_entry.get().is_shutdown() {
 						if let Some(short_id) = chan_entry.get().get_short_channel_id() {
 							channel_state.short_to_id.remove(&short_id);
@@ -3159,7 +3165,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					if chan_entry.get().get_counterparty_node_id() != *counterparty_node_id {
 						return Err(MsgHandleErrInternal::send_err_msg_no_close("Got a message for a channel from the wrong node!".to_owned(), msg.channel_id));
 					}
-					let (shutdown, closing_signed, dropped_htlcs) = try_chan_entry!(self, chan_entry.get_mut().shutdown(&self.fee_estimator, &their_features, &msg), channel_state, chan_entry);
+					let (shutdown, closing_signed, monitor_update, dropped_htlcs) = try_chan_entry!(self, chan_entry.get_mut().shutdown(&self.fee_estimator, &self.keys_manager, &their_features, &msg), channel_state, chan_entry);
 					if let Some(msg) = shutdown {
 						channel_state.pending_msg_events.push(events::MessageSendEvent::SendShutdown {
 							node_id: counterparty_node_id.clone(),
@@ -3171,6 +3177,12 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 							node_id: counterparty_node_id.clone(),
 							msg,
 						});
+					}
+					if let Some(monitor_update) = monitor_update {
+						if let Err(_) = self.chain_monitor.update_channel(chan_entry.get().get_funding_txo().unwrap(), monitor_update) {
+							// TODO: How should this be handled?
+							unimplemented!();
+						}
 					}
 					if chan_entry.get().is_shutdown() {
 						if let Some(short_id) = chan_entry.get().get_short_channel_id() {
