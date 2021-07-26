@@ -489,7 +489,7 @@ pub(crate) struct ChannelMonitorImpl<Signer: Sign> {
 	destination_script: Script,
 	broadcasted_holder_revokable_script: Option<(Script, PublicKey, PublicKey)>,
 	counterparty_payment_script: Script,
-	shutdown_script: Script,
+	shutdown_script: Option<Script>,
 
 	channel_keys_id: [u8; 32],
 	holder_revocation_basepoint: PublicKey,
@@ -665,7 +665,10 @@ impl<Signer: Sign> Writeable for ChannelMonitorImpl<Signer> {
 		}
 
 		self.counterparty_payment_script.write(writer)?;
-		self.shutdown_script.write(writer)?;
+		match &self.shutdown_script {
+			Some(script) => script.write(writer)?,
+			None => Script::new().write(writer)?,
+		}
 
 		self.channel_keys_id.write(writer)?;
 		self.holder_revocation_basepoint.write(writer)?;
@@ -788,14 +791,16 @@ impl<Signer: Sign> Writeable for ChannelMonitorImpl<Signer> {
 		self.lockdown_from_offchain.write(writer)?;
 		self.holder_tx_signed.write(writer)?;
 
-		write_tlv_fields!(writer, {});
+		write_tlv_fields!(writer, {
+			(1, self.shutdown_script, option),
+		});
 
 		Ok(())
 	}
 }
 
 impl<Signer: Sign> ChannelMonitor<Signer> {
-	pub(crate) fn new(secp_ctx: Secp256k1<secp256k1::All>, keys: Signer, shutdown_pubkey: &PublicKey,
+	pub(crate) fn new(secp_ctx: Secp256k1<secp256k1::All>, keys: Signer, shutdown_script: Option<Script>,
 	                  on_counterparty_tx_csv: u16, destination_script: &Script, funding_info: (OutPoint, Script),
 	                  channel_parameters: &ChannelTransactionParameters,
 	                  funding_redeemscript: Script, channel_value_satoshis: u64,
@@ -804,8 +809,6 @@ impl<Signer: Sign> ChannelMonitor<Signer> {
 	                  best_block: BestBlock) -> ChannelMonitor<Signer> {
 
 		assert!(commitment_transaction_number_obscure_factor <= (1 << 48));
-		let our_channel_close_key_hash = WPubkeyHash::hash(&shutdown_pubkey.serialize());
-		let shutdown_script = Builder::new().push_opcode(opcodes::all::OP_PUSHBYTES_0).push_slice(&our_channel_close_key_hash[..]).into_script();
 		let payment_key_hash = WPubkeyHash::hash(&keys.pubkeys().payment_point.serialize());
 		let counterparty_payment_script = Builder::new().push_opcode(opcodes::all::OP_PUSHBYTES_0).push_slice(&payment_key_hash[..]).into_script();
 
@@ -2472,7 +2475,7 @@ impl<Signer: Sign> ChannelMonitorImpl<Signer> {
 					channel_value_satoshis: self.channel_value_satoshis,
 				}));
 				break;
-			} else if outp.script_pubkey == self.shutdown_script {
+			} else if self.shutdown_script.as_ref() == Some(&outp.script_pubkey) {
 				spendable_output = Some(SpendableOutputDescriptor::StaticOutput {
 					outpoint: OutPoint { txid: tx.txid(), index: i as u16 },
 					output: outp.clone(),
@@ -2608,7 +2611,10 @@ impl<'a, Signer: Sign, K: KeysInterface<Signer = Signer>> ReadableArgs<&'a K>
 			_ => return Err(DecodeError::InvalidValue),
 		};
 		let counterparty_payment_script = Readable::read(reader)?;
-		let shutdown_script = Readable::read(reader)?;
+		let mut shutdown_script = {
+			let script = <Script as Readable>::read(reader)?;
+			if script.is_empty() { None } else { Some(script) }
+		};
 
 		let channel_keys_id = Readable::read(reader)?;
 		let holder_revocation_basepoint = Readable::read(reader)?;
@@ -2762,7 +2768,9 @@ impl<'a, Signer: Sign, K: KeysInterface<Signer = Signer>> ReadableArgs<&'a K>
 		let lockdown_from_offchain = Readable::read(reader)?;
 		let holder_tx_signed = Readable::read(reader)?;
 
-		read_tlv_fields!(reader, {});
+		read_tlv_fields!(reader, {
+			(1, shutdown_script, option),
+		});
 
 		let mut secp_ctx = Secp256k1::new();
 		secp_ctx.seeded_randomize(&keys_manager.get_secure_random_bytes());
@@ -2840,6 +2848,7 @@ mod tests {
 	use ln::{PaymentPreimage, PaymentHash};
 	use ln::chan_utils;
 	use ln::chan_utils::{HTLCOutputInCommitment, ChannelPublicKeys, ChannelTransactionParameters, HolderCommitmentTransaction, CounterpartyChannelTransactionParameters};
+	use ln::script::ShutdownScript;
 	use util::test_utils::{TestLogger, TestBroadcaster, TestFeeEstimator};
 	use bitcoin::secp256k1::key::{SecretKey,PublicKey};
 	use bitcoin::secp256k1::Secp256k1;
@@ -2933,9 +2942,10 @@ mod tests {
 		};
 		// Prune with one old state and a holder commitment tx holding a few overlaps with the
 		// old state.
+		let shutdown_pubkey = PublicKey::from_secret_key(&secp_ctx, &SecretKey::from_slice(&[42; 32]).unwrap());
 		let best_block = BestBlock::from_genesis(Network::Testnet);
 		let monitor = ChannelMonitor::new(Secp256k1::new(), keys,
-		                                  &PublicKey::from_secret_key(&secp_ctx, &SecretKey::from_slice(&[42; 32]).unwrap()), 0, &Script::new(),
+		                                  Some(ShutdownScript::new_p2wpkh_from_pubkey(shutdown_pubkey).into_inner()), 0, &Script::new(),
 		                                  (OutPoint { txid: Txid::from_slice(&[43; 32]).unwrap(), index: 0 }, Script::new()),
 		                                  &channel_parameters,
 		                                  Script::new(), 46, 0,
