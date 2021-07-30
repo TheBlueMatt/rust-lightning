@@ -1156,8 +1156,13 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 			return Err(APIError::APIMisuseError { err: format!("Channel value must be at least 1000 satoshis. It was {}", channel_value_satoshis) });
 		}
 
+		let their_features = {
+			let per_peer_state = self.per_peer_state.read().unwrap();
+			let peer_state = per_peer_state.get(&their_network_key).unwrap().lock().unwrap();
+			peer_state.latest_features.clone()
+		};
 		let config = if override_config.is_some() { override_config.as_ref().unwrap() } else { &self.default_configuration };
-		let channel = Channel::new_outbound(&self.fee_estimator, &self.keys_manager, their_network_key, channel_value_satoshis, push_msat, user_id, config)?;
+		let channel = Channel::new_outbound(&self.fee_estimator, &self.keys_manager, their_network_key, their_features, channel_value_satoshis, push_msat, user_id, config)?;
 		let res = channel.get_open_channel(self.genesis_hash.clone());
 
 		let _persistence_guard = PersistenceNotifierGuard::notify_on_drop(&self.total_consistency_lock, &self.persistence_notifier);

@@ -567,7 +567,7 @@ impl<Signer: Sign> Channel<Signer> {
 	}
 
 	// Constructors:
-	pub fn new_outbound<K: Deref, F: Deref>(fee_estimator: &F, keys_provider: &K, counterparty_node_id: PublicKey, channel_value_satoshis: u64, push_msat: u64, user_id: u64, config: &UserConfig) -> Result<Channel<Signer>, APIError>
+	pub fn new_outbound<K: Deref, F: Deref>(fee_estimator: &F, keys_provider: &K, counterparty_node_id: PublicKey, their_features: InitFeatures, channel_value_satoshis: u64, push_msat: u64, user_id: u64, config: &UserConfig) -> Result<Channel<Signer>, APIError>
 	where K::Target: KeysInterface<Signer = Signer>,
 	      F::Target: FeeEstimator,
 	{
@@ -597,9 +597,13 @@ impl<Signer: Sign> Channel<Signer> {
 
 		let shutdown_scriptpubkey = if config.channel_options.commit_upfront_shutdown_pubkey {
 			Some(keys_provider.get_shutdown_scriptpubkey())
-		} else {
-			None
-		};
+		} else { None };
+
+		if let Some(shutdown_scriptpubkey) = &shutdown_scriptpubkey {
+			if !shutdown_scriptpubkey.is_compatible(&their_features) {
+				return Err(APIError::APIMisuseError { err: format!("Provided a scriptpubkey format not accepted by peer. script: ({})", shutdown_scriptpubkey.clone().into_inner().to_bytes().to_hex()) });
+			}
+		}
 
 		Ok(Channel {
 			user_id,
@@ -843,14 +847,18 @@ impl<Signer: Sign> Channel<Signer> {
 			}
 		} else { None };
 
-		let mut secp_ctx = Secp256k1::new();
-		secp_ctx.seeded_randomize(&keys_provider.get_secure_random_bytes());
-
 		let shutdown_scriptpubkey = if config.channel_options.commit_upfront_shutdown_pubkey {
 			Some(keys_provider.get_shutdown_scriptpubkey())
-		} else {
-			None
-		};
+		} else { None };
+
+		if let Some(shutdown_scriptpubkey) = &shutdown_scriptpubkey {
+			if !shutdown_scriptpubkey.is_compatible(&their_features) {
+				return Err(ChannelError::Close(format!("Provided a scriptpubkey format not accepted by peer. script: ({})", shutdown_scriptpubkey.clone().into_inner().to_bytes().to_hex())));
+			}
+		}
+
+		let mut secp_ctx = Secp256k1::new();
+		secp_ctx.seeded_randomize(&keys_provider.get_secure_random_bytes());
 
 		let chan = Channel {
 			user_id,
@@ -3262,6 +3270,23 @@ impl<Signer: Sign> Channel<Signer> {
 			self.counterparty_shutdown_scriptpubkey = Some(shutdown_scriptpubkey);
 		}
 
+		// If we have any LocalAnnounced updates we'll probably just get back a update_fail_htlc
+		// immediately after the commitment dance, but we can send a Shutdown cause we won't send
+		// any further commitment updates after we set LocalShutdownSent.
+		let send_shutdown = (self.channel_state & ChannelState::LocalShutdownSent as u32) != ChannelState::LocalShutdownSent as u32;
+
+		let shutdown_scriptpubkey = match self.shutdown_scriptpubkey {
+			Some(_) => None,
+			None => {
+				assert!(send_shutdown);
+				let shutdown_scriptpubkey = keys_provider.get_shutdown_scriptpubkey();
+				if !shutdown_scriptpubkey.is_compatible(their_features) {
+					return Err(ChannelError::Close(format!("Provided a scriptpubkey format not accepted by peer. script: ({})", shutdown_scriptpubkey.clone().into_inner().to_bytes().to_hex())));
+				}
+				Some(shutdown_scriptpubkey)
+			},
+		};
+
 		// From here on out, we may not fail!
 
 		self.channel_state |= ChannelState::RemoteShutdownSent as u32;
@@ -3282,15 +3307,9 @@ impl<Signer: Sign> Channel<Signer> {
 			}
 		});
 
-		// If we have any LocalAnnounced updates we'll probably just get back a update_fail_htlc
-		// immediately after the commitment dance, but we can send a Shutdown cause we won't send
-		// any further commitment updates after we set LocalShutdownSent.
-		let send_shutdown = (self.channel_state & ChannelState::LocalShutdownSent as u32) != ChannelState::LocalShutdownSent as u32;
-		let monitor_update = match self.shutdown_scriptpubkey {
-			Some(_) => None,
-			None => {
-				assert!(send_shutdown);
-				self.shutdown_scriptpubkey = Some(keys_provider.get_shutdown_scriptpubkey());
+		let monitor_update = match shutdown_scriptpubkey {
+			Some(shutdown_scriptpubkey) => {
+				self.shutdown_scriptpubkey = Some(shutdown_scriptpubkey);
 				self.latest_monitor_update_id += 1;
 				Some(ChannelMonitorUpdate {
 					update_id: self.latest_monitor_update_id,
@@ -3299,6 +3318,7 @@ impl<Signer: Sign> Channel<Signer> {
 					}],
 				})
 			},
+			None => None,
 		};
 		let shutdown = if send_shutdown {
 			Some(msgs::Shutdown {
@@ -5212,7 +5232,7 @@ mod tests {
 
 		let node_a_node_id = PublicKey::from_secret_key(&secp_ctx, &SecretKey::from_slice(&[42; 32]).unwrap());
 		let config = UserConfig::default();
-		let node_a_chan = Channel::<EnforcingSigner>::new_outbound(&&fee_est, &&keys_provider, node_a_node_id, 10000000, 100000, 42, &config).unwrap();
+		let node_a_chan = Channel::<EnforcingSigner>::new_outbound(&&fee_est, &&keys_provider, node_a_node_id, InitFeatures::known(), 10000000, 100000, 42, &config).unwrap();
 
 		// Now change the fee so we can check that the fee in the open_channel message is the
 		// same as the old fee.
@@ -5237,7 +5257,7 @@ mod tests {
 		// Create Node A's channel pointing to Node B's pubkey
 		let node_b_node_id = PublicKey::from_secret_key(&secp_ctx, &SecretKey::from_slice(&[42; 32]).unwrap());
 		let config = UserConfig::default();
-		let mut node_a_chan = Channel::<EnforcingSigner>::new_outbound(&&feeest, &&keys_provider, node_b_node_id, 10000000, 100000, 42, &config).unwrap();
+		let mut node_a_chan = Channel::<EnforcingSigner>::new_outbound(&&feeest, &&keys_provider, node_b_node_id, InitFeatures::known(), 10000000, 100000, 42, &config).unwrap();
 
 		// Create Node B's channel by receiving Node A's open_channel message
 		// Make sure A's dust limit is as we expect.
@@ -5304,7 +5324,7 @@ mod tests {
 
 		let node_id = PublicKey::from_secret_key(&secp_ctx, &SecretKey::from_slice(&[42; 32]).unwrap());
 		let config = UserConfig::default();
-		let mut chan = Channel::<EnforcingSigner>::new_outbound(&&fee_est, &&keys_provider, node_id, 10000000, 100000, 42, &config).unwrap();
+		let mut chan = Channel::<EnforcingSigner>::new_outbound(&&fee_est, &&keys_provider, node_id, InitFeatures::known(), 10000000, 100000, 42, &config).unwrap();
 
 		let commitment_tx_fee_0_htlcs = chan.commit_tx_fee_msat(0);
 		let commitment_tx_fee_1_htlc = chan.commit_tx_fee_msat(1);
@@ -5353,7 +5373,7 @@ mod tests {
 		// Create Node A's channel pointing to Node B's pubkey
 		let node_b_node_id = PublicKey::from_secret_key(&secp_ctx, &SecretKey::from_slice(&[42; 32]).unwrap());
 		let config = UserConfig::default();
-		let mut node_a_chan = Channel::<EnforcingSigner>::new_outbound(&&feeest, &&keys_provider, node_b_node_id, 10000000, 100000, 42, &config).unwrap();
+		let mut node_a_chan = Channel::<EnforcingSigner>::new_outbound(&&feeest, &&keys_provider, node_b_node_id, InitFeatures::known(), 10000000, 100000, 42, &config).unwrap();
 
 		// Create Node B's channel by receiving Node A's open_channel message
 		let open_channel_msg = node_a_chan.get_open_channel(chain_hash);
@@ -5415,7 +5435,7 @@ mod tests {
 		// Create a channel.
 		let node_b_node_id = PublicKey::from_secret_key(&secp_ctx, &SecretKey::from_slice(&[42; 32]).unwrap());
 		let config = UserConfig::default();
-		let mut node_a_chan = Channel::<EnforcingSigner>::new_outbound(&&feeest, &&keys_provider, node_b_node_id, 10000000, 100000, 42, &config).unwrap();
+		let mut node_a_chan = Channel::<EnforcingSigner>::new_outbound(&&feeest, &&keys_provider, node_b_node_id, InitFeatures::known(), 10000000, 100000, 42, &config).unwrap();
 		assert!(node_a_chan.counterparty_forwarding_info.is_none());
 		assert_eq!(node_a_chan.holder_htlc_minimum_msat, 1); // the default
 		assert!(node_a_chan.counterparty_forwarding_info().is_none());
@@ -5479,7 +5499,7 @@ mod tests {
 		let counterparty_node_id = PublicKey::from_secret_key(&secp_ctx, &SecretKey::from_slice(&[42; 32]).unwrap());
 		let mut config = UserConfig::default();
 		config.channel_options.announced_channel = false;
-		let mut chan = Channel::<InMemorySigner>::new_outbound(&&feeest, &&keys_provider, counterparty_node_id, 10_000_000, 100000, 42, &config).unwrap(); // Nothing uses their network key in this test
+		let mut chan = Channel::<InMemorySigner>::new_outbound(&&feeest, &&keys_provider, counterparty_node_id, InitFeatures::known(), 10_000_000, 100000, 42, &config).unwrap(); // Nothing uses their network key in this test
 		chan.holder_dust_limit_satoshis = 546;
 		chan.counterparty_selected_channel_reserve_satoshis = Some(0); // Filled in in accept_channel
 
