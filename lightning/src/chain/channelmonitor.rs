@@ -791,10 +791,6 @@ impl<Signer: Sign> Writeable for ChannelMonitorImpl<Signer> {
 		self.lockdown_from_offchain.write(writer)?;
 		self.holder_tx_signed.write(writer)?;
 
-		write_tlv_fields!(writer, {
-			(1, self.shutdown_script, option),
-		});
-
 		Ok(())
 	}
 }
@@ -2611,7 +2607,7 @@ impl<'a, Signer: Sign, K: KeysInterface<Signer = Signer>> ReadableArgs<&'a K>
 			_ => return Err(DecodeError::InvalidValue),
 		};
 		let counterparty_payment_script = Readable::read(reader)?;
-		let mut shutdown_script = {
+		let shutdown_script = {
 			let script = <Script as Readable>::read(reader)?;
 			if script.is_empty() { None } else { Some(script) }
 		};
@@ -2767,10 +2763,6 @@ impl<'a, Signer: Sign, K: KeysInterface<Signer = Signer>> ReadableArgs<&'a K>
 
 		let lockdown_from_offchain = Readable::read(reader)?;
 		let holder_tx_signed = Readable::read(reader)?;
-
-		read_tlv_fields!(reader, {
-			(1, shutdown_script, option),
-		});
 
 		let mut secp_ctx = Secp256k1::new();
 		secp_ctx.seeded_randomize(&keys_manager.get_secure_random_bytes());
