@@ -10,6 +10,7 @@ use bitcoin::secp256k1::key::PublicKey;
 use ln::features::InitFeatures;
 
 use std::convert::TryFrom;
+use core::num::NonZeroU8;
 
 /// A script pubkey for shutting down a channel as defined by [BOLT #2].
 ///
@@ -60,7 +61,8 @@ impl ShutdownScript {
 	/// # Panics
 	///
 	/// This function may panic if given a segwit program with an invalid length.
-	pub fn new_witness_program(version: u5, program: &[u8]) -> Self {
+	pub fn new_witness_program(version: NonZeroU8, program: &[u8]) -> Self {
+		let version = u5::try_from_u8(version.get()).expect("Invalid segwit version");
 		let script = Script::new_witness_program(version, program);
 		Self::try_from(script).expect("Invalid segwit program")
 	}
