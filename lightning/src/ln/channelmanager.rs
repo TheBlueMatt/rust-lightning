@@ -1261,9 +1261,15 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 			let channel_state = &mut *channel_state_lock;
 			match channel_state.by_id.entry(channel_id.clone()) {
 				hash_map::Entry::Occupied(mut chan_entry) => {
-					let (shutdown_msg, monitor_update, failed_htlcs) = chan_entry.get_mut().get_shutdown(&self.keys_manager)?;
+					let counterparty_node_id = chan_entry.get().get_counterparty_node_id();
+					let their_features = {
+						let per_peer_state = self.per_peer_state.read().unwrap();
+						let peer_state = per_peer_state.get(&counterparty_node_id).unwrap().lock().unwrap();
+						peer_state.latest_features.clone()
+					};
+					let (shutdown_msg, monitor_update, failed_htlcs) = chan_entry.get_mut().get_shutdown(&self.keys_manager, &their_features)?;
 					channel_state.pending_msg_events.push(events::MessageSendEvent::SendShutdown {
-						node_id: chan_entry.get().get_counterparty_node_id(),
+						node_id: counterparty_node_id,
 						msg: shutdown_msg
 					});
 					if let Some(monitor_update) = monitor_update {

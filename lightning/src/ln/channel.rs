@@ -4451,7 +4451,7 @@ impl<Signer: Sign> Channel<Signer> {
 
 	/// Begins the shutdown process, getting a message for the remote peer and returning all
 	/// holding cell HTLCs for payment failure.
-	pub fn get_shutdown<K: Deref>(&mut self, keys_provider: &K) -> Result<(msgs::Shutdown, Option<ChannelMonitorUpdate>, Vec<(HTLCSource, PaymentHash)>), APIError>
+	pub fn get_shutdown<K: Deref>(&mut self, keys_provider: &K, their_features: &InitFeatures) -> Result<(msgs::Shutdown, Option<ChannelMonitorUpdate>, Vec<(HTLCSource, PaymentHash)>), APIError>
 	where K::Target: KeysInterface<Signer = Signer> {
 		for htlc in self.pending_outbound_htlcs.iter() {
 			if let OutboundHTLCState::LocalAnnounced(_) = htlc.state {
@@ -4471,16 +4471,30 @@ impl<Signer: Sign> Channel<Signer> {
 			return Err(APIError::ChannelUnavailable{err: "Cannot begin shutdown while peer is disconnected or we're waiting on a monitor update, maybe force-close instead?".to_owned()});
 		}
 
-		let monitor_update = if self.shutdown_scriptpubkey.is_none() {
-			self.shutdown_scriptpubkey = Some(keys_provider.get_shutdown_scriptpubkey());
-			self.latest_monitor_update_id += 1;
-			Some(ChannelMonitorUpdate {
-				update_id: self.latest_monitor_update_id,
-				updates: vec![ChannelMonitorUpdateStep::ShutdownScript {
-					scriptpubkey: self.get_closing_scriptpubkey(),
-				}],
-			})
-		} else { None };
+		let shutdown_scriptpubkey = match self.shutdown_scriptpubkey {
+			Some(_) => None,
+			None => {
+				let shutdown_scriptpubkey = keys_provider.get_shutdown_scriptpubkey();
+				if !shutdown_scriptpubkey.is_compatible(their_features) {
+					return Err(APIError::APIMisuseError { err: format!("Provided a scriptpubkey format not accepted by peer. script: ({})", shutdown_scriptpubkey.clone().into_inner().to_bytes().to_hex()) });
+				}
+				Some(shutdown_scriptpubkey)
+			},
+		};
+
+		let monitor_update = match shutdown_scriptpubkey {
+			Some(shutdown_scriptpubkey) => {
+				self.shutdown_scriptpubkey = Some(shutdown_scriptpubkey);
+				self.latest_monitor_update_id += 1;
+				Some(ChannelMonitorUpdate {
+					update_id: self.latest_monitor_update_id,
+					updates: vec![ChannelMonitorUpdateStep::ShutdownScript {
+						scriptpubkey: self.get_closing_scriptpubkey(),
+					}],
+				})
+			},
+			None => None,
+		};
 
 		// From here on out, we may not fail!
 		if self.channel_state < ChannelState::FundingSent as u32 {
