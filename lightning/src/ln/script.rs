@@ -105,6 +105,26 @@ impl ShutdownScript {
 			ShutdownScriptImpl::Bolt2(_) => None,
 		}
 	}
+
+	/// Returns whether the shutdown script is compatible with the features as defined by BOLT #2.
+	///
+	/// Specifically, checks for compliance with feature `option_shutdown_anysegwit`.
+	pub fn is_compatible(&self, features: &InitFeatures) -> bool {
+		match &self.0 {
+			ShutdownScriptImpl::Legacy(_) => true,
+			ShutdownScriptImpl::Bolt2(script) => is_bolt2_compliant(script, features),
+		}
+	}
+}
+
+fn is_bolt2_compliant(script: &Script, features: &InitFeatures) -> bool {
+	if script.is_p2pkh() || script.is_p2sh() || script.is_v0_p2wpkh() || script.is_v0_p2wsh() {
+		true
+	} else if features.supports_shutdown_anysegwit() {
+		script.is_witness_program() && script.as_bytes()[0] != SEGWIT_V0.into_u8()
+	} else {
+		false
+	}
 }
 
 impl TryFrom<Script> for ShutdownScript {
@@ -119,10 +139,8 @@ impl TryFrom<(Script, &InitFeatures)> for ShutdownScript {
 	type Error = InvalidShutdownScript;
 
 	fn try_from((script, features): (Script, &InitFeatures)) -> Result<Self, Self::Error> {
-		if script.is_p2pkh() || script.is_p2sh() || script.is_v0_p2wpkh() || script.is_v0_p2wsh() {
+		if is_bolt2_compliant(&script, features) {
 			Ok(Self(ShutdownScriptImpl::Bolt2(script)))
-		} else if features.supports_shutdown_anysegwit() && script.is_witness_program() && script.as_bytes()[0] != SEGWIT_V0.into_u8() {
-			Ok(Self(ShutdownScriptImpl::Bolt2(script)))  // option_shutdown_anysegwit
 		} else {
 			Err(InvalidShutdownScript(script))
 		}
@@ -147,7 +165,9 @@ mod shutdown_script_tests {
 	use bitcoin::blockdata::script::{Builder, Script};
 	use bitcoin::secp256k1::Secp256k1;
 	use bitcoin::secp256k1::key::{PublicKey, SecretKey};
+	use ln::features::InitFeatures;
 	use std::convert::TryFrom;
+	use core::num::NonZeroU8;
 
 	fn pubkey() -> bitcoin::util::ecdsa::PublicKey {
 		let secp_ctx = Secp256k1::signing_only();
@@ -173,6 +193,8 @@ mod shutdown_script_tests {
 		let p2wpkh_script = Script::new_v0_wpkh(&pubkey_hash);
 
 		let shutdown_script = ShutdownScript::new_p2wpkh_from_pubkey(pubkey.key);
+		assert!(shutdown_script.is_compatible(&InitFeatures::known()));
+		assert!(shutdown_script.is_compatible(&InitFeatures::known().clear_shutdown_anysegwit()));
 		assert_eq!(shutdown_script.into_inner(), p2wpkh_script);
 	}
 
@@ -182,6 +204,8 @@ mod shutdown_script_tests {
 		let p2pkh_script = Script::new_p2pkh(&pubkey_hash);
 
 		let shutdown_script = ShutdownScript::new_p2pkh(&pubkey_hash);
+		assert!(shutdown_script.is_compatible(&InitFeatures::known()));
+		assert!(shutdown_script.is_compatible(&InitFeatures::known().clear_shutdown_anysegwit()));
 		assert_eq!(shutdown_script.into_inner(), p2pkh_script);
 		assert!(ShutdownScript::try_from(p2pkh_script).is_ok());
 	}
@@ -192,6 +216,8 @@ mod shutdown_script_tests {
 		let p2sh_script = Script::new_p2sh(&script_hash);
 
 		let shutdown_script = ShutdownScript::new_p2sh(&script_hash);
+		assert!(shutdown_script.is_compatible(&InitFeatures::known()));
+		assert!(shutdown_script.is_compatible(&InitFeatures::known().clear_shutdown_anysegwit()));
 		assert_eq!(shutdown_script.into_inner(), p2sh_script);
 		assert!(ShutdownScript::try_from(p2sh_script).is_ok());
 	}
@@ -202,6 +228,8 @@ mod shutdown_script_tests {
 		let p2wpkh_script = Script::new_v0_wpkh(&pubkey_hash);
 
 		let shutdown_script = ShutdownScript::new_p2wpkh(&pubkey_hash);
+		assert!(shutdown_script.is_compatible(&InitFeatures::known()));
+		assert!(shutdown_script.is_compatible(&InitFeatures::known().clear_shutdown_anysegwit()));
 		assert_eq!(shutdown_script.into_inner(), p2wpkh_script);
 		assert!(ShutdownScript::try_from(p2wpkh_script).is_ok());
 	}
@@ -212,8 +240,22 @@ mod shutdown_script_tests {
 		let p2wsh_script = Script::new_v0_wsh(&script_hash);
 
 		let shutdown_script = ShutdownScript::new_p2wsh(&script_hash);
+		assert!(shutdown_script.is_compatible(&InitFeatures::known()));
+		assert!(shutdown_script.is_compatible(&InitFeatures::known().clear_shutdown_anysegwit()));
 		assert_eq!(shutdown_script.into_inner(), p2wsh_script);
 		assert!(ShutdownScript::try_from(p2wsh_script).is_ok());
+	}
+
+	#[test]
+	fn generates_segwit_from_non_v0_witness_program() {
+		let version = u5::try_from_u8(16).unwrap();
+		let witness_program = Script::new_witness_program(version, &[0; 40]);
+
+		let version = NonZeroU8::new(version.to_u8()).unwrap();
+		let shutdown_script = ShutdownScript::new_witness_program(version, &[0; 40]);
+		assert!(shutdown_script.is_compatible(&InitFeatures::known()));
+		assert!(!shutdown_script.is_compatible(&InitFeatures::known().clear_shutdown_anysegwit()));
+		assert_eq!(shutdown_script.into_inner(), witness_program);
 	}
 
 	#[test]
@@ -223,8 +265,14 @@ mod shutdown_script_tests {
 	}
 
 	#[test]
-	fn fails_from_invalid_segwit_v0_program() {
+	fn fails_from_invalid_segwit_v0_witness_program() {
 		let witness_program = Script::new_witness_program(u5::try_from_u8(0).unwrap(), &[0; 2]);
+		assert!(ShutdownScript::try_from(witness_program).is_err());
+	}
+
+	#[test]
+	fn fails_from_invalid_segwit_non_v0_witness_program() {
+		let witness_program = Script::new_witness_program(u5::try_from_u8(16).unwrap(), &[0; 42]);
 		assert!(ShutdownScript::try_from(witness_program).is_err());
 	}
 }
