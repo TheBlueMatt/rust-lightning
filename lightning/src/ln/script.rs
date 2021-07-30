@@ -9,7 +9,6 @@ use bitcoin::secp256k1::key::PublicKey;
 
 use ln::features::InitFeatures;
 
-use std::convert::From;
 use std::convert::TryFrom;
 
 /// A script pubkey for shutting down a channel as defined by [BOLT #2].
@@ -31,6 +30,11 @@ enum ShutdownScriptImpl {
 }
 
 impl ShutdownScript {
+	/// Generates a P2WPKH script pubkey from the given [`PublicKey`].
+	pub fn new_p2wpkh_from_pubkey(pubkey: PublicKey) -> Self {
+		Self(ShutdownScriptImpl::Legacy(pubkey))
+	}
+
 	/// Generates a P2PKH script pubkey from the given [`PubkeyHash`].
 	pub fn new_p2pkh(pubkey_hash: &PubkeyHash) -> Self {
 		Self(ShutdownScriptImpl::Bolt2(Script::new_p2pkh(pubkey_hash)))
@@ -64,12 +68,6 @@ impl ShutdownScript {
 	/// Converts the shutdown script into the underlying [`Script`].
 	pub fn into_inner(self) -> Script {
 		self.into()
-	}
-}
-
-impl From<PublicKey> for ShutdownScript {
-	fn from(pubkey: PublicKey) -> Self {
-		Self(ShutdownScriptImpl::Legacy(pubkey))
 	}
 }
 
@@ -138,7 +136,7 @@ mod shutdown_script_tests {
 		let pubkey_hash = pubkey.wpubkey_hash().unwrap();
 		let p2wpkh_script = Script::new_v0_wpkh(&pubkey_hash);
 
-		let shutdown_script = ShutdownScript::from(pubkey.key);
+		let shutdown_script = ShutdownScript::new_p2wpkh_from_pubkey(pubkey.key);
 		assert_eq!(shutdown_script.into_inner(), p2wpkh_script);
 	}
 
