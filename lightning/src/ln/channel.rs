@@ -601,7 +601,7 @@ impl<Signer: Sign> Channel<Signer> {
 
 		if let Some(shutdown_scriptpubkey) = &shutdown_scriptpubkey {
 			if !shutdown_scriptpubkey.is_compatible(&their_features) {
-				return Err(APIError::APIMisuseError { err: format!("Provided a scriptpubkey format not accepted by peer. script: ({})", shutdown_scriptpubkey.clone().into_inner().to_bytes().to_hex()) });
+				return Err(APIError::APIMisuseError { err: format!("Provided a scriptpubkey format not accepted by peer: {}", shutdown_scriptpubkey) });
 			}
 		}
 
@@ -836,7 +836,7 @@ impl<Signer: Sign> Channel<Signer> {
 					} else {
 						match ShutdownScript::try_from((script.clone(), &their_features)) {
 							Ok(shutdown_script) => Some(shutdown_script.into_inner()),
-							Err(_) => return Err(ChannelError::Close(format!("Peer is signaling upfront_shutdown but has provided a non-accepted scriptpubkey format. script: ({})", script.to_bytes().to_hex()))),
+							Err(_) => return Err(ChannelError::Close(format!("Peer is signaling upfront_shutdown but has provided a non-accepted scriptpubkey format: {}", script))),
 						}
 					}
 				},
@@ -853,7 +853,7 @@ impl<Signer: Sign> Channel<Signer> {
 
 		if let Some(shutdown_scriptpubkey) = &shutdown_scriptpubkey {
 			if !shutdown_scriptpubkey.is_compatible(&their_features) {
-				return Err(ChannelError::Close(format!("Provided a scriptpubkey format not accepted by peer. script: ({})", shutdown_scriptpubkey.clone().into_inner().to_bytes().to_hex())));
+				return Err(ChannelError::Close(format!("Provided a scriptpubkey format not accepted by peer: {}", shutdown_scriptpubkey)));
 			}
 		}
 
@@ -1573,7 +1573,7 @@ impl<Signer: Sign> Channel<Signer> {
 					} else {
 						match ShutdownScript::try_from((script.clone(), &their_features)) {
 							Ok(shutdown_script) => Some(shutdown_script.into_inner()),
-							Err(_) => return Err(ChannelError::Close(format!("Peer is signaling upfront_shutdown but has provided a non-accepted scriptpubkey format. script: ({})", script.to_bytes().to_hex()))),
+							Err(_) => return Err(ChannelError::Close(format!("Peer is signaling upfront_shutdown but has provided a non-accepted scriptpubkey format: {}", script))),
 						}
 					}
 				},
@@ -3281,7 +3281,7 @@ impl<Signer: Sign> Channel<Signer> {
 				assert!(send_shutdown);
 				let shutdown_scriptpubkey = keys_provider.get_shutdown_scriptpubkey();
 				if !shutdown_scriptpubkey.is_compatible(their_features) {
-					return Err(ChannelError::Close(format!("Provided a scriptpubkey format not accepted by peer. script: ({})", shutdown_scriptpubkey.clone().into_inner().to_bytes().to_hex())));
+					return Err(ChannelError::Close(format!("Provided a scriptpubkey format not accepted by peer: {}", shutdown_scriptpubkey)));
 				}
 				Some(shutdown_scriptpubkey)
 			},
@@ -4476,7 +4476,7 @@ impl<Signer: Sign> Channel<Signer> {
 			None => {
 				let shutdown_scriptpubkey = keys_provider.get_shutdown_scriptpubkey();
 				if !shutdown_scriptpubkey.is_compatible(their_features) {
-					return Err(APIError::APIMisuseError { err: format!("Provided a scriptpubkey format not accepted by peer. script: ({})", shutdown_scriptpubkey.clone().into_inner().to_bytes().to_hex()) });
+					return Err(APIError::APIMisuseError { err: format!("Provided a scriptpubkey format not accepted by peer: {}", shutdown_scriptpubkey) });
 				}
 				Some(shutdown_scriptpubkey)
 			},
