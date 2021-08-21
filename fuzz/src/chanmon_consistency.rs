@@ -732,7 +732,10 @@ pub fn do_test<Out: test_logger::Output>(data: &[u8], out: Out) {
 							// force-close which we should detect as an error).
 							assert_eq!(msg.contents.flags & 2, 0);
 						},
-						_ => panic!("Unhandled message event {:?}", event),
+						_ => if out.locked_contains(&"Outbound update_fee HTLC buffer overflow - counterparty should force-close this channel") {
+						} else {
+							panic!("Unhandled message event {:?}", event)
+						},
 					}
 					if $limit_events != ProcessMessages::AllMessages {
 						break;
@@ -764,7 +767,10 @@ pub fn do_test<Out: test_logger::Output>(data: &[u8], out: Out) {
 							events::MessageSendEvent::SendChannelUpdate { ref msg, .. } => {
 								assert_eq!(msg.contents.flags & 2, 0); // The disable bit must never be set!
 							},
-							_ => panic!("Unhandled message event"),
+							_ => if out.locked_contains(&"Outbound update_fee HTLC buffer overflow - counterparty should force-close this channel") {
+							} else {
+								panic!("Unhandled message event")
+							},
 						}
 					}
 					push_excess_b_events!(nodes[1].get_and_clear_pending_msg_events().drain(..), Some(0));
@@ -781,7 +787,10 @@ pub fn do_test<Out: test_logger::Output>(data: &[u8], out: Out) {
 							events::MessageSendEvent::SendChannelUpdate { ref msg, .. } => {
 								assert_eq!(msg.contents.flags & 2, 0); // The disable bit must never be set!
 							},
-							_ => panic!("Unhandled message event"),
+							_ => if out.locked_contains(&"Outbound update_fee HTLC buffer overflow - counterparty should force-close this channel") {
+							} else {
+								panic!("Unhandled message event")
+							},
 						}
 					}
 					push_excess_b_events!(nodes[1].get_and_clear_pending_msg_events().drain(..), Some(2));
@@ -832,7 +841,10 @@ pub fn do_test<Out: test_logger::Output>(data: &[u8], out: Out) {
 						events::Event::PendingHTLCsForwardable { .. } => {
 							nodes[$node].process_pending_htlc_forwards();
 						},
-						_ => panic!("Unhandled event"),
+						_ => if out.locked_contains(&"Outbound update_fee HTLC buffer overflow - counterparty should force-close this channel") {
+						} else {
+							panic!("Unhandled event")
+						},
 					}
 				}
 				had_events
@@ -1116,12 +1128,16 @@ pub fn do_test<Out: test_logger::Output>(data: &[u8], out: Out) {
 				}
 
 				// Finally, make sure that at least one end of each channel can make a substantial payment.
-				assert!(
-					send_payment(&nodes[0], &nodes[1], chan_a, 10_000_000, &mut payment_id) ||
-					send_payment(&nodes[1], &nodes[0], chan_a, 10_000_000, &mut payment_id));
-				assert!(
-					send_payment(&nodes[1], &nodes[2], chan_b, 10_000_000, &mut payment_id) ||
-					send_payment(&nodes[2], &nodes[1], chan_b, 10_000_000, &mut payment_id));
+				// Unless we expected to hit a limitation of LN state machine (see comment in `send_update_fee_and_commit`)
+				if out.locked_contains(&"Outbound update_fee HTLC buffer overflow - counterparty should force-close this channel") {
+				} else {
+					assert!(
+						send_payment(&nodes[0], &nodes[1], chan_a, 10_000_000, &mut payment_id) ||
+						send_payment(&nodes[1], &nodes[0], chan_a, 10_000_000, &mut payment_id));
+					assert!(
+						send_payment(&nodes[1], &nodes[2], chan_b, 10_000_000, &mut payment_id) ||
+						send_payment(&nodes[2], &nodes[1], chan_b, 10_000_000, &mut payment_id));
+				}
 
 				last_htlc_clear_fee_a = fee_est_a.ret_val.load(atomic::Ordering::Acquire);
 				last_htlc_clear_fee_b = fee_est_b.ret_val.load(atomic::Ordering::Acquire);

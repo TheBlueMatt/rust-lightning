@@ -61,7 +61,7 @@ pub struct ChannelValueStat {
 	pub counterparty_dust_limit_msat: u64,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum FeeUpdateState {
 	// Inbound states mirroring InboundHTLCState
 	RemoteAnnounced,
@@ -2957,8 +2957,10 @@ impl<Signer: Sign> Channel<Signer> {
 
 	/// Adds a pending update to this channel. See the doc for send_htlc for
 	/// further details on the optionness of the return value.
+	/// If our balance is too low to cover the cost of the next commitment transaction at the
+	/// new feerate, the update is cancelled.
 	/// You MUST call send_commitment prior to any other calls on this Channel
-	fn send_update_fee(&mut self, feerate_per_kw: u32) -> Option<msgs::UpdateFee> {
+	fn send_update_fee<L: Deref>(&mut self, feerate_per_kw: u32, logger: &L) -> Option<msgs::UpdateFee> where L::Target: Logger {
 		if !self.is_outbound() {
 			panic!("Cannot send fee from inbound channel");
 		}
@@ -2967,6 +2969,26 @@ impl<Signer: Sign> Channel<Signer> {
 		}
 		if !self.is_live() {
 			panic!("Cannot update fee while peer is disconnected/we're awaiting a monitor update (ChannelManager should have caught this)");
+		}
+
+		// Before proposing a feerate update, check that we can actually afford the new fee.
+		let inbound_stats = self.get_inbound_pending_htlc_stats();
+		let outbound_stats = self.get_outbound_pending_htlc_stats();
+		// In case of a concurrent update_add_htlc proposed by our counterparty, we might
+		// not have enough balance value remaining to cover the onchain cost of this new
+		// HTLC weight. If this happens, our counterparty fails the reception of our
+		// commitment_signed including this new HTLC due to infringement on the channel
+		// reserve.
+		// To prevent this case, we compute our outbound update_fee with an HTLC buffer of
+		// size 2. However, if the number of concurrent update_add_htlc is higher, this still
+		// leads to a channel force-close. Ultimately, this is an issue coming from the
+		// design of LN state machines, allowing asynchronous updates.
+		let total_fee_sat = Channel::<Signer>::commit_tx_fee_sat(feerate_per_kw, (inbound_stats.pending_htlcs + /* HTLC feerate buffer */ 2 + outbound_stats.pending_htlcs) as usize);
+		let holder_balance_after_fee_sub = (self.value_to_self_msat / 1000).checked_sub(total_fee_sat).map(|a| a.checked_sub(outbound_stats.pending_htlcs_value_msat / 1000)).unwrap_or(None).unwrap_or(u64::min_value());
+		if holder_balance_after_fee_sub < self.counterparty_selected_channel_reserve_satoshis.unwrap() {
+			//TODO: auto-close after a number of failures?
+			log_debug!(logger, "Cannot afford to send new feerate at {}", feerate_per_kw);
+			return None;
 		}
 
 		if (self.channel_state & (ChannelState::AwaitingRemoteRevoke as u32 | ChannelState::MonitorUpdateFailed as u32)) != 0 {
@@ -2984,7 +3006,7 @@ impl<Signer: Sign> Channel<Signer> {
 	}
 
 	pub fn send_update_fee_and_commit<L: Deref>(&mut self, feerate_per_kw: u32, logger: &L) -> Result<Option<(msgs::UpdateFee, msgs::CommitmentSigned, ChannelMonitorUpdate)>, ChannelError> where L::Target: Logger {
-		match self.send_update_fee(feerate_per_kw) {
+		match self.send_update_fee(feerate_per_kw, logger) {
 			Some(update_fee) => {
 				let (commitment_signed, monitor_update) = self.send_commitment_no_status_check(logger)?;
 				Ok(Some((update_fee, commitment_signed, monitor_update)))
@@ -4724,6 +4746,18 @@ impl<Signer: Sign> Channel<Signer> {
 							let actual_fee = self.commit_tx_fee_msat(counterparty_commitment_tx.2);
 							assert_eq!(actual_fee, info.fee);
 						}
+				}
+			}
+		}
+		if self.is_outbound() {
+			// Log if we can't afford next remote commitment tx fee at pending outbound feerate update.
+			if let Some(pending_feerate) = self.pending_update_fee {
+				assert_eq!(pending_feerate.1, FeeUpdateState::Outbound);
+				let next_total_fee_sat = Channel::<Signer>::commit_tx_fee_sat(pending_feerate.0, self.pending_inbound_htlcs.len() + self.pending_outbound_htlcs.len());
+				let outbound_stats = self.get_outbound_pending_htlc_stats();
+				let holder_balance_after_fee_sub_sats = (self.value_to_self_msat / 1000).checked_sub(next_total_fee_sat).map(|a| a.checked_sub(outbound_stats.pending_htlcs_value_msat / 1000)).unwrap_or(None).unwrap_or(u64::min_value());
+				if holder_balance_after_fee_sub_sats < self.counterparty_selected_channel_reserve_satoshis.unwrap() {
+					log_debug!(logger, "Outbound update_fee HTLC buffer overflow - counterparty should force-close this channel");
 				}
 			}
 		}
