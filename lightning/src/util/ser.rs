@@ -277,7 +277,19 @@ impl<T: MaybeReadable> Readable for VecReadWrapper<T> {
 	}
 }
 
-pub(crate) struct U48(pub u64);
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// A 48-bit unsigned integer. This is used in lightning largely to represent the "short channel
+/// ID" values.
+pub struct U48(pub(crate) u64);
+impl U48 {
+	/// Construts a new U48 from a u64, checking that it is in range or returning `Err(())`
+	#[inline]
+	pub fn from_u64(src: u64) -> Result<Self, ()> {
+		if src < (1 << 48) - 1 { Ok(Self(src)) } else { Err(()) }
+	}
+	/// Gets the current value as a u64
+	pub fn as_u64(&self) -> u64 { self.0 }
+}
 impl Writeable for U48 {
 	#[inline]
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), io::Error> {

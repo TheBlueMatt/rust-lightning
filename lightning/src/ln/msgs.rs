@@ -40,7 +40,7 @@ use io_extras::read_to_end;
 
 use util::events::MessageSendEventsProvider;
 use util::logger;
-use util::ser::{Readable, Writeable, Writer, FixedLengthReader, HighZeroBytesDroppedVarInt};
+use util::ser::{U48, Readable, Writeable, Writer, FixedLengthReader, HighZeroBytesDroppedVarInt};
 
 use ln::{PaymentPreimage, PaymentHash, PaymentSecret};
 
@@ -218,6 +218,9 @@ pub struct FundingLocked {
 	pub channel_id: [u8; 32],
 	/// The per-commitment point of the second commitment transaction
 	pub next_per_commitment_point: PublicKey,
+	/// If set, provides a short_channel_id alias for this channel. The sender will accept payments
+	/// which are to be forwarded over this channel ID alias and forward them to us.
+	pub short_channel_id_alias: Option<U48>,
 }
 
 /// A shutdown message to be sent or received from a peer
@@ -1121,7 +1124,9 @@ impl_writeable_msg!(FundingSigned, {
 impl_writeable_msg!(FundingLocked, {
 	channel_id,
 	next_per_commitment_point,
-}, {});
+}, {
+	(1, short_channel_id_alias, option),
+});
 
 impl Writeable for Init {
 	fn write<W: Writer>(&self, w: &mut W) -> Result<(), io::Error> {
@@ -2190,6 +2195,7 @@ mod tests {
 		let funding_locked = msgs::FundingLocked {
 			channel_id: [2; 32],
 			next_per_commitment_point: pubkey_1,
+			short_channel_id_alias: None,
 		};
 		let encoded_value = funding_locked.encode();
 		let target_value = hex::decode("0202020202020202020202020202020202020202020202020202020202020202031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f").unwrap();
