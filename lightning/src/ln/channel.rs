@@ -2428,21 +2428,31 @@ panic!();
 		res
 	}
 
+	fn check_state_for_htlc_msg(&self) -> Result<(), ChannelError> {
+		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
+			return Err(ChannelError::Close("Got HTLC message when channel was not in an operational state".to_owned()));
+		}
+		if self.channel_state & (ChannelState::PeerDisconnected as u32) == ChannelState::PeerDisconnected as u32 {
+			return Err(ChannelError::Close("Peer sent HTLC message when we needed a channel_reestablish".to_owned()));
+		}
+		if self.channel_state & BOTH_SIDES_SHUTDOWN_MASK == BOTH_SIDES_SHUTDOWN_MASK && self.last_sent_closing_fee.is_some() {
+			return Err((None, ChannelError::Close("Peer sent HTLC message after we'd started exchanging closing_signeds".to_owned())));
+		}
+	}
+
 	pub fn update_add_htlc<F, L: Deref>(&mut self, msg: &msgs::UpdateAddHTLC, mut pending_forward_status: PendingHTLCStatus, create_pending_htlc_status: F, logger: &L) -> Result<(), ChannelError>
 	where F: for<'a> Fn(&'a Self, PendingHTLCStatus, u16) -> PendingHTLCStatus, L::Target: Logger {
 		// We can't accept HTLCs sent after we've sent a shutdown.
-		let local_sent_shutdown = (self.channel_state & (ChannelState::ChannelFunded as u32 | ChannelState::LocalShutdownSent as u32)) != (ChannelState::ChannelFunded as u32);
+		let local_sent_shutdown = (self.channel_state & (ChannelState::LocalShutdownSent as u32)) != 0;
 		if local_sent_shutdown {
 			pending_forward_status = create_pending_htlc_status(self, pending_forward_status, 0x4000|8);
 		}
 		// If the remote has sent a shutdown prior to adding this HTLC, then they are in violation of the spec.
-		let remote_sent_shutdown = (self.channel_state & (ChannelState::ChannelFunded as u32 | ChannelState::RemoteShutdownSent as u32)) != (ChannelState::ChannelFunded as u32);
+		let remote_sent_shutdown = (self.channel_state & (ChannelState::RemoteShutdownSent as u32)) != 0;
 		if remote_sent_shutdown {
 			return Err(ChannelError::Close("Got add HTLC message when channel was not in an operational state".to_owned()));
 		}
-		if self.channel_state & (ChannelState::PeerDisconnected as u32) == ChannelState::PeerDisconnected as u32 {
-			return Err(ChannelError::Close("Peer sent update_add_htlc when we needed a channel_reestablish".to_owned()));
-		}
+		self.check_state_for_htlc_msg()?;
 		if msg.amount_msat > self.channel_value_satoshis * 1000 {
 			return Err(ChannelError::Close("Remote side tried to send more than the total value of the channel".to_owned()));
 		}
@@ -2602,37 +2612,19 @@ panic!();
 	}
 
 	pub fn update_fulfill_htlc(&mut self, msg: &msgs::UpdateFulfillHTLC) -> Result<(HTLCSource, u64), ChannelError> {
-		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
-			return Err(ChannelError::Close("Got fulfill HTLC message when channel was not in an operational state".to_owned()));
-		}
-		if self.channel_state & (ChannelState::PeerDisconnected as u32) == ChannelState::PeerDisconnected as u32 {
-			return Err(ChannelError::Close("Peer sent update_fulfill_htlc when we needed a channel_reestablish".to_owned()));
-		}
-
+		self.check_state_for_htlc_msg()?;
 		let payment_hash = PaymentHash(Sha256::hash(&msg.payment_preimage.0[..]).into_inner());
 		self.mark_outbound_htlc_removed(msg.htlc_id, Some(payment_hash), None).map(|htlc| (htlc.source.clone(), htlc.amount_msat))
 	}
 
 	pub fn update_fail_htlc(&mut self, msg: &msgs::UpdateFailHTLC, fail_reason: HTLCFailReason) -> Result<(), ChannelError> {
-		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
-			return Err(ChannelError::Close("Got fail HTLC message when channel was not in an operational state".to_owned()));
-		}
-		if self.channel_state & (ChannelState::PeerDisconnected as u32) == ChannelState::PeerDisconnected as u32 {
-			return Err(ChannelError::Close("Peer sent update_fail_htlc when we needed a channel_reestablish".to_owned()));
-		}
-
+		self.check_state_for_htlc_msg()?;
 		self.mark_outbound_htlc_removed(msg.htlc_id, None, Some(fail_reason))?;
 		Ok(())
 	}
 
 	pub fn update_fail_malformed_htlc(&mut self, msg: &msgs::UpdateFailMalformedHTLC, fail_reason: HTLCFailReason) -> Result<(), ChannelError> {
-		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
-			return Err(ChannelError::Close("Got fail malformed HTLC message when channel was not in an operational state".to_owned()));
-		}
-		if self.channel_state & (ChannelState::PeerDisconnected as u32) == ChannelState::PeerDisconnected as u32 {
-			return Err(ChannelError::Close("Peer sent update_fail_malformed_htlc when we needed a channel_reestablish".to_owned()));
-		}
-
+		self.check_state_for_htlc_msg()?;
 		self.mark_outbound_htlc_removed(msg.htlc_id, None, Some(fail_reason))?;
 		Ok(())
 	}
@@ -2640,15 +2632,7 @@ panic!();
 	pub fn commitment_signed<L: Deref>(&mut self, msg: &msgs::CommitmentSigned, logger: &L) -> Result<(msgs::RevokeAndACK, Option<msgs::CommitmentSigned>, ChannelMonitorUpdate), (Option<ChannelMonitorUpdate>, ChannelError)>
 		where L::Target: Logger
 	{
-		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
-			return Err((None, ChannelError::Close("Got commitment signed message when channel was not in an operational state".to_owned())));
-		}
-		if self.channel_state & (ChannelState::PeerDisconnected as u32) == ChannelState::PeerDisconnected as u32 {
-			return Err((None, ChannelError::Close("Peer sent commitment_signed when we needed a channel_reestablish".to_owned())));
-		}
-		if self.channel_state & BOTH_SIDES_SHUTDOWN_MASK == BOTH_SIDES_SHUTDOWN_MASK && self.last_sent_closing_fee.is_some() {
-			return Err((None, ChannelError::Close("Peer sent commitment_signed after we'd started exchanging closing_signeds".to_owned())));
-		}
+		self.check_state_for_htlc_msg()?;
 
 		let funding_script = self.get_funding_redeemscript();
 
@@ -2959,15 +2943,7 @@ panic!();
 	pub fn revoke_and_ack<L: Deref>(&mut self, msg: &msgs::RevokeAndACK, logger: &L) -> Result<RAAUpdates, ChannelError>
 		where L::Target: Logger,
 	{
-		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
-			return Err(ChannelError::Close("Got revoke/ACK message when channel was not in an operational state".to_owned()));
-		}
-		if self.channel_state & (ChannelState::PeerDisconnected as u32) == ChannelState::PeerDisconnected as u32 {
-			return Err(ChannelError::Close("Peer sent revoke_and_ack when we needed a channel_reestablish".to_owned()));
-		}
-		if self.channel_state & BOTH_SIDES_SHUTDOWN_MASK == BOTH_SIDES_SHUTDOWN_MASK && self.last_sent_closing_fee.is_some() {
-			return Err(ChannelError::Close("Peer sent revoke_and_ack after we'd started exchanging closing_signeds".to_owned()));
-		}
+		self.check_state_for_htlc_msg()?;
 
 		let secret = secp_check!(SecretKey::from_slice(&msg.per_commitment_secret), "Peer provided an invalid per_commitment_secret".to_owned());
 
