@@ -39,9 +39,11 @@ where
 	let our_channels = channelmanager.list_usable_channels();
 	let mut route_hints = vec![];
 	for channel in our_channels {
-		let short_channel_id = match channel.short_channel_id {
-			Some(id) => id,
-			None => continue,
+		let short_channel_id = if let Some(scid) = channel.inbound_scid_alias { scid } else {
+			match channel.short_channel_id {
+				Some(id) => id,
+				None => continue,
+			}
 		};
 		let forwarding_info = match channel.counterparty.forwarding_info {
 			Some(info) => info,

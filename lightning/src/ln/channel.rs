@@ -655,6 +655,13 @@ pub(super) struct Channel<Signer: Sign> {
 
 	/// This channel's type, as negotiated during channel open
 	channel_type: ChannelTypeFeatures,
+
+	// Our counerparty can offer us SCID aliases which they will map to this channel when routing
+	// outbound payments. These can be used in invoice route hints to provide privacy of which
+	// on-chain transaction is ours.
+	// We only bother storing the most recent SCID alias at any time, though our counterparty has
+	// to store all of them.
+	latest_inbound_scid_alias: Option<u64>,
 }
 
 #[cfg(any(test, feature = "fuzztarget"))]
@@ -899,6 +906,8 @@ impl<Signer: Sign> Channel<Signer> {
 			next_remote_commitment_tx_fee_info_cached: Mutex::new(None),
 
 			workaround_lnd_bug_4006: None,
+
+			latest_inbound_scid_alias: None,
 
 			#[cfg(any(test, feature = "fuzztarget"))]
 			historical_inbound_htlc_fulfills: HashSet::new(),
@@ -1199,6 +1208,8 @@ impl<Signer: Sign> Channel<Signer> {
 			next_remote_commitment_tx_fee_info_cached: Mutex::new(None),
 
 			workaround_lnd_bug_4006: None,
+
+			latest_inbound_scid_alias: None,
 
 			#[cfg(any(test, feature = "fuzztarget"))]
 			historical_inbound_htlc_fulfills: HashSet::new(),
@@ -2068,6 +2079,15 @@ impl<Signer: Sign> Channel<Signer> {
 			return Err(ChannelError::Ignore("Peer sent funding_locked when we needed a channel_reestablish. The peer is likely lnd, see https://github.com/lightningnetwork/lnd/issues/4006".to_owned()));
 		}
 
+		if let Some(scid_alias) = msg.short_channel_id_alias {
+			if Some(scid_alias.0) != self.short_channel_id {
+				// The scid alias provided can be used to route payments *from* our counterparty,
+				// i.e. can be used for inbound payments and provided in invoices, but is not used
+				// whrn routing outbound payments.
+				self.latest_inbound_scid_alias = Some(scid_alias.0);
+			}
+		}
+
 		let non_shutdown_state = self.channel_state & (!MULTI_STATE_FLAGS);
 
 		if non_shutdown_state == ChannelState::FundingSent as u32 {
@@ -2075,17 +2095,28 @@ impl<Signer: Sign> Channel<Signer> {
 		} else if non_shutdown_state == (ChannelState::FundingSent as u32 | ChannelState::OurFundingLocked as u32) {
 			self.channel_state = ChannelState::ChannelFunded as u32 | (self.channel_state & MULTI_STATE_FLAGS);
 			self.update_time_counter += 1;
-		} else if (self.channel_state & (ChannelState::ChannelFunded as u32) != 0 &&
-				 // Note that funding_signed/funding_created will have decremented both by 1!
-				 self.cur_holder_commitment_transaction_number == INITIAL_COMMITMENT_NUMBER - 1 &&
-				 self.cur_counterparty_commitment_transaction_number == INITIAL_COMMITMENT_NUMBER - 1) ||
-				// If we reconnected before sending our funding locked they may still resend theirs:
-				(self.channel_state & (ChannelState::FundingSent as u32 | ChannelState::TheirFundingLocked as u32) ==
-				                      (ChannelState::FundingSent as u32 | ChannelState::TheirFundingLocked as u32)) {
-			if self.counterparty_cur_commitment_point != Some(msg.next_per_commitment_point) {
+		} else if self.channel_state & (ChannelState::ChannelFunded as u32) != 0 ||
+			// If we reconnected before sending our funding locked they may still resend theirs:
+			(self.channel_state & (ChannelState::FundingSent as u32 | ChannelState::TheirFundingLocked as u32) ==
+			                      (ChannelState::FundingSent as u32 | ChannelState::TheirFundingLocked as u32))
+		{
+			// They probably disconnected/reconnected and re-sent the funding_locked, which is
+			// required, or we're getting a fresh SCID alias.
+			let expected_point =
+				if self.cur_counterparty_commitment_transaction_number == INITIAL_COMMITMENT_NUMBER - 1 {
+					// If they haven't ever sent an updated point, the point they send should match
+					// the current one.
+					self.counterparty_cur_commitment_point
+				} else {
+					// If they have sent updated points, funding_locked is always supposed to match
+					// their "first" point, which we re-derive here.
+					self.commitment_secrets.get_secret(INITIAL_COMMITMENT_NUMBER - 1)
+						.map(|secret| SecretKey::from_slice(&secret).ok()).flatten()
+						.map(|sk| PublicKey::from_secret_key(&self.secp_ctx, &sk))
+				};
+			if expected_point != Some(msg.next_per_commitment_point) {
 				return Err(ChannelError::Close("Peer sent a reconnect funding_locked with a different point".to_owned()));
 			}
-			// They probably disconnected/reconnected and re-sent the funding_locked, which is required
 			return Ok(None);
 		} else {
 			return Err(ChannelError::Close("Peer sent a funding_locked at a strange time".to_owned()));
@@ -4102,6 +4133,11 @@ impl<Signer: Sign> Channel<Signer> {
 		self.short_channel_id
 	}
 
+	/// Allowed in any state (including after shutdown)
+	pub fn get_latest_inbound_scid_alias(&self) -> Option<u64> {
+		self.latest_inbound_scid_alias
+	}
+
 	/// Returns the funding_txo we either got from our peer, or were given by
 	/// get_outbound_funding_created.
 	pub fn get_funding_txo(&self) -> Option<OutPoint> {
@@ -5632,6 +5668,7 @@ impl<Signer: Sign> Writeable for Channel<Signer> {
 			(11, self.monitor_pending_finalized_fulfills, vec_type),
 			(13, self.channel_creation_height, required),
 			(15, self.announcement_sigs_state, required),
+			(17, self.latest_inbound_scid_alias, option),
 		});
 
 		Ok(())
@@ -5876,6 +5913,7 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<(&'a K, u32)> for Channel<Signer>
 		// If we read an old Channel, for simplicity we just treat it as "we never sent an
 		// AnnouncementSignatures" which implies we'll re-send it on reconnect, but that's fine.
 		let mut announcement_sigs_state = Some(AnnouncementSigsState::NotSent);
+		let mut latest_inbound_scid_alias = None;
 		read_tlv_fields!(reader, {
 			(0, announcement_sigs, option),
 			(1, minimum_depth, option),
@@ -5889,6 +5927,7 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<(&'a K, u32)> for Channel<Signer>
 			(11, monitor_pending_finalized_fulfills, vec_type),
 			(13, channel_creation_height, option),
 			(15, announcement_sigs_state, option),
+			(17, latest_inbound_scid_alias, option),
 		});
 
 		let chan_features = channel_type.as_ref().unwrap();
@@ -5996,6 +6035,8 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<(&'a K, u32)> for Channel<Signer>
 			next_remote_commitment_tx_fee_info_cached: Mutex::new(None),
 
 			workaround_lnd_bug_4006: None,
+
+			latest_inbound_scid_alias,
 
 			#[cfg(any(test, feature = "fuzztarget"))]
 			historical_inbound_htlc_fulfills,

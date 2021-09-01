@@ -1519,6 +1519,7 @@ mod tests {
 			},
 			funding_txo: Some(OutPoint { txid: bitcoin::Txid::from_slice(&[0; 32]).unwrap(), index: 0 }),
 			short_channel_id,
+			inbound_scid_alias: None,
 			channel_value_satoshis: 0,
 			user_channel_id: 0,
 			balance_msat: 0,
