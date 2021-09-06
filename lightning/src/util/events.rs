@@ -232,6 +232,10 @@ pub enum Event {
 		claim_from_onchain_tx: bool,
 	},
 	/// Used to indicate that a channel with the given `channel_id` is in the process of closure.
+	/// Note that if you try to force-close multiple times a channel through
+	/// [`ChannelManager::force_close_channel`] before receiving the corresponding monitor
+	/// event for the broadcast of the commitment transaction, multiple `ChannelClosed` events
+	/// can be generated.
 	ChannelClosed  {
 		/// The channel_id which has been barren from further off-chain updates but
 		/// funding output might still be not resolved yet.
