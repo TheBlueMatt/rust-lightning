@@ -231,7 +231,7 @@ pub enum Event {
 		/// transaction.
 		claim_from_onchain_tx: bool,
 	},
-	/// Used to indicate that a channel was closed at the given timestamp.
+	/// Used to indicate that a channel with the given `channel_id` is in the process of closure.
 	ChannelClosed  {
 		/// The channel_id which has been barren from further off-chain updates but
 		/// funding output might still be not resolved yet.
