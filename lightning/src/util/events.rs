@@ -437,13 +437,10 @@ impl MaybeReadable for Event {
 			// Versions prior to 0.0.100 did not ignore odd types, instead returning InvalidValue.
 			x if x % 2 == 1 => Ok(None),
 			6u8 => {
-				let f = || {
-					let channel_id = Readable::read(reader)?;
-					let err = Readable::read(reader)?;
-					read_tlv_fields!(reader, {});
-					Ok(Some(Event::ChannelClosed { channel_id, err}))
-				};
-				f()
+				let channel_id = Readable::read(reader)?;
+				let err = Readable::read(reader)?;
+				read_tlv_fields!(reader, {});
+				Ok(Some(Event::ChannelClosed { channel_id, err}))
 			},
 			_ => Err(msgs::DecodeError::InvalidValue)
 		}
