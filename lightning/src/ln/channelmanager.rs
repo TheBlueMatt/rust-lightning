@@ -324,7 +324,7 @@ impl MsgHandleErrInternal {
 					},
 				},
 			},
-			chan_id: Some(channel_id),
+			chan_id: None,
 			shutdown_finish: None,
 		}
 	}
