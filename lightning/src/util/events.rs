@@ -71,25 +71,52 @@ pub enum PaymentPurpose {
 
 #[derive(Clone, Debug)]
 pub enum ClosureDescriptor {
-	ForceClosed,
-	UserInitiated,
-	CounterpartyInitiated,
+	/// Closure generated from ChannelManager::force_close_channel or receiving a peer error
+	/// message by ChannelManager::handle_error
+	ForceClosed {
+		/// If the error is coming from the peer, there should be a human-readable msg
+		peer_msg: Option<String>,
+	},
+	/// Closure generated from receiving a peer's ClosingSigned message. Note the shutdown
+	/// sequence might have been initially initiated by us.
 	CooperativeClosure,
-	UnknownOnchainCommitment,
-	ProcessingError,
+	/// Closure generated from receiving chain::Watch's CommitmentTxBroadcast event.
+	CommitmentTxBroadcasted,
+	/// Closure generated from processing an event, likely a HTLC forward/relay/reception.
+	ProcessingError {
+		err: String,
+	},
+	/// Closure generated from ChannelManager::peer_disconnected.
 	DisconnectedPeer,
 }
 
 impl Writeable for ClosureDescriptor {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ::std::io::Error> {
 		match self {
-			ClosureDescriptor::ForceClosed => 0u8.write(writer)?,
-			ClosureDescriptor::UserInitiated => 1u8.write(writer)?,
-			ClosureDescriptor::CounterpartyInitiated => 2u8.write(writer)?,
-			ClosureDescriptor::CooperativeClosure => 3u8.write(writer)?,
-			ClosureDescriptor::UnknownOnchainCommitment => 4u8.write(writer)?,
-			ClosureDescriptor::ProcessingError => 5u8.write(writer)?,
-			ClosureDescriptor::DisconnectedPeer => 6u8.write(writer)?,
+			ClosureDescriptor::ForceClosed { peer_msg } => {
+				0u8.write(writer)?;
+				if let Some(peer_msg) = peer_msg {
+					0u8.write(writer)?;
+					let bytes = peer_msg.clone().into_bytes();
+					(bytes.len() as u64).write(writer)?;
+					for b in bytes.iter() {
+						b.write(writer)?;
+					}
+				} else {
+					1u8.write(writer)?;
+				}
+			}
+			ClosureDescriptor::CooperativeClosure => 1u8.write(writer)?,
+			ClosureDescriptor::CommitmentTxBroadcasted => 2u8.write(writer)?,
+			ClosureDescriptor::ProcessingError { err } => {
+				3u8.write(writer)?;
+				let bytes = err.clone().into_bytes();
+				(bytes.len() as u64).write(writer)?;
+				for b in bytes.iter() {
+					b.write(writer)?;
+				}
+			},
+			ClosureDescriptor::DisconnectedPeer => 4u8.write(writer)?,
 		}
 		Ok(())
 	}
@@ -98,13 +125,34 @@ impl Writeable for ClosureDescriptor {
 impl Readable for ClosureDescriptor {
 	fn read<R: ::std::io::Read>(reader: &mut R) -> Result<Self, DecodeError> {
 		Ok(match <u8 as Readable>::read(reader)? {
-			0 => ClosureDescriptor::ForceClosed,
-			1 => ClosureDescriptor::UserInitiated,
-			2 => ClosureDescriptor::CounterpartyInitiated,
-			3 => ClosureDescriptor::CooperativeClosure,
-			4 => ClosureDescriptor::UnknownOnchainCommitment,
-			5 => ClosureDescriptor::ProcessingError,
-			6 => ClosureDescriptor::DisconnectedPeer,
+			0 => {
+				let peer_msg = match <u8 as Readable>::read(reader)? {
+					0 => {
+						let bytes_len: u64 = Readable::read(reader)?;
+						let mut bytes: Vec<u8> = Vec::with_capacity(bytes_len as usize);
+						for _ in 0..bytes_len {
+							bytes.push(Readable::read(reader)?);
+						}
+						let err = String::from_utf8(bytes).unwrap();
+						Some(err)
+					},
+					1 => None,
+					_ => return Err(DecodeError::InvalidValue),
+				};
+				ClosureDescriptor::ForceClosed { peer_msg }
+			},
+			1 => ClosureDescriptor::CooperativeClosure,
+			2 => ClosureDescriptor::CommitmentTxBroadcasted,
+			3 => {
+				let bytes_len: u64 = Readable::read(reader)?;
+				let mut bytes: Vec<u8> = Vec::with_capacity(bytes_len as usize);
+				for _ in 0..bytes_len {
+					bytes.push(Readable::read(reader)?);
+				}
+				let err = String::from_utf8(bytes).unwrap();
+				ClosureDescriptor::ProcessingError { err }
+			},
+			4 => ClosureDescriptor::DisconnectedPeer,
 			_ => return Err(DecodeError::InvalidValue),
 		})
 	}
@@ -320,7 +368,7 @@ impl Writeable for Event {
 				});
 			},
 			&Event::ChannelClosed { ref channel_id, ref err } => {
-				6u8.write(writer)?;
+				9u8.write(writer)?;
 				channel_id.write(writer)?;
 				err.write(writer)?;
 				write_tlv_fields!(writer, {});
@@ -438,14 +486,14 @@ impl MaybeReadable for Event {
 				};
 				f()
 			},
-			// Versions prior to 0.0.100 did not ignore odd types, instead returning InvalidValue.
-			x if x % 2 == 1 => Ok(None),
-			6u8 => {
+			9u8 => {
 				let channel_id = Readable::read(reader)?;
 				let err = Readable::read(reader)?;
 				read_tlv_fields!(reader, {});
 				Ok(Some(Event::ChannelClosed { channel_id, err}))
 			},
+			// Versions prior to 0.0.100 did not ignore odd types, instead returning InvalidValue.
+			x if x % 2 == 1 => Ok(None),
 			_ => Err(msgs::DecodeError::InvalidValue)
 		}
 	}

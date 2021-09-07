@@ -837,7 +837,7 @@ macro_rules! handle_error {
 						});
 					}
 					if let Some(channel_id) = chan_id {
-						$self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id,  err: ClosureDescriptor::ProcessingError });
+						$self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id,  err: ClosureDescriptor::ProcessingError { err: err.err.clone() } });
 					}
 				}
 
@@ -1447,7 +1447,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		}
 	}
 
-	fn force_close_channel_with_peer(&self, channel_id: &[u8; 32], peer_node_id: Option<&PublicKey>) -> Result<PublicKey, APIError> {
+	fn force_close_channel_with_peer(&self, channel_id: &[u8; 32], peer_node_id: Option<&PublicKey>, peer_msg: Option<&String>) -> Result<PublicKey, APIError> {
 		let mut chan = {
 			let mut channel_state_lock = self.channel_state.lock().unwrap();
 			let channel_state = &mut *channel_state_lock;
@@ -1473,7 +1473,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				msg: update
 			});
 		}
-		self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: *channel_id,  err: ClosureDescriptor::ForceClosed });
+		self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: *channel_id,  err: ClosureDescriptor::ForceClosed { peer_msg: if peer_msg.is_some() { Some(peer_msg.unwrap().clone()) } else { None }}});
 
 		Ok(chan.get_counterparty_node_id())
 	}
@@ -1482,7 +1482,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 	/// the chain and rejecting new HTLCs on the given channel. Fails if channel_id is unknown to the manager.
 	pub fn force_close_channel(&self, channel_id: &[u8; 32]) -> Result<(), APIError> {
 		let _persistence_guard = PersistenceNotifierGuard::notify_on_drop(&self.total_consistency_lock, &self.persistence_notifier);
-		match self.force_close_channel_with_peer(channel_id, None) {
+		match self.force_close_channel_with_peer(channel_id, None, None) {
 			Ok(counterparty_node_id) => {
 				self.channel_state.lock().unwrap().pending_msg_events.push(
 					events::MessageSendEvent::HandleError {
@@ -3556,6 +3556,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					msg: update
 				});
 			}
+			//TODO: split between CounterpartyInitiated/LocallyInitiated
 			self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: msg.channel_id,  err: ClosureDescriptor::CooperativeClosure });
 		}
 		Ok(())
@@ -3968,7 +3969,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 								msg: update
 							});
 						}
-						self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: chan.channel_id(),  err: ClosureDescriptor::UnknownOnchainCommitment });
+						self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: chan.channel_id(),  err: ClosureDescriptor::CommitmentTxBroadcasted });
 						pending_msg_events.push(events::MessageSendEvent::HandleError {
 							node_id: chan.get_counterparty_node_id(),
 							action: msgs::ErrorAction::SendErrorMessage {
@@ -4504,7 +4505,7 @@ where
 							msg: update
 						});
 					}
-					self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: channel.channel_id(),  err: ClosureDescriptor::UnknownOnchainCommitment });
+					self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: channel.channel_id(),  err: ClosureDescriptor::CommitmentTxBroadcasted });
 					pending_msg_events.push(events::MessageSendEvent::HandleError {
 						node_id: channel.get_counterparty_node_id(),
 						action: msgs::ErrorAction::SendErrorMessage { msg: e },
@@ -4710,7 +4711,7 @@ impl<Signer: Sign, M: Deref , T: Deref , K: Deref , F: Deref , L: Deref >
 							if let Some(short_id) = chan.get_short_channel_id() {
 								short_to_id.remove(&short_id);
 							}
-							self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: chan.channel_id(),  err: ClosureDescriptor::ProcessingError });
+							self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: chan.channel_id(),  err: ClosureDescriptor::DisconnectedPeer });
 							return false;
 						} else {
 							no_channels_remain = false;
@@ -4801,12 +4802,12 @@ impl<Signer: Sign, M: Deref , T: Deref , K: Deref , F: Deref , L: Deref >
 			for chan in self.list_channels() {
 				if chan.counterparty.node_id == *counterparty_node_id {
 					// Untrusted messages from peer, we throw away the error if id points to a non-existent channel
-					let _ = self.force_close_channel_with_peer(&chan.channel_id, Some(counterparty_node_id));
+					let _ = self.force_close_channel_with_peer(&chan.channel_id, Some(counterparty_node_id), Some(&msg.data));
 				}
 			}
 		} else {
 			// Untrusted messages from peer, we throw away the error if id points to a non-existent channel
-			let _ = self.force_close_channel_with_peer(&msg.channel_id, Some(counterparty_node_id));
+			let _ = self.force_close_channel_with_peer(&msg.channel_id, Some(counterparty_node_id), None);
 		}
 	}
 }
