@@ -52,7 +52,7 @@ use ln::onion_utils;
 use ln::msgs::{ChannelMessageHandler, DecodeError, LightningError, OptionalField};
 use chain::keysinterface::{Sign, KeysInterface, KeysManager, InMemorySigner};
 use util::config::UserConfig;
-use util::events::{EventHandler, EventsProvider, MessageSendEvent, MessageSendEventsProvider, ClosureDescriptor};
+use util::events::{EventHandler, EventsProvider, MessageSendEvent, MessageSendEventsProvider, ClosureReason};
 use util::{byte_utils, events};
 use util::ser::{Readable, ReadableArgs, MaybeReadable, Writeable, Writer};
 use util::chacha20::{ChaCha20, ChaChaReader};
@@ -837,7 +837,7 @@ macro_rules! handle_error {
 						});
 					}
 					if let Some(channel_id) = chan_id {
-						$self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id,  err: ClosureDescriptor::ProcessingError { err: err.err.clone() } });
+						$self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id,  err: ClosureReason::ProcessingError { err: err.err.clone() } });
 					}
 				}
 
@@ -1460,6 +1460,16 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				if let Some(short_id) = chan.get().get_short_channel_id() {
 					channel_state.short_to_id.remove(&short_id);
 				}
+				let mut pending_events_lock = self.pending_events.lock().unwrap();
+				if peer_node_id.is_some() {
+					if let Some(peer_msg) = peer_msg {
+						pending_events_lock.push(events::Event::ChannelClosed { channel_id: *channel_id, err: ClosureReason::CounterpartyForceClosed { peer_msg: Some(peer_msg.to_string()) } });
+					} else {
+						pending_events_lock.push(events::Event::ChannelClosed { channel_id: *channel_id, err: ClosureReason::CounterpartyForceClosed { peer_msg: None } });
+					}
+				} else {
+					pending_events_lock.push(events::Event::ChannelClosed { channel_id: *channel_id, err: ClosureReason::HolderForceClosed });
+				}
 				chan.remove_entry().1
 			} else {
 				return Err(APIError::ChannelUnavailable{err: "No such channel".to_owned()});
@@ -1473,7 +1483,6 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				msg: update
 			});
 		}
-		self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: *channel_id,  err: ClosureDescriptor::ForceClosed { peer_msg: if peer_msg.is_some() { Some(peer_msg.unwrap().clone()) } else { None }}});
 
 		Ok(chan.get_counterparty_node_id())
 	}
@@ -3557,7 +3566,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				});
 			}
 			//TODO: split between CounterpartyInitiated/LocallyInitiated
-			self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: msg.channel_id,  err: ClosureDescriptor::CooperativeClosure });
+			self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: msg.channel_id,  err: ClosureReason::CooperativeClosure });
 		}
 		Ok(())
 	}
@@ -3969,7 +3978,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 								msg: update
 							});
 						}
-						self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: chan.channel_id(),  err: ClosureDescriptor::CommitmentTxBroadcasted });
+						self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: chan.channel_id(),  err: ClosureReason::CommitmentTxBroadcasted });
 						pending_msg_events.push(events::MessageSendEvent::HandleError {
 							node_id: chan.get_counterparty_node_id(),
 							action: msgs::ErrorAction::SendErrorMessage {
@@ -4505,7 +4514,7 @@ where
 							msg: update
 						});
 					}
-					self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: channel.channel_id(),  err: ClosureDescriptor::CommitmentTxBroadcasted });
+					self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: channel.channel_id(),  err: ClosureReason::CommitmentTxBroadcasted });
 					pending_msg_events.push(events::MessageSendEvent::HandleError {
 						node_id: channel.get_counterparty_node_id(),
 						action: msgs::ErrorAction::SendErrorMessage { msg: e },
@@ -4696,7 +4705,7 @@ impl<Signer: Sign, M: Deref , T: Deref , K: Deref , F: Deref , L: Deref >
 								msg: update
 							});
 						}
-						self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: chan.channel_id(),  err: ClosureDescriptor::DisconnectedPeer });
+						self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: chan.channel_id(),  err: ClosureReason::DisconnectedPeer });
 						false
 					} else {
 						true
@@ -4711,7 +4720,7 @@ impl<Signer: Sign, M: Deref , T: Deref , K: Deref , F: Deref , L: Deref >
 							if let Some(short_id) = chan.get_short_channel_id() {
 								short_to_id.remove(&short_id);
 							}
-							self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: chan.channel_id(),  err: ClosureDescriptor::DisconnectedPeer });
+							self.pending_events.lock().unwrap().push(events::Event::ChannelClosed { channel_id: chan.channel_id(),  err: ClosureReason::DisconnectedPeer });
 							return false;
 						} else {
 							no_channels_remain = false;
@@ -4807,7 +4816,7 @@ impl<Signer: Sign, M: Deref , T: Deref , K: Deref , F: Deref , L: Deref >
 			}
 		} else {
 			// Untrusted messages from peer, we throw away the error if id points to a non-existent channel
-			let _ = self.force_close_channel_with_peer(&msg.channel_id, Some(counterparty_node_id), None);
+			let _ = self.force_close_channel_with_peer(&msg.channel_id, Some(counterparty_node_id), Some(&msg.data));
 		}
 	}
 }

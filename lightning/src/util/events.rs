@@ -70,13 +70,15 @@ pub enum PaymentPurpose {
 }
 
 #[derive(Clone, Debug)]
-pub enum ClosureDescriptor {
-	/// Closure generated from ChannelManager::force_close_channel or receiving a peer error
-	/// message by ChannelManager::handle_error
-	ForceClosed {
-		/// If the error is coming from the peer, there should be a human-readable msg
+/// Some information provided on the closure source of the channel halting.
+pub enum ClosureReason {
+	/// Closure generated from receiving a peer error message by ChannelManager::handle_error
+	CounterpartyForceClosed {
+		/// The error is coming from the peer, there *might* be a human-readable msg
 		peer_msg: Option<String>,
 	},
+	/// Closure generated from ChannelManager::force_close_channel
+	HolderForceClosed,
 	/// Closure generated from receiving a peer's ClosingSigned message. Note the shutdown
 	/// sequence might have been initially initiated by us.
 	CooperativeClosure,
@@ -90,73 +92,14 @@ pub enum ClosureDescriptor {
 	DisconnectedPeer,
 }
 
-impl Writeable for ClosureDescriptor {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), ::std::io::Error> {
-		match self {
-			ClosureDescriptor::ForceClosed { peer_msg } => {
-				0u8.write(writer)?;
-				if let Some(peer_msg) = peer_msg {
-					0u8.write(writer)?;
-					let bytes = peer_msg.clone().into_bytes();
-					(bytes.len() as u64).write(writer)?;
-					for b in bytes.iter() {
-						b.write(writer)?;
-					}
-				} else {
-					1u8.write(writer)?;
-				}
-			}
-			ClosureDescriptor::CooperativeClosure => 1u8.write(writer)?,
-			ClosureDescriptor::CommitmentTxBroadcasted => 2u8.write(writer)?,
-			ClosureDescriptor::ProcessingError { err } => {
-				3u8.write(writer)?;
-				let bytes = err.clone().into_bytes();
-				(bytes.len() as u64).write(writer)?;
-				for b in bytes.iter() {
-					b.write(writer)?;
-				}
-			},
-			ClosureDescriptor::DisconnectedPeer => 4u8.write(writer)?,
-		}
-		Ok(())
-	}
-}
-
-impl Readable for ClosureDescriptor {
-	fn read<R: ::std::io::Read>(reader: &mut R) -> Result<Self, DecodeError> {
-		Ok(match <u8 as Readable>::read(reader)? {
-			0 => {
-				let peer_msg = match <u8 as Readable>::read(reader)? {
-					0 => {
-						let bytes_len: u64 = Readable::read(reader)?;
-						let mut bytes: Vec<u8> = Vec::with_capacity(bytes_len as usize);
-						for _ in 0..bytes_len {
-							bytes.push(Readable::read(reader)?);
-						}
-						let err = String::from_utf8(bytes).unwrap();
-						Some(err)
-					},
-					1 => None,
-					_ => return Err(DecodeError::InvalidValue),
-				};
-				ClosureDescriptor::ForceClosed { peer_msg }
-			},
-			1 => ClosureDescriptor::CooperativeClosure,
-			2 => ClosureDescriptor::CommitmentTxBroadcasted,
-			3 => {
-				let bytes_len: u64 = Readable::read(reader)?;
-				let mut bytes: Vec<u8> = Vec::with_capacity(bytes_len as usize);
-				for _ in 0..bytes_len {
-					bytes.push(Readable::read(reader)?);
-				}
-				let err = String::from_utf8(bytes).unwrap();
-				ClosureDescriptor::ProcessingError { err }
-			},
-			4 => ClosureDescriptor::DisconnectedPeer,
-			_ => return Err(DecodeError::InvalidValue),
-		})
-	}
-}
+impl_writeable_tlv_based_enum_upgradable!(ClosureReason,
+	(0, CounterpartyForceClosed) => { (1, peer_msg, option) },
+	(2, HolderForceClosed) => {},
+	(6, CommitmentTxBroadcasted) => {},
+	(4, CooperativeClosure) => {},
+	(8, ProcessingError) => { (1, err, required) },
+	(10, DisconnectedPeer) => {},
+);
 
 /// An Event which you should probably take some action in response to.
 ///
@@ -280,16 +223,12 @@ pub enum Event {
 		claim_from_onchain_tx: bool,
 	},
 	/// Used to indicate that a channel with the given `channel_id` is in the process of closure.
-	/// Note that if you try to force-close multiple times a channel through
-	/// [`ChannelManager::force_close_channel`] before receiving the corresponding monitor
-	/// event for the broadcast of the commitment transaction, multiple `ChannelClosed` events
-	/// can be generated.
 	ChannelClosed  {
 		/// The channel_id which has been barren from further off-chain updates but
 		/// funding output might still be not resolved yet.
 		channel_id: [u8; 32],
 		/// A machine-readable error message
-		err: ClosureDescriptor
+		err: ClosureReason
 	}
 }
 
@@ -368,7 +307,7 @@ impl Writeable for Event {
 				});
 			},
 			&Event::ChannelClosed { ref channel_id, ref err } => {
-				9u8.write(writer)?;
+				8u8.write(writer)?;
 				channel_id.write(writer)?;
 				err.write(writer)?;
 				write_tlv_fields!(writer, {});
@@ -486,11 +425,12 @@ impl MaybeReadable for Event {
 				};
 				f()
 			},
-			9u8 => {
+			8u8 => {
 				let channel_id = Readable::read(reader)?;
-				let err = Readable::read(reader)?;
+				let err = MaybeReadable::read(reader)?;
 				read_tlv_fields!(reader, {});
-				Ok(Some(Event::ChannelClosed { channel_id, err}))
+				if err.is_none() { return Ok(None); }
+				Ok(Some(Event::ChannelClosed { channel_id, err: err.unwrap() }))
 			},
 			// Versions prior to 0.0.100 did not ignore odd types, instead returning InvalidValue.
 			x if x % 2 == 1 => Ok(None),
