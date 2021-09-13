@@ -468,9 +468,11 @@ fn do_test_to_remote_after_local_detection(style: ConnectStyle) {
 	assert!(nodes[0].node.list_channels().is_empty());
 	check_closed_broadcast!(nodes[0], true);
 	check_added_monitors!(nodes[0], 1);
+	check_closed_event!(nodes[0], 1);
 	assert!(nodes[1].node.list_channels().is_empty());
 	check_closed_broadcast!(nodes[1], true);
 	check_added_monitors!(nodes[1], 1);
+	check_closed_event!(nodes[1], 1);
 
 	// Drop transactions broadcasted in response to the first commitment transaction (we have good
 	// test coverage of these things already elsewhere).

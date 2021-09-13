@@ -2581,10 +2581,14 @@ fn test_htlc_on_chain_success() {
 		added_monitors.clear();
 	}
 	let forwarded_events = nodes[1].node.get_and_clear_pending_events();
-	assert_eq!(forwarded_events.len(), 2);
-	if let Event::PaymentForwarded { fee_earned_msat: Some(1000), claim_from_onchain_tx: true } = forwarded_events[0] {
-		} else { panic!(); }
+	assert_eq!(forwarded_events.len(), 3);
+	match forwarded_events[0] {
+		Event::ChannelClosed { .. } => {}
+		_ => panic!("Unexpected event"),
+	}
 	if let Event::PaymentForwarded { fee_earned_msat: Some(1000), claim_from_onchain_tx: true } = forwarded_events[1] {
+		} else { panic!(); }
+	if let Event::PaymentForwarded { fee_earned_msat: Some(1000), claim_from_onchain_tx: true } = forwarded_events[2] {
 		} else { panic!(); }
 	let events = nodes[1].node.get_and_clear_pending_msg_events();
 	{
@@ -2652,7 +2656,7 @@ fn test_htlc_on_chain_success() {
 	mine_transaction(&nodes[1], &node_a_commitment_tx[0]);
 	check_closed_broadcast!(nodes[1], true);
 	check_added_monitors!(nodes[1], 1);
-	check_closed_event!(nodes[1], 2);
+	check_closed_event!(nodes[1], 1);
 	let node_txn = nodes[1].tx_broadcaster.txn_broadcasted.lock().unwrap().clone();
 	assert_eq!(node_txn.len(), 6); // ChannelManager : 3 (commitment tx + HTLC-Sucess * 2), ChannelMonitor : 3 (HTLC-Success, 2* RBF bumps of above HTLC txn)
 	let commitment_spend =
@@ -5079,7 +5083,19 @@ fn test_onchain_to_onchain_claim() {
 	let header = BlockHeader { version: 0x20000000, prev_blockhash: nodes[1].best_block_hash(), merkle_root: Default::default(), time: 42, bits: 42, nonce: 42};
 	connect_block(&nodes[1], &Block { header, txdata: vec![c_txn[1].clone(), c_txn[2].clone()]});
 	check_added_monitors!(nodes[1], 1);
-	expect_payment_forwarded!(nodes[1], Some(1000), true);
+	let events = nodes[1].node.get_and_clear_pending_events();
+	assert_eq!(events.len(), 2);
+	match events[0] {
+		Event::ChannelClosed { .. } => {}
+		_ => panic!("Unexpected event"),
+	}
+	match events[1] {
+		Event::PaymentForwarded { fee_earned_msat, claim_from_onchain_tx } => {
+			assert_eq!(fee_earned_msat, Some(1000));
+			assert_eq!(claim_from_onchain_tx, true);
+		},
+		_ => panic!("Unexpected event"),
+	}
 	{
 		let mut b_txn = nodes[1].tx_broadcaster.txn_broadcasted.lock().unwrap();
 		// ChannelMonitor: claim tx
@@ -5088,10 +5104,8 @@ fn test_onchain_to_onchain_claim() {
 		b_txn.clear();
 	}
 	check_added_monitors!(nodes[1], 1);
-	check_closed_event!(nodes[1], 1);
 	let msg_events = nodes[1].node.get_and_clear_pending_msg_events();
 	assert_eq!(msg_events.len(), 3);
-	check_added_monitors!(nodes[1], 1);
 	match msg_events[0] {
 		MessageSendEvent::BroadcastChannelUpdate { .. } => {},
 		_ => panic!("Unexpected event"),

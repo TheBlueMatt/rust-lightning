@@ -2647,6 +2647,8 @@ fn test_temporary_error_during_shutdown() {
 	assert_eq!(txn_a, txn_b);
 	assert_eq!(txn_a.len(), 1);
 	check_spends!(txn_a[0], funding_tx);
+	check_closed_event!(nodes[1], 1);
+	check_closed_event!(nodes[0], 1);
 }
 
 #[test]
@@ -2667,6 +2669,7 @@ fn test_permanent_error_during_sending_shutdown() {
 	assert!(nodes[0].node.close_channel(&channel_id).is_ok());
 	check_closed_broadcast!(nodes[0], true);
 	check_added_monitors!(nodes[0], 2);
+	check_closed_event!(nodes[0], 1);
 }
 
 #[test]
@@ -2689,6 +2692,7 @@ fn test_permanent_error_during_handling_shutdown() {
 	nodes[1].node.handle_shutdown(&nodes[0].node.get_our_node_id(), &InitFeatures::known(), &shutdown);
 	check_closed_broadcast!(nodes[1], true);
 	check_added_monitors!(nodes[1], 2);
+	check_closed_event!(nodes[1], 1);
 }
 
 #[test]

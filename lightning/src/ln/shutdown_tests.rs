@@ -67,6 +67,8 @@ fn pre_funding_lock_shutdown_test() {
 
 	assert!(nodes[0].node.list_channels().is_empty());
 	assert!(nodes[1].node.list_channels().is_empty());
+	check_closed_event!(nodes[0], 1);
+	check_closed_event!(nodes[1], 1);
 }
 
 #[test]
@@ -139,6 +141,8 @@ fn updates_shutdown_wait() {
 	nodes[1].node.handle_closing_signed(&nodes[0].node.get_our_node_id(), &node_0_2nd_closing_signed.unwrap());
 	let (_, node_1_none) = get_closing_signed_broadcast!(nodes[1].node, nodes[0].node.get_our_node_id());
 	assert!(node_1_none.is_none());
+	check_closed_event!(nodes[0], 1);
+	check_closed_event!(nodes[1], 1);
 
 	assert!(nodes[0].node.list_channels().is_empty());
 
@@ -147,6 +151,8 @@ fn updates_shutdown_wait() {
 	close_channel(&nodes[1], &nodes[2], &chan_2.2, chan_2.3, true);
 	assert!(nodes[1].node.list_channels().is_empty());
 	assert!(nodes[2].node.list_channels().is_empty());
+	check_closed_event!(nodes[1], 1);
+	check_closed_event!(nodes[2], 1);
 }
 
 #[test]
@@ -221,6 +227,9 @@ fn htlc_fail_async_shutdown() {
 	close_channel(&nodes[1], &nodes[2], &chan_2.2, chan_2.3, true);
 	assert!(nodes[1].node.list_channels().is_empty());
 	assert!(nodes[2].node.list_channels().is_empty());
+	check_closed_event!(nodes[0], 1);
+	check_closed_event!(nodes[1], 2);
+	check_closed_event!(nodes[2], 1);
 }
 
 fn do_test_shutdown_rebroadcast(recv_count: u8) {
@@ -359,6 +368,7 @@ fn do_test_shutdown_rebroadcast(recv_count: u8) {
 		nodes[1].node.handle_closing_signed(&nodes[0].node.get_our_node_id(), &node_0_2nd_closing_signed.unwrap());
 		let (_, node_1_none) = get_closing_signed_broadcast!(nodes[1].node, nodes[0].node.get_our_node_id());
 		assert!(node_1_none.is_none());
+		check_closed_event!(nodes[1], 1);
 	} else {
 		// If one node, however, received + responded with an identical closing_signed we end
 		// up erroring and node[0] will try to broadcast its own latest commitment transaction.
@@ -387,6 +397,7 @@ fn do_test_shutdown_rebroadcast(recv_count: u8) {
 		// closing_signed so we do it ourselves
 		check_closed_broadcast!(nodes[1], false);
 		check_added_monitors!(nodes[1], 1);
+		check_closed_event!(nodes[1], 1);
 	}
 
 	assert!(nodes[0].node.list_channels().is_empty());
@@ -396,6 +407,9 @@ fn do_test_shutdown_rebroadcast(recv_count: u8) {
 	close_channel(&nodes[1], &nodes[2], &chan_2.2, chan_2.3, true);
 	assert!(nodes[1].node.list_channels().is_empty());
 	assert!(nodes[2].node.list_channels().is_empty());
+	check_closed_event!(nodes[0], 1);
+	check_closed_event!(nodes[1], 1);
+	check_closed_event!(nodes[2], 1);
 }
 
 #[test]
@@ -489,6 +503,7 @@ fn test_upfront_shutdown_script() {
 		MessageSendEvent::SendClosingSigned { node_id, .. } => { assert_eq!(node_id, nodes[1].node.get_our_node_id()) }
 		_ => panic!("Unexpected event"),
 	}
+	check_closed_event!(nodes[2], 1);
 }
 
 #[test]
@@ -538,6 +553,7 @@ fn test_unsupported_anysegwit_upfront_shutdown_script() {
 		},
 		_ => panic!("Unexpected event"),
 	}
+	check_closed_event!(nodes[0], 1);
 }
 
 #[test]
@@ -685,6 +701,7 @@ fn test_unsupported_anysegwit_shutdown_script() {
 		_ => panic!("Unexpected event"),
 	}
 	check_added_monitors!(nodes[0], 1);
+	check_closed_event!(nodes[0], 1);
 }
 
 #[test]
@@ -720,6 +737,7 @@ fn test_invalid_shutdown_script() {
 		_ => panic!("Unexpected event"),
 	}
 	check_added_monitors!(nodes[0], 1);
+	check_closed_event!(nodes[0], 1);
 }
 
 #[derive(PartialEq)]
@@ -785,7 +803,9 @@ fn do_test_closing_signed_reinit_timeout(timeout_step: TimeoutStep) {
 		let node_0_2nd_closing_signed = get_closing_signed_broadcast!(nodes[0].node, nodes[1].node.get_our_node_id());
 		if timeout_step == TimeoutStep::NoTimeout {
 			nodes[1].node.handle_closing_signed(&nodes[0].node.get_our_node_id(), &node_0_2nd_closing_signed.1.unwrap());
+			check_closed_event!(nodes[1], 1);
 		}
+		check_closed_event!(nodes[0], 1);
 	}
 
 	if timeout_step != TimeoutStep::NoTimeout {
@@ -808,6 +828,7 @@ fn do_test_closing_signed_reinit_timeout(timeout_step: TimeoutStep) {
 		         txn[0].output[0].script_pubkey.is_v0_p2wsh()));
 		check_closed_broadcast!(nodes[1], true);
 		check_added_monitors!(nodes[1], 1);
+		check_closed_event!(nodes[1], 1);
 	} else {
 		assert!(txn[0].output[0].script_pubkey.is_v0_p2wpkh());
 		assert!(txn[0].output[1].script_pubkey.is_v0_p2wpkh());
@@ -867,6 +888,8 @@ fn do_simple_legacy_shutdown_test(high_initiator_fee: bool) {
 	nodes[0].node.handle_closing_signed(&nodes[1].node.get_our_node_id(), &node_1_closing_signed.unwrap());
 	let (_, node_0_none) = get_closing_signed_broadcast!(nodes[0].node, nodes[1].node.get_our_node_id());
 	assert!(node_0_none.is_none());
+	check_closed_event!(nodes[0], 1);
+	check_closed_event!(nodes[1], 1);
 }
 
 #[test]
@@ -920,4 +943,6 @@ fn simple_target_feerate_shutdown() {
 	nodes[0].node.handle_closing_signed(&nodes[1].node.get_our_node_id(), &node_1_closing_signed);
 	let (_, node_0_none) = get_closing_signed_broadcast!(nodes[0].node, nodes[1].node.get_our_node_id());
 	assert!(node_0_none.is_none());
+	check_closed_event!(nodes[0], 1);
+	check_closed_event!(nodes[1], 1);
 }
