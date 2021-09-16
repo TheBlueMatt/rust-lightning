@@ -149,8 +149,7 @@ fn do_test_onchain_htlc_reorg(local_commitment: bool, claim: bool) {
 			txdata: vec![],
 		};
 		connect_block(&nodes[1], &block);
-		let events = nodes[1].node.get_and_clear_pending_events();
-		expect_pending_htlcs_forwardable!(nodes[1], events);
+		expect_pending_htlcs_forwardable!(nodes[1]);
 	}
 
 	check_added_monitors!(nodes[1], 1);

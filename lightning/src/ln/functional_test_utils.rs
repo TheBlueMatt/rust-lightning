@@ -770,7 +770,9 @@ macro_rules! check_closed_event {
 		let events = $node.node.get_and_clear_pending_events();
 		assert_eq!(events.len(), $events);
 		match events[0] {
-			Event::ChannelClosed { .. } => {}
+			Event::ChannelClosed { ref reason, .. } => {
+				//assert_eq!(reason, $reason);
+			},
 			_ => panic!("Unexpected event"),
 		}
 	}}
@@ -940,8 +942,7 @@ macro_rules! commitment_signed_dance {
 		{
 			commitment_signed_dance!($node_a, $node_b, $commitment_signed, $fail_backwards, true);
 			if $fail_backwards {
-				let events = $node_a.node.get_and_clear_pending_events();
-				expect_pending_htlcs_forwardable!($node_a, events);
+				expect_pending_htlcs_forwardable!($node_a);
 				check_added_monitors!($node_a, 1);
 
 				let channel_state = $node_a.node.channel_state.lock().unwrap();
@@ -983,9 +984,10 @@ macro_rules! get_route_and_payment_hash {
 }
 
 macro_rules! expect_pending_htlcs_forwardable_ignore {
-	($node: expr, $events: expr) => {{
-		assert_eq!($events.len(), 1);
-		match $events[0] {
+	($node: expr) => {{
+		let events = $node.node.get_and_clear_pending_events();
+		assert_eq!(events.len(), 1);
+		match events[0] {
 			Event::PendingHTLCsForwardable { .. } => { },
 			_ => panic!("Unexpected event"),
 		};
@@ -993,9 +995,23 @@ macro_rules! expect_pending_htlcs_forwardable_ignore {
 }
 
 macro_rules! expect_pending_htlcs_forwardable {
-	($node: expr, $events: expr) => {{
-		expect_pending_htlcs_forwardable_ignore!($node, $events);
+	($node: expr) => {{
+		expect_pending_htlcs_forwardable_ignore!($node);
 		$node.node.process_pending_htlc_forwards();
+	}}
+}
+
+#[cfg(test)]
+macro_rules! expect_pending_htlcs_forwardable_from_events {
+	($node: expr, $events: expr, $ignore: expr) => {{
+		assert_eq!($events.len(), 1);
+		match $events[0] {
+			Event::PendingHTLCsForwardable { .. } => { },
+			_ => panic!("Unexpected event"),
+		};
+		if $ignore {
+			$node.node.process_pending_htlc_forwards();
+		}
 	}}
 }
 
@@ -1114,8 +1130,7 @@ pub fn pass_along_path<'a, 'b, 'c>(origin_node: &Node<'a, 'b, 'c>, expected_path
 		check_added_monitors!(node, 0);
 		commitment_signed_dance!(node, prev_node, payment_event.commitment_msg, false);
 
-		let events = node.node.get_and_clear_pending_events();
-		expect_pending_htlcs_forwardable!(node, events);
+		expect_pending_htlcs_forwardable!(node);
 
 		if idx == expected_path.len() - 1 {
 			let events_2 = node.node.get_and_clear_pending_events();

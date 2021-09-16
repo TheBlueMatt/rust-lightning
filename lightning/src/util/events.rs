@@ -70,30 +70,39 @@ pub enum PaymentPurpose {
 }
 
 #[derive(Clone, Debug)]
-/// Some information provided on the closure source of the channel halting.
+/// The reason which the channel was closed. See individual variants more details.
 pub enum ClosureReason {
-	/// Closure generated from receiving a peer error message by ChannelManager::handle_error
+	/// Closure generated from receiving a peer error message.
 	CounterpartyForceClosed {
-		/// The error is coming from the peer, there *might* be a human-readable msg
-		peer_msg: Option<String>,
+		/// The error which the peer sent us.
+		///
+		/// The string should be sanitized before it is used (e.g emitted to logs
+		/// or printed to stdout). Otherwise, a well crafted error message may trigger
+		/// a security in the terminal emulator or the logging subsystem.
+		peer_msg: String,
 	},
-	/// Closure generated from ChannelManager::force_close_channel
+	/// Closure generated from [`ChannelManager::force_close_channel`], called by the user.
 	HolderForceClosed,
-	/// Closure generated from receiving a peer's ClosingSigned message. Note the shutdown
-	/// sequence might have been initially initiated by us.
+	/// The channel was closed after negotiating a cooperative close and we've now broadcasted
+	/// the cooperative close transaction. Note the shutdown may have been initiated by us.
+	//TODO: split between CounterpartyInitiated/LocallyInitiated
 	CooperativeClosure,
-	/// Closure generated from receiving chain::Watch's CommitmentTxBroadcast event.
+	/// A commitment transaction was confirmed on chain, closing the channel. Most likely this
+	/// commitment transaction came from our counterparty, but it may also have come from
+	/// a copy of our own `ChannelMonitor`.
 	CommitmentTxBroadcasted,
 	/// Closure generated from processing an event, likely a HTLC forward/relay/reception.
 	ProcessingError {
 		err: String,
 	},
-	/// Closure generated from ChannelManager::peer_disconnected.
+	/// The `PeerManager` informed us that we've disconnected from the peer and that it is
+	/// unlikely we'll be able to connect to the peer, most likely because we have incompatible
+	/// features and the peer, or we, require features which we, or the peer, do not support.
 	DisconnectedPeer,
 }
 
 impl_writeable_tlv_based_enum_upgradable!(ClosureReason,
-	(0, CounterpartyForceClosed) => { (1, peer_msg, option) },
+	(0, CounterpartyForceClosed) => { (1, peer_msg, required) },
 	(2, HolderForceClosed) => {},
 	(6, CommitmentTxBroadcasted) => {},
 	(4, CooperativeClosure) => {},
@@ -224,11 +233,11 @@ pub enum Event {
 	},
 	/// Used to indicate that a channel with the given `channel_id` is in the process of closure.
 	ChannelClosed  {
-		/// The channel_id which has been barren from further off-chain updates but
-		/// funding output might still be not resolved yet.
+		/// The channel_id of the channel which has been closed. Note that on-chain transactions
+		/// resolving the channel are likely still awaiting confirmation.
 		channel_id: [u8; 32],
-		/// A machine-readable error message
-		err: ClosureReason
+		/// The reason the channel was closed.
+		reason: ClosureReason
 	}
 }
 
@@ -306,10 +315,10 @@ impl Writeable for Event {
 					(2, claim_from_onchain_tx, required),
 				});
 			},
-			&Event::ChannelClosed { ref channel_id, ref err } => {
-				8u8.write(writer)?;
+			&Event::ChannelClosed { ref channel_id, ref reason } => {
+				9u8.write(writer)?;
 				channel_id.write(writer)?;
-				err.write(writer)?;
+				reason.write(writer)?;
 				write_tlv_fields!(writer, {});
 			},
 		}
@@ -425,12 +434,12 @@ impl MaybeReadable for Event {
 				};
 				f()
 			},
-			8u8 => {
+			9u8 => {
 				let channel_id = Readable::read(reader)?;
-				let err = MaybeReadable::read(reader)?;
+				let reason = MaybeReadable::read(reader)?;
 				read_tlv_fields!(reader, {});
-				if err.is_none() { return Ok(None); }
-				Ok(Some(Event::ChannelClosed { channel_id, err: err.unwrap() }))
+				if reason.is_none() { return Ok(None); }
+				Ok(Some(Event::ChannelClosed { channel_id, reason: reason.unwrap() }))
 			},
 			// Versions prior to 0.0.100 did not ignore odd types, instead returning InvalidValue.
 			x if x % 2 == 1 => Ok(None),

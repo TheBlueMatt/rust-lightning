@@ -122,8 +122,7 @@ fn run_onion_failure_test_with_fail_intercept<F1,F2,F3>(_name: &str, test_case: 
 				expect_htlc_forward!(&nodes[2]);
 				expect_event!(&nodes[2], Event::PaymentReceived);
 				callback_node();
-				let events = nodes[2].node.get_and_clear_pending_events();
-				expect_pending_htlcs_forwardable!(nodes[2], events);
+				expect_pending_htlcs_forwardable!(nodes[2]);
 			}
 
 			let update_2_1 = get_htlc_update_msgs!(nodes[2], nodes[1].node.get_our_node_id());
