@@ -272,6 +272,8 @@ mod tests {
 
 		// Make sure everything is persisted as expected after close.
 		check_persisted_data!(11);
+		nodes[0].node.get_and_clear_pending_events();
+		nodes[1].node.get_and_clear_pending_events();
 	}
 
 	// Test that if the persister's path to channel data is read-only, writing a
@@ -312,6 +314,7 @@ mod tests {
 
 		nodes[1].node.get_and_clear_pending_msg_events();
 		added_monitors.clear();
+		nodes[1].node.get_and_clear_pending_events();
 	}
 
 	// Test that if a persister's directory name is invalid, monitor persistence

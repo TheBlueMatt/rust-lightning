@@ -766,12 +766,12 @@ macro_rules! check_closed_broadcast {
 /// Check that a channel's closing channel event has been issued
 #[macro_export]
 macro_rules! check_closed_event {
-	($node: expr, $events: expr) => {{
+	($node: expr, $events: expr, $reason: expr) => {{
 		let events = $node.node.get_and_clear_pending_events();
 		assert_eq!(events.len(), $events);
 		match events[0] {
 			Event::ChannelClosed { ref reason, .. } => {
-				//assert_eq!(reason, $reason);
+				assert_eq!(*reason, $reason);
 			},
 			_ => panic!("Unexpected event"),
 		}
@@ -1324,8 +1324,7 @@ pub fn fail_payment_along_route<'a, 'b, 'c>(origin_node: &Node<'a, 'b, 'c>, expe
 		assert_eq!(path.last().unwrap().node.get_our_node_id(), expected_paths[0].last().unwrap().node.get_our_node_id());
 	}
 	assert!(expected_paths[0].last().unwrap().node.fail_htlc_backwards(&our_payment_hash));
-	let events = expected_paths[0].last().unwrap().node.get_and_clear_pending_events();
-	expect_pending_htlcs_forwardable!(expected_paths[0].last().unwrap(), events);
+	expect_pending_htlcs_forwardable!(expected_paths[0].last().unwrap());
 	check_added_monitors!(expected_paths[0].last().unwrap(), expected_paths.len());
 
 	let mut per_path_msgs: Vec<((msgs::UpdateFailHTLC, msgs::CommitmentSigned), PublicKey)> = Vec::with_capacity(expected_paths.len());
@@ -1360,8 +1359,7 @@ pub fn fail_payment_along_route<'a, 'b, 'c>(origin_node: &Node<'a, 'b, 'c>, expe
 				node.node.handle_update_fail_htlc(&prev_node.node.get_our_node_id(), &next_msgs.as_ref().unwrap().0);
 				commitment_signed_dance!(node, prev_node, next_msgs.as_ref().unwrap().1, update_next_node);
 				if !update_next_node {
-					let events = node.node.get_and_clear_pending_events();
-					expect_pending_htlcs_forwardable!(node, events);
+					expect_pending_htlcs_forwardable!(node);
 				}
 			}
 			let events = node.node.get_and_clear_pending_msg_events();

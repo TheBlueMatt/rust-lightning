@@ -69,7 +69,7 @@ pub enum PaymentPurpose {
 	SpontaneousPayment(PaymentPreimage),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 /// The reason which the channel was closed. See individual variants more details.
 pub enum ClosureReason {
 	/// Closure generated from receiving a peer error message.

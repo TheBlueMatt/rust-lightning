@@ -5744,7 +5744,6 @@ mod tests {
 
 	#[test]
 	fn test_keysend_dup_payment_hash() {
-		return;
 
 		// (1): Test that a keysend payment with a duplicate payment hash to an existing pending
 		//      outbound regular payment fails as expected.
@@ -5772,10 +5771,8 @@ mod tests {
 		nodes[1].node.handle_update_add_htlc(&nodes[0].node.get_our_node_id(), &payment_event.msgs[0]);
 		check_added_monitors!(nodes[1], 0);
 		commitment_signed_dance!(nodes[1], nodes[0], payment_event.commitment_msg, false);
-		let events = nodes[1].node.get_and_clear_pending_events();
-		expect_pending_htlcs_forwardable!(nodes[1], events);
-		let events = nodes[1].node.get_and_clear_pending_events();
-		expect_pending_htlcs_forwardable!(nodes[1], events);
+		expect_pending_htlcs_forwardable!(nodes[1]);
+		expect_pending_htlcs_forwardable!(nodes[1]);
 		check_added_monitors!(nodes[1], 1);
 		let updates = get_htlc_update_msgs!(nodes[1], nodes[0].node.get_our_node_id());
 		assert!(updates.update_add_htlcs.is_empty());
