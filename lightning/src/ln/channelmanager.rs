@@ -242,7 +242,7 @@ type ShutdownResult = (Option<(OutPoint, ChannelMonitorUpdate)>, Vec<(HTLCSource
 
 struct MsgHandleErrInternal {
 	err: msgs::LightningError,
-	chan_id: Option<[u8; 32]>,
+	chan_id: Option<[u8; 32]>, // If Some a channel of ours has been closed
 	shutdown_finish: Option<(ShutdownResult, Option<msgs::ChannelUpdate>)>,
 }
 impl MsgHandleErrInternal {
@@ -1370,6 +1370,12 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 						if let Ok(channel_update) = self.get_channel_update_for_broadcast(&channel) {
 							channel_state.pending_msg_events.push(events::MessageSendEvent::BroadcastChannelUpdate {
 								msg: channel_update
+							});
+						}
+						if let Ok(mut pending_events_lock) = self.pending_events.lock() {
+							pending_events_lock.push(events::Event::ChannelClosed {
+								channel_id: *channel_id,
+								reason: ClosureReason::HolderForceClosed
 							});
 						}
 					}
@@ -4093,6 +4099,13 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 								});
 							}
 
+							if let Ok(mut pending_events_lock) = self.pending_events.lock() {
+								pending_events_lock.push(events::Event::ChannelClosed {
+									channel_id: *channel_id,
+									reason: ClosureReason::HolderForceClosed
+								});
+							}
+
 							log_info!(self.logger, "Broadcasting {}", log_tx!(tx));
 							self.tx_broadcaster.broadcast_transaction(&tx);
 							false
@@ -5316,6 +5329,7 @@ impl<'a, Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref>
 		let mut funding_txo_set = HashSet::with_capacity(cmp::min(channel_count as usize, 128));
 		let mut by_id = HashMap::with_capacity(cmp::min(channel_count as usize, 128));
 		let mut short_to_id = HashMap::with_capacity(cmp::min(channel_count as usize, 128));
+		let mut channel_closures = Vec::new();
 		for _ in 0..channel_count {
 			let mut channel: Channel<Signer> = Channel::read(reader, &args.keys_manager)?;
 			let funding_txo = channel.get_funding_txo().ok_or(DecodeError::InvalidValue)?;
@@ -5346,6 +5360,10 @@ impl<'a, Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref>
 					let (_, mut new_failed_htlcs) = channel.force_shutdown(true);
 					failed_htlcs.append(&mut new_failed_htlcs);
 					monitor.broadcast_latest_holder_commitment_txn(&args.tx_broadcaster, &args.logger);
+					channel_closures.push(events::Event::ChannelClosed {
+						channel_id: channel.channel_id(),
+						reason: ClosureReason::OutdatedChanMan
+					});
 				} else {
 					if let Some(short_channel_id) = channel.get_short_channel_id() {
 						short_to_id.insert(short_channel_id, channel.channel_id());
@@ -5452,6 +5470,10 @@ impl<'a, Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref>
 
 		let mut secp_ctx = Secp256k1::new();
 		secp_ctx.seeded_randomize(&args.keys_manager.get_secure_random_bytes());
+
+		if !channel_closures.is_empty() {
+			pending_events_read.append(&mut channel_closures);
+		}
 
 		let channel_manager = ChannelManager {
 			genesis_hash,

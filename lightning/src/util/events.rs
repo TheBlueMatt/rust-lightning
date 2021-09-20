@@ -73,12 +73,15 @@ pub enum PaymentPurpose {
 /// The reason which the channel was closed. See individual variants more details.
 pub enum ClosureReason {
 	/// Closure generated from receiving a peer error message.
+	///
+	/// Our counterparty may have broadcasted their latest commitment state, and we have
+	/// as well
 	CounterpartyForceClosed {
 		/// The error which the peer sent us.
 		///
 		/// The string should be sanitized before it is used (e.g emitted to logs
-		/// or printed to stdout). Otherwise, a well crafted error message may trigger
-		/// a security in the terminal emulator or the logging subsystem.
+		/// or printed to stdout). Otherwise, a well crafted error message may exploit
+		/// a security vulnerability in the terminal emulator or the logging subsystem.
 		peer_msg: String,
 	},
 	/// Closure generated from [`ChannelManager::force_close_channel`], called by the user.
@@ -96,9 +99,11 @@ pub enum ClosureReason {
 		err: String,
 	},
 	/// The `PeerManager` informed us that we've disconnected from the peer and that it is
-	/// unlikely we'll be able to connect to the peer, most likely because we have incompatible
-	/// features and the peer, or we, require features which we, or the peer, do not support.
+	/// unlikely we'll be able to connect to the peer.
 	DisconnectedPeer,
+	/// Closure generated from [`ChannelManager::read`] if the ChannelMonitor is newer than
+	/// the ChannelManager deserialized.
+	OutdatedChanMan
 }
 
 impl_writeable_tlv_based_enum_upgradable!(ClosureReason,
@@ -108,6 +113,7 @@ impl_writeable_tlv_based_enum_upgradable!(ClosureReason,
 	(4, CooperativeClosure) => {},
 	(8, ProcessingError) => { (1, err, required) },
 	(10, DisconnectedPeer) => {},
+	(12, OutdatedChanMan) => {},
 );
 
 /// An Event which you should probably take some action in response to.
