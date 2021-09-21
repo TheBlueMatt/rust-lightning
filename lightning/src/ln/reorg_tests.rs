@@ -164,8 +164,7 @@ fn do_test_onchain_htlc_reorg(local_commitment: bool, claim: bool) {
 	}
 	commitment_signed_dance!(nodes[0], nodes[1], htlc_updates.commitment_signed, false, true);
 	if claim {
-		let events = nodes[0].node.get_and_clear_pending_events();
-		expect_payment_sent!(nodes[0], our_payment_preimage, events);
+		expect_payment_sent!(nodes[0], our_payment_preimage);
 	} else {
 		expect_payment_failed_with_update!(nodes[0], our_payment_hash, false, chan_2.0.contents.short_channel_id, true);
 	}

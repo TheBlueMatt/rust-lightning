@@ -1038,9 +1038,10 @@ macro_rules! expect_payment_received {
 }
 
 macro_rules! expect_payment_sent {
-	($node: expr, $expected_payment_preimage: expr, $events: expr) => {
-		assert_eq!($events.len(), 1);
-		match $events[0] {
+	($node: expr, $expected_payment_preimage: expr) => {
+		let events = $node.node.get_and_clear_pending_events();
+		assert_eq!(events.len(), 1);
+		match events[0] {
 			Event::PaymentSent { ref payment_preimage } => {
 				assert_eq!($expected_payment_preimage, *payment_preimage);
 			},
@@ -1094,8 +1095,8 @@ macro_rules! expect_payment_failed_with_update {
 
 #[cfg(test)]
 macro_rules! expect_payment_failed {
-	($node: expr, $events: expr, $expected_payment_hash: expr, $rejected_by_dest: expr $(, $expected_error_code: expr, $expected_error_data: expr)*) => {
-		let events: Vec<Event> = $events;
+	($node: expr, $expected_payment_hash: expr, $rejected_by_dest: expr $(, $expected_error_code: expr, $expected_error_data: expr)*) => {
+		let events = $node.node.get_and_clear_pending_events();
 		assert_eq!(events.len(), 1);
 		match events[0] {
 			Event::PaymentFailed { ref payment_hash, rejected_by_dest, network_update: _, ref error_code, ref error_data, .. } => {
@@ -1273,8 +1274,7 @@ pub fn claim_payment_along_route<'a, 'b, 'c>(origin_node: &Node<'a, 'b, 'c>, exp
 		}
 	}
 	if !skip_last {
-		let events = origin_node.node.get_and_clear_pending_events();
-		expect_payment_sent!(origin_node, our_payment_preimage, events);
+		expect_payment_sent!(origin_node, our_payment_preimage);
 	}
 }
 

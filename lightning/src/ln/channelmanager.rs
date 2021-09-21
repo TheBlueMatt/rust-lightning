@@ -5711,8 +5711,7 @@ mod tests {
 		assert!(updates.update_fee.is_none());
 		nodes[0].node.handle_update_fail_htlc(&nodes[1].node.get_our_node_id(), &updates.update_fail_htlcs[0]);
 		commitment_signed_dance!(nodes[0], nodes[1], updates.commitment_signed, true, true);
-		let events = nodes[0].node.get_and_clear_pending_events();
-		expect_payment_failed!(nodes[0], events, our_payment_hash, true);
+		expect_payment_failed!(nodes[0], our_payment_hash, true);
 
 		// Send the second half of the original MPP payment.
 		nodes[0].node.send_payment_along_path(&route.paths[0], &our_payment_hash, &Some(payment_secret), 200_000, cur_height, mpp_id, &None).unwrap();
@@ -5766,7 +5765,6 @@ mod tests {
 
 	#[test]
 	fn test_keysend_dup_payment_hash() {
-
 		// (1): Test that a keysend payment with a duplicate payment hash to an existing pending
 		//      outbound regular payment fails as expected.
 		// (2): Test that a regular payment with a duplicate payment hash to an existing keysend payment
@@ -5804,8 +5802,7 @@ mod tests {
 		assert!(updates.update_fee.is_none());
 		nodes[0].node.handle_update_fail_htlc(&nodes[1].node.get_our_node_id(), &updates.update_fail_htlcs[0]);
 		commitment_signed_dance!(nodes[0], nodes[1], updates.commitment_signed, true, true);
-		let events = nodes[0].node.get_and_clear_pending_events();
-		expect_payment_failed!(nodes[0], events, payment_hash, true);
+		expect_payment_failed!(nodes[0], payment_hash, true);
 
 		// Finally, claim the original payment.
 		claim_payment(&nodes[0], &expected_route, payment_preimage);
@@ -5843,8 +5840,7 @@ mod tests {
 		assert!(updates.update_fee.is_none());
 		nodes[0].node.handle_update_fail_htlc(&nodes[1].node.get_our_node_id(), &updates.update_fail_htlcs[0]);
 		commitment_signed_dance!(nodes[0], nodes[1], updates.commitment_signed, true, true);
-		let events = nodes[0].node.get_and_clear_pending_events();
-		expect_payment_failed!(nodes[0], events, payment_hash, true);
+		expect_payment_failed!(nodes[0], payment_hash, true);
 
 		// Finally, succeed the keysend payment.
 		claim_payment(&nodes[0], &expected_route, payment_preimage);

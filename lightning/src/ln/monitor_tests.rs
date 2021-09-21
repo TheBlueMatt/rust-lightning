@@ -250,8 +250,7 @@ fn do_test_claim_value_force_close(prev_commitment_tx: bool) {
 	if prev_commitment_tx {
 		// To build a previous commitment transaction, deliver one round of commitment messages.
 		nodes[0].node.handle_update_fulfill_htlc(&nodes[1].node.get_our_node_id(), &b_htlc_msgs.update_fulfill_htlcs[0]);
-		let events = nodes[0].node.get_and_clear_pending_events();
-		expect_payment_sent!(nodes[0], payment_preimage, events);
+		expect_payment_sent!(nodes[0], payment_preimage);
 		nodes[0].node.handle_commitment_signed(&nodes[1].node.get_our_node_id(), &b_htlc_msgs.commitment_signed);
 		check_added_monitors!(nodes[0], 1);
 		let (as_raa, as_cs) = get_revoke_commit_msgs!(nodes[0], nodes[1].node.get_our_node_id());
@@ -363,8 +362,7 @@ fn do_test_claim_value_force_close(prev_commitment_tx: bool) {
 		sorted_vec(nodes[1].chain_monitor.chain_monitor.monitors.read().unwrap().get(&funding_outpoint).unwrap().get_claimable_balances()));
 
 	connect_blocks(&nodes[0], ANTI_REORG_DELAY - 1);
-	let events = nodes[0].node.get_and_clear_pending_events();
-	expect_payment_failed!(nodes[0], events, dust_payment_hash, true);
+	expect_payment_failed!(nodes[0], dust_payment_hash, true);
 	connect_blocks(&nodes[1], ANTI_REORG_DELAY - 1);
 
 	// After ANTI_REORG_DELAY, A will consider its balance fully spendable and generate a
@@ -404,8 +402,7 @@ fn do_test_claim_value_force_close(prev_commitment_tx: bool) {
 	// possibly-claimable up to ANTI_REORG_DELAY, at which point it will drop it.
 	mine_transaction(&nodes[0], &b_broadcast_txn[0]);
 	if !prev_commitment_tx {
-		let events = nodes[0].node.get_and_clear_pending_events();
-		expect_payment_sent!(nodes[0], payment_preimage, events);
+		expect_payment_sent!(nodes[0], payment_preimage);
 	}
 	assert_eq!(sorted_vec(vec![Balance::MaybeClaimableHTLCAwaitingTimeout {
 			claimable_amount_satoshis: 3_000,
@@ -451,8 +448,7 @@ fn do_test_claim_value_force_close(prev_commitment_tx: bool) {
 	connect_blocks(&nodes[0], ANTI_REORG_DELAY - 1);
 	assert_eq!(Vec::<Balance>::new(),
 		nodes[0].chain_monitor.chain_monitor.monitors.read().unwrap().get(&funding_outpoint).unwrap().get_claimable_balances());
-	let events = nodes[0].node.get_and_clear_pending_events();
-	expect_payment_failed!(nodes[0], events, timeout_payment_hash, true);
+	expect_payment_failed!(nodes[0], timeout_payment_hash, true);
 
 	let mut node_a_spendable = nodes[0].chain_monitor.chain_monitor.get_and_clear_pending_events();
 	assert_eq!(node_a_spendable.len(), 1);
