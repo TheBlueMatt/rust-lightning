@@ -769,11 +769,14 @@ macro_rules! check_closed_event {
 	($node: expr, $events: expr, $reason: expr) => {{
 		let events = $node.node.get_and_clear_pending_events();
 		assert_eq!(events.len(), $events);
-		match events[0] {
-			Event::ChannelClosed { ref reason, .. } => {
-				assert_eq!(*reason, $reason);
-			},
-			_ => panic!("Unexpected event"),
+		let expected_reason = $reason;
+		for event in events {
+			match event {
+				Event::ChannelClosed { ref reason, .. } => {
+					assert_eq!(*reason, expected_reason);
+				},
+				_ => panic!("Unexpected event"),
+			}
 		}
 	}}
 }
