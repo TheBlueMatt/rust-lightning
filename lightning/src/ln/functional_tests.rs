@@ -6539,7 +6539,7 @@ fn test_update_add_htlc_bolt2_receiver_check_amount_received_more_than_min() {
 	let err_msg = check_closed_broadcast!(nodes[1], true).unwrap();
 	assert!(regex::Regex::new(r"Remote side tried to send less than our minimum HTLC value\. Lower limit: \(\d+\)\. Actual: \(\d+\)").unwrap().is_match(err_msg.data.as_str()));
 	check_added_monitors!(nodes[1], 1);
-	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: "Remote side tried to send less than our minimum HTLC value. Lower limit: (1000). Actual: (999)".to_string() });
+	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6576,7 +6576,7 @@ fn test_update_add_htlc_bolt2_receiver_sender_can_afford_amount_sent() {
 	let err_msg = check_closed_broadcast!(nodes[1], true).unwrap();
 	assert_eq!(err_msg.data, "Remote HTLC add would put them under remote reserve value");
 	check_added_monitors!(nodes[1], 1);
-	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: "Remote HTLC add would put them under remote reserve value".to_string() });
+	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6621,7 +6621,7 @@ fn test_update_add_htlc_bolt2_receiver_check_max_htlc_limit() {
 	let err_msg = check_closed_broadcast!(nodes[1], true).unwrap();
 	assert!(regex::Regex::new(r"Remote tried to push more than our max accepted HTLCs \(\d+\)").unwrap().is_match(err_msg.data.as_str()));
 	check_added_monitors!(nodes[1], 1);
-	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: "Remote tried to push more than our max accepted HTLCs (50)".to_string() });
+	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6647,7 +6647,7 @@ fn test_update_add_htlc_bolt2_receiver_check_max_in_flight_msat() {
 	let err_msg = check_closed_broadcast!(nodes[1], true).unwrap();
 	assert!(regex::Regex::new("Remote HTLC add would put them over our max HTLC value").unwrap().is_match(err_msg.data.as_str()));
 	check_added_monitors!(nodes[1], 1);
-	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: "Remote HTLC add would put them over our max HTLC value (100000000)".to_string() });
+	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6673,7 +6673,7 @@ fn test_update_add_htlc_bolt2_receiver_check_cltv_expiry() {
 	let err_msg = check_closed_broadcast!(nodes[1], true).unwrap();
 	assert_eq!(err_msg.data,"Remote provided CLTV expiry in seconds instead of block height");
 	check_added_monitors!(nodes[1], 1);
-	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: "Remote provided CLTV expiry in seconds instead of block height".to_string() });
+	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6723,7 +6723,7 @@ fn test_update_add_htlc_bolt2_receiver_check_repeated_id_ignore() {
 	let err_msg = check_closed_broadcast!(nodes[1], true).unwrap();
 	assert!(regex::Regex::new(r"Remote skipped HTLC ID \(skipped ID: \d+\)").unwrap().is_match(err_msg.data.as_str()));
 	check_added_monitors!(nodes[1], 1);
-	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: "Remote skipped HTLC ID (skipped ID: 1)".to_string() });
+	check_closed_event!(nodes[1], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6757,7 +6757,7 @@ fn test_update_fulfill_htlc_bolt2_update_fulfill_htlc_before_commitment() {
 	let err_msg = check_closed_broadcast!(nodes[0], true).unwrap();
 	assert!(regex::Regex::new(r"Remote tried to fulfill/fail HTLC \(\d+\) before it had been committed").unwrap().is_match(err_msg.data.as_str()));
 	check_added_monitors!(nodes[0], 1);
-	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: "Remote tried to fulfill/fail HTLC (0) before it had been committed".to_string() });
+	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6791,7 +6791,7 @@ fn test_update_fulfill_htlc_bolt2_update_fail_htlc_before_commitment() {
 	let err_msg = check_closed_broadcast!(nodes[0], true).unwrap();
 	assert!(regex::Regex::new(r"Remote tried to fulfill/fail HTLC \(\d+\) before it had been committed").unwrap().is_match(err_msg.data.as_str()));
 	check_added_monitors!(nodes[0], 1);
-	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: "Remote tried to fulfill/fail HTLC (0) before it had been committed".to_string() });
+	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6825,7 +6825,7 @@ fn test_update_fulfill_htlc_bolt2_update_fail_malformed_htlc_before_commitment()
 	let err_msg = check_closed_broadcast!(nodes[0], true).unwrap();
 	assert!(regex::Regex::new(r"Remote tried to fulfill/fail HTLC \(\d+\) before it had been committed").unwrap().is_match(err_msg.data.as_str()));
 	check_added_monitors!(nodes[0], 1);
-	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: "Remote tried to fulfill/fail HTLC (0) before it had been committed".to_string() });
+	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6867,7 +6867,7 @@ fn test_update_fulfill_htlc_bolt2_incorrect_htlc_id() {
 	let err_msg = check_closed_broadcast!(nodes[0], true).unwrap();
 	assert_eq!(err_msg.data, "Remote tried to fulfill/fail an HTLC we couldn't find");
 	check_added_monitors!(nodes[0], 1);
-	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: "Remote tried to fulfill/fail an HTLC we couldn\'t find".to_string()});
+	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6909,7 +6909,7 @@ fn test_update_fulfill_htlc_bolt2_wrong_preimage() {
 	let err_msg = check_closed_broadcast!(nodes[0], true).unwrap();
 	assert!(regex::Regex::new(r"Remote tried to fulfill HTLC \(\d+\) with an incorrect preimage").unwrap().is_match(err_msg.data.as_str()));
 	check_added_monitors!(nodes[0], 1);
-	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: "Remote tried to fulfill HTLC (0) with an incorrect preimage".to_string() });
+	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -6958,7 +6958,7 @@ fn test_update_fulfill_htlc_bolt2_missing_badonion_bit_for_malformed_htlc_messag
 	let err_msg = check_closed_broadcast!(nodes[0], true).unwrap();
 	assert_eq!(err_msg.data, "Got update_fail_malformed_htlc with BADONION not set");
 	check_added_monitors!(nodes[0], 1);
-	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: "Got update_fail_malformed_htlc with BADONION not set".to_string() });
+	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: err_msg.data });
 }
 
 #[test]
@@ -7264,15 +7264,17 @@ fn test_user_configurable_csv_delay() {
 	let mut accept_channel = get_event_msg!(nodes[1], MessageSendEvent::SendAcceptChannel, nodes[0].node.get_our_node_id());
 	accept_channel.to_self_delay = 200;
 	nodes[0].node.handle_accept_channel(&nodes[1].node.get_our_node_id(), InitFeatures::known(), &accept_channel);
+	let reason_msg;
 	if let MessageSendEvent::HandleError { ref action, .. } = nodes[0].node.get_and_clear_pending_msg_events()[0] {
 		match action {
 			&ErrorAction::SendErrorMessage { ref msg } => {
 				assert!(regex::Regex::new(r"They wanted our payments to be delayed by a needlessly long period\. Upper limit: \d+\. Actual: \d+").unwrap().is_match(msg.data.as_str()));
+				reason_msg = msg.data.clone();
 			},
-			_ => { assert!(false); }
+			_ => { panic!(); }
 		}
-	} else { assert!(false); }
-	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: "They wanted our payments to be delayed by a needlessly long period. Upper limit: 100. Actual: 200".to_string() });
+	} else { panic!(); }
+	check_closed_event!(nodes[0], 1, ClosureReason::ProcessingError { err: reason_msg });
 
 	// We test msg.to_self_delay <= config.their_to_self_delay is enforced in Channel::new_from_req()
 	nodes[1].node.create_channel(nodes[0].node.get_our_node_id(), 1000000, 1000000, 42, None).unwrap();
