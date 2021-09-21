@@ -442,7 +442,8 @@ fn test_upfront_shutdown_script() {
 	node_0_shutdown.scriptpubkey = Builder::new().push_opcode(opcodes::all::OP_RETURN).into_script().to_p2sh();
 	// Test we enforce upfront_scriptpbukey if by providing a diffrent one at closing that  we disconnect peer
 	nodes[2].node.handle_shutdown(&nodes[0].node.get_our_node_id(), &InitFeatures::known(), &node_0_shutdown);
-    assert!(regex::Regex::new(r"Got shutdown request with a scriptpubkey \([A-Fa-f0-9]+\) which did not match their previous scriptpubkey.").unwrap().is_match(check_closed_broadcast!(nodes[2], true).unwrap().data.as_str()));
+	assert!(regex::Regex::new(r"Got shutdown request with a scriptpubkey \([A-Fa-f0-9]+\) which did not match their previous scriptpubkey.").unwrap().is_match(check_closed_broadcast!(nodes[2], true).unwrap().data.as_str()));
+	check_closed_event!(nodes[2], 1, ClosureReason::ProcessingError { err: "Got shutdown request with a scriptpubkey (a91441c98a140039816273e50db317422c11c2bfcc8887) which did not match their previous scriptpubkey.".to_string() });
 	check_added_monitors!(nodes[2], 1);
 
 	// We test that in case of peer committing upfront to a script, if it doesn't change at closing, we sign
@@ -503,7 +504,6 @@ fn test_upfront_shutdown_script() {
 		MessageSendEvent::SendClosingSigned { node_id, .. } => { assert_eq!(node_id, nodes[1].node.get_our_node_id()) }
 		_ => panic!("Unexpected event"),
 	}
-	check_closed_event!(nodes[2], 1, ClosureReason::ProcessingError { err: "Got shutdown request with a scriptpubkey (a91441c98a140039816273e50db317422c11c2bfcc8887) which did not match their previous scriptpubkey.".to_string() });
 }
 
 #[test]
