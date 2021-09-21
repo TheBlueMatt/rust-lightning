@@ -2569,7 +2569,7 @@ fn test_htlc_on_chain_success() {
 	let forwarded_events = nodes[1].node.get_and_clear_pending_events();
 	assert_eq!(forwarded_events.len(), 3);
 	match forwarded_events[0] {
-		Event::ChannelClosed { .. } => {}
+		Event::ChannelClosed { reason: ClosureReason::CommitmentTxBroadcasted, .. } => {}
 		_ => panic!("Unexpected event"),
 	}
 	if let Event::PaymentForwarded { fee_earned_msat: Some(1000), claim_from_onchain_tx: true } = forwarded_events[1] {
@@ -2690,7 +2690,7 @@ fn test_htlc_on_chain_success() {
 					assert_eq!(payment_preimage, our_payment_preimage_2);
 				}
 			},
-			Event::ChannelClosed { .. } => {},
+			Event::ChannelClosed { reason: ClosureReason::CommitmentTxBroadcasted, .. } => {},
 			_ => panic!("Unexpected event"),
 		}
 	}
@@ -3016,7 +3016,7 @@ fn do_test_commitment_revoked_fail_backward_exhaustive(deliver_bs_raa: bool, use
 	let events = nodes[1].node.get_and_clear_pending_events();
 	assert_eq!(events.len(), if deliver_bs_raa { 2 } else { 3 });
 	match events[0] {
-		Event::ChannelClosed { .. } => { },
+		Event::ChannelClosed { reason: ClosureReason::CommitmentTxBroadcasted, .. } => { },
 		_ => panic!("Unexepected event"),
 	}
 	match events[1] {
@@ -3196,8 +3196,10 @@ fn fail_backward_pending_htlc_upon_channel_failure() {
 		_ => panic!("Unexpected event"),
 	}
 	match events[1] {
-		Event::ChannelClosed { .. } => {}
-		_ => panic!("Unexpected event"),
+		Event::ChannelClosed { reason: ClosureReason::ProcessingError { ref err }, .. } => {
+			assert_eq!(err, "Remote side tried to send a 0-msat HTLC");
+		},
+		_ => panic!("Unexpected event {:?}", events[1]),
 	}
 	check_closed_broadcast!(nodes[0], true);
 	check_added_monitors!(nodes[0], 1);
@@ -5062,7 +5064,7 @@ fn test_onchain_to_onchain_claim() {
 	let events = nodes[1].node.get_and_clear_pending_events();
 	assert_eq!(events.len(), 2);
 	match events[0] {
-		Event::ChannelClosed { .. } => {}
+		Event::ChannelClosed { reason: ClosureReason::CommitmentTxBroadcasted, .. } => {}
 		_ => panic!("Unexpected event"),
 	}
 	match events[1] {
@@ -7862,7 +7864,7 @@ fn test_bump_penalty_txn_on_revoked_htlcs() {
 	let events = nodes[0].node.get_and_clear_pending_events();
 	expect_pending_htlcs_forwardable_from_events!(nodes[0], events[0..1], true);
 	match events[1] {
-		Event::ChannelClosed { .. } => {}
+		Event::ChannelClosed { reason: ClosureReason::CommitmentTxBroadcasted, .. } => {}
 		_ => panic!("Unexpected event"),
 	}
 	let first;
