@@ -134,7 +134,7 @@ impl<T: CustomOnionMessageContents> Writeable for OnionMessageContents<T> {
 }
 
 /// The contents of a custom onion message.
-pub trait CustomOnionMessageContents: Writeable {
+pub trait CustomOnionMessageContents: Writeable + Clone {
 	/// Returns the TLV type identifying the message contents. MUST be >= 64.
 	fn tlv_type(&self) -> u64;
 }

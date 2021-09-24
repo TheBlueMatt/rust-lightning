@@ -71,6 +71,7 @@ use crate::prelude::*;
 /// // ChannelManager.
 /// let onion_messenger = OnionMessenger::new(&keys_manager, logger, your_custom_message_handler);
 ///
+/// # #[derive(Clone)]
 /// # struct YourCustomMessage {}
 /// impl Writeable for YourCustomMessage {
 /// 	fn write<W: Writer>(&self, w: &mut W) -> Result<(), io::Error> {
