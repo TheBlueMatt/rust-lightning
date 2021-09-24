@@ -255,12 +255,12 @@ pub(crate) use self::encode::Encode;
 /// Defines a type identifier for sending messages over the wire.
 ///
 /// Messages implementing this trait specify a type and must be [`Writeable`].
-pub trait Type: core::fmt::Debug + Writeable {
+pub trait Type: core::fmt::Debug + Writeable + Clone {
 	/// Returns the type identifying the message payload.
 	fn type_id(&self) -> u16;
 }
 
-impl<T: core::fmt::Debug + Writeable> Type for T where T: Encode {
+impl<T: core::fmt::Debug + Writeable + Clone> Type for T where T: Encode {
 	fn type_id(&self) -> u16 {
 		T::TYPE
 	}
@@ -548,7 +548,7 @@ mod tests {
 		}
 	}
 
-	#[derive(Eq, PartialEq, Debug)]
+	#[derive(Clone, Eq, PartialEq, Debug)]
 	struct TestCustomMessage {}
 
 	const CUSTOM_MESSAGE_TYPE : u16 = 9000;
