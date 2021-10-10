@@ -2114,6 +2114,13 @@ impl<Signer: Sign> Channel<Signer> {
 						.map(|secret| SecretKey::from_slice(&secret).ok()).flatten()
 						.map(|sk| PublicKey::from_secret_key(&self.secp_ctx, &sk))
 				};
+if self.commitment_secrets.get_secret(INITIAL_COMMITMENT_NUMBER - 1).is_some() {
+let cv = self.commitment_secrets.get_secret(INITIAL_COMMITMENT_NUMBER - 1)
+	.map(|secret| SecretKey::from_slice(&secret).ok()).flatten()
+	.map(|sk| PublicKey::from_secret_key(&self.secp_ctx, &sk));
+assert_eq!(cv, expected_point);
+panic!();
+}
 			if expected_point != Some(msg.next_per_commitment_point) {
 				return Err(ChannelError::Close("Peer sent a reconnect funding_locked with a different point".to_owned()));
 			}
