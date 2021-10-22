@@ -32,7 +32,7 @@
 //! # use lightning::ln::msgs::LightningError;
 //! # use lightning::routing;
 //! # use lightning::routing::network_graph::NodeId;
-//! # use lightning::routing::router::{Route, RouteParameters};
+//! # use lightning::routing::router::{Route, RouteHop, RouteParameters};
 //! # use lightning::util::events::{Event, EventHandler, EventsProvider};
 //! # use lightning::util::logger::{Logger, Record};
 //! # use lightning_invoice::Invoice;
@@ -70,6 +70,7 @@
 //! #     fn channel_penalty_msat(
 //! #         &self, _short_channel_id: u64, _source: &NodeId, _target: &NodeId
 //! #     ) -> u64 { 0 }
+//! #     fn payment_path_failed(&mut self, _path: &Vec<RouteHop>, _short_channel_id: u64) {}
 //! # }
 //! #
 //! # struct FakeLogger {};
@@ -124,7 +125,7 @@ use secp256k1::key::PublicKey;
 
 use std::collections::hash_map::{self, HashMap};
 use std::ops::Deref;
-use std::sync::Mutex;
+use std::sync::{Mutex, RwLock};
 use std::time::{Duration, SystemTime};
 
 /// A utility for paying [`Invoice]`s.
@@ -138,7 +139,7 @@ where
 {
 	payer: P,
 	router: R,
-	scorer: S,
+	scorer: RwLock<S>,
 	logger: L,
 	event_handler: E,
 	payment_cache: Mutex<HashMap<PaymentHash, usize>>,
@@ -204,12 +205,20 @@ where
 		Self {
 			payer,
 			router,
-			scorer,
+			scorer: RwLock::new(scorer),
 			logger,
 			event_handler,
 			payment_cache: Mutex::new(HashMap::new()),
 			retry_attempts,
 		}
+	}
+
+	/// Returns a read-only reference to the parameterized [`routing::Score`].
+	///
+	/// Useful if the scorer needs to be persisted. Be sure to drop the returned guard immediately
+	/// after use since retrying failed payment paths require write access.
+	pub fn scorer(&self) -> std::sync::RwLockReadGuard<'_, S> {
+		self.scorer.read().unwrap()
 	}
 
 	/// Pays the given [`Invoice`], caching it for later use in case a retry is needed.
@@ -258,7 +267,7 @@ where
 					&payer,
 					&params,
 					Some(&first_hops.iter().collect::<Vec<_>>()),
-					&self.scorer,
+					&*self.scorer.read().unwrap(),
 				).map_err(|e| PaymentError::Routing(e))?;
 
 				let payment_hash = PaymentHash(invoice.payment_hash().clone().into_inner());
@@ -278,7 +287,8 @@ where
 		let payer = self.payer.node_id();
 		let first_hops = self.payer.first_hops();
 		let route = self.router.find_route(
-			&payer, &params, Some(&first_hops.iter().collect::<Vec<_>>()), &self.scorer
+			&payer, &params, Some(&first_hops.iter().collect::<Vec<_>>()),
+			&*self.scorer.read().unwrap()
 		).map_err(|e| PaymentError::Routing(e))?;
 		self.payer.retry_payment(&route, payment_id).map_err(|e| PaymentError::Sending(e))
 	}
@@ -311,7 +321,13 @@ where
 {
 	fn handle_event(&self, event: &Event) {
 		match event {
-			Event::PaymentPathFailed { payment_id, payment_hash, rejected_by_dest, retry, .. } => {
+			Event::PaymentPathFailed {
+				payment_id, payment_hash, rejected_by_dest, path, short_channel_id, retry, ..
+			} => {
+				if let Some(short_channel_id) = short_channel_id {
+					self.scorer.write().unwrap().payment_path_failed(path, *short_channel_id);
+				}
+
 				let mut payment_cache = self.payment_cache.lock().unwrap();
 				let entry = loop {
 					let entry = payment_cache.entry(*payment_hash);
@@ -862,6 +878,39 @@ mod tests {
 		}
 	}
 
+	#[test]
+	fn scores_failed_channel() {
+		let event_handled = core::cell::RefCell::new(false);
+		let event_handler = |_: &_| { *event_handled.borrow_mut() = true; };
+
+		let payment_preimage = PaymentPreimage([1; 32]);
+		let invoice = invoice(payment_preimage);
+		let payment_hash = PaymentHash(invoice.payment_hash().clone().into_inner());
+		let final_value_msat = invoice.amount_milli_satoshis().unwrap();
+		let path = TestRouter::path_for_value(final_value_msat);
+		let short_channel_id = Some(path[0].short_channel_id);
+
+		let payer = TestPayer::new();
+		let router = TestRouter {};
+		let scorer = TestScorer::new().expect_channel_failure(short_channel_id.unwrap());
+		let logger = TestLogger::new();
+		let invoice_payer =
+			InvoicePayer::new(&payer, router, scorer, &logger, event_handler, RetryAttempts(2));
+
+		let payment_id = Some(invoice_payer.pay_invoice(&invoice).unwrap());
+		let event = Event::PaymentPathFailed {
+			payment_id,
+			payment_hash,
+			network_update: None,
+			rejected_by_dest: false,
+			all_paths_failed: false,
+			path,
+			short_channel_id,
+			retry: Some(TestRouter::retry_for_invoice(&invoice)),
+		};
+		invoice_payer.handle_event(&event);
+	}
+
 	struct TestRouter;
 
 	impl TestRouter {
@@ -933,16 +982,45 @@ mod tests {
 		}
 	}
 
-	struct TestScorer;
+	struct TestScorer {
+		expectations: std::collections::VecDeque<u64>,
+	}
 
 	impl TestScorer {
-		fn new() -> Self { Self {} }
+		fn new() -> Self {
+			Self {
+				expectations: std::collections::VecDeque::new(),
+			}
+		}
+
+		fn expect_channel_failure(mut self, short_channel_id: u64) -> Self {
+			self.expectations.push_back(short_channel_id);
+			self
+		}
 	}
 
 	impl routing::Score for TestScorer {
 		fn channel_penalty_msat(
 			&self, _short_channel_id: u64, _source: &NodeId, _target: &NodeId
 		) -> u64 { 0 }
+
+		fn payment_path_failed(&mut self, _path: &Vec<RouteHop>, short_channel_id: u64) {
+			if let Some(expected_short_channel_id) = self.expectations.pop_front() {
+				assert_eq!(short_channel_id, expected_short_channel_id);
+			}
+		}
+	}
+
+	impl Drop for TestScorer {
+		fn drop(&mut self) {
+			if std::thread::panicking() {
+				return;
+			}
+
+			if !self.expectations.is_empty() {
+				panic!("Unsatisfied channel failure expectations: {:?}", self.expectations);
+			}
+		}
 	}
 
 	struct TestPayer {
