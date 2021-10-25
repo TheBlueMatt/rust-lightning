@@ -1535,7 +1535,9 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 				let mut do_disconnect_peer = false;
 				if !peer.channel_encryptor.is_ready_for_encryption() || peer.their_node_id.is_none() {
 					// The peer needs to complete its handshake before we can exchange messages. We
-					// give peers one timer tick to complet handshake.
+					// give peers one timer tick to complete handshake, reusing
+					// `awaiting_pong_tick_intervals` to track number of timer ticks taken for
+					// handshake completion.
 					if peer.awaiting_pong_tick_intervals != 0 {
 						do_disconnect_peer = true;
 					} else {
