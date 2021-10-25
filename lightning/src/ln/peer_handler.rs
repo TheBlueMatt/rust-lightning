@@ -1729,11 +1729,20 @@ mod tests {
 
 		// Make each peer to read the messages that the other peer just wrote to them. Note that
 		// due to the max-messagse-before-bing limits this may take a few iterations to complete.
-		for _ in 0..10 {
+		for _ in 0..150/super::BUFFER_DRAIN_MSGS_PER_TICK + 1 {
 			peers[0].process_events();
-			peers[1].read_event(&mut fd_b, &fd_a.outbound_data.lock().unwrap().split_off(0)).unwrap();
+			let b_read_data = fd_a.outbound_data.lock().unwrap().split_off(0);
+			assert!(!b_read_data.is_empty());
+
+			peers[1].read_event(&mut fd_b, &b_read_data).unwrap();
 			peers[1].process_events();
-			peers[0].read_event(&mut fd_a, &fd_b.outbound_data.lock().unwrap().split_off(0)).unwrap();
+
+			let a_read_data = fd_b.outbound_data.lock().unwrap().split_off(0);
+			assert!(!a_read_data.is_empty());
+			peers[0].read_event(&mut fd_a, &a_read_data).unwrap();
+
+			peers[1].process_events();
+			assert_eq!(fd_b.outbound_data.lock().unwrap().len(), 0, "Until B receives data, it shouldn't send more messages");
 		}
 
 		// Check that each peer has received the expected number of channel updates and channel
