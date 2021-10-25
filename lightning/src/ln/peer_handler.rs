@@ -1767,4 +1767,37 @@ mod tests {
 		assert_eq!(cfgs[1].routing_handler.chan_upds_recvd.load(Ordering::Acquire), 100);
 		assert_eq!(cfgs[1].routing_handler.chan_anns_recvd.load(Ordering::Acquire), 50);
 	}
+
+	#[test]
+	fn test_handshake_timeout() {
+		// Tests that we time out a peer still waiting on handshake completion after a full timer
+		// tick.
+		let cfgs = create_peermgr_cfgs(2);
+		cfgs[0].routing_handler.request_full_sync.store(true, Ordering::Release);
+		cfgs[1].routing_handler.request_full_sync.store(true, Ordering::Release);
+		let peers = create_network(2, &cfgs);
+
+		let secp_ctx = Secp256k1::new();
+		let a_id = PublicKey::from_secret_key(&secp_ctx, &peers[0].our_node_secret);
+		let mut fd_a = FileDescriptor { fd: 1, outbound_data: Arc::new(Mutex::new(Vec::new())) };
+		let mut fd_b = FileDescriptor { fd: 1, outbound_data: Arc::new(Mutex::new(Vec::new())) };
+		let initial_data = peers[1].new_outbound_connection(a_id, fd_b.clone()).unwrap();
+		peers[0].new_inbound_connection(fd_a.clone()).unwrap();
+
+		// If we get a single timer tick before completion, that's fine
+		assert_eq!(peers[0].peers.lock().unwrap().peers.len(), 1);
+		peers[0].timer_tick_occurred();
+		assert_eq!(peers[0].peers.lock().unwrap().peers.len(), 1);
+
+		assert_eq!(peers[0].read_event(&mut fd_a, &initial_data).unwrap(), false);
+		peers[0].process_events();
+		assert_eq!(peers[1].read_event(&mut fd_b, &fd_a.outbound_data.lock().unwrap().split_off(0)).unwrap(), false);
+		peers[1].process_events();
+
+		// ...but if we get a second timer tick, we should disconnect the peer
+		peers[0].timer_tick_occurred();
+		assert_eq!(peers[0].peers.lock().unwrap().peers.len(), 0);
+
+		assert!(peers[0].read_event(&mut fd_a, &fd_b.outbound_data.lock().unwrap().split_off(0)).is_err());
+	}
 }
