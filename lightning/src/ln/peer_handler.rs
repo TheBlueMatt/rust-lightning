@@ -1544,6 +1544,13 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 					}
 				}
 
+				if peer.awaiting_pong_tick_intervals == -1 {
+					// Magic value set in `maybe_send_extra_ping`.
+					peer.awaiting_pong_tick_intervals = 1;
+					peer.received_message_since_timer_tick = false;
+					return true;
+				}
+
 				if do_disconnect_peer
 					|| (peer.awaiting_pong_timertick_intervals > 0 && !peer.received_message_since_timer_tick)
 					|| peer.awaiting_pong_timertick_intervals as u64 >
@@ -1560,13 +1567,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 					}
 					return false;
 				}
-
 				peer.received_message_since_timer_tick = false;
-				if peer.awaiting_pong_timer_tick_intervals == -1 {
-					// Magic value set in `maybe_send_extra_ping`.
-					peer.awaiting_pong_timer_tick_intervals = 1;
-					return true;
-				}
 
 				if peer.awaiting_pong_timer_tick_intervals > 0 {
 					peer.awaiting_pong_timer_tick_intervals += 1;
