@@ -170,7 +170,7 @@ impl routing::Score for Scorer {
 
 #[cfg(not(feature = "no-std"))]
 fn decay_from(penalty_msat: u64, last_failure: &SystemTime, decay_interval: Duration) -> u64 {
-	let decays = last_failure.elapsed().map_or(0, |elapsed| {
+	let decays = last_failure.elapsed().ok().map_or(0, |elapsed| {
 		elapsed.as_secs() / decay_interval.as_secs()
 	});
 	penalty_msat >> decays
