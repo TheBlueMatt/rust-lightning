@@ -78,14 +78,14 @@ pub struct ScoringParameters {
 
 	/// A penalty in msats to apply to a channel upon failure.
 	///
-	/// This may be reduced over time based on [`failure_penalty_decay_interval`].
+	/// This may be reduced over time based on [`failure_penalty_half_life`].
 	///
-	/// [`failure_penalty_decay_interval`]: Self::failure_penalty_decay_interval
+	/// [`failure_penalty_half_life`]: Self::failure_penalty_half_life
 	pub failure_penalty_msat: u64,
 
 	/// The time needed before any accumulated channel failure penalties are cut in half.
 	#[cfg(not(feature = "no-std"))]
-	pub failure_penalty_decay_interval: Duration,
+	pub failure_penalty_half_life: Duration,
 }
 
 impl Scorer {
@@ -103,13 +103,13 @@ impl Scorer {
 			base_penalty_msat: penalty_msat,
 			failure_penalty_msat: 0,
 			#[cfg(not(feature = "no-std"))]
-			failure_penalty_decay_interval: Duration::from_secs(0),
+			failure_penalty_half_life: Duration::from_secs(0),
 		})
 	}
 
 	#[cfg(not(feature = "no-std"))]
 	fn decay_from(&self, penalty_msat: u64, last_failure: &SystemTime) -> u64 {
-		decay_from(penalty_msat, last_failure, self.params.failure_penalty_decay_interval)
+		decay_from(penalty_msat, last_failure, self.params.failure_penalty_half_life)
 	}
 }
 
@@ -125,7 +125,7 @@ impl Default for ScoringParameters {
 			base_penalty_msat: 500,
 			failure_penalty_msat: 1024,
 			#[cfg(not(feature = "no-std"))]
-			failure_penalty_decay_interval: Duration::from_secs(3600),
+			failure_penalty_half_life: Duration::from_secs(3600),
 		}
 	}
 }
@@ -150,11 +150,11 @@ impl routing::Score for Scorer {
 		let failure_penalty_msat = self.params.failure_penalty_msat;
 		#[cfg(not(feature = "no-std"))]
 		{
-			let decay_interval = self.params.failure_penalty_decay_interval;
+			let half_life = self.params.failure_penalty_half_life;
 			self.channel_failures
 				.entry(short_channel_id)
 				.and_modify(|(penalty_msat, last_failure)| {
-					let decayed_penalty = decay_from(*penalty_msat, last_failure, decay_interval);
+					let decayed_penalty = decay_from(*penalty_msat, last_failure, half_life);
 					*penalty_msat = decayed_penalty + failure_penalty_msat;
 					*last_failure = SystemTime::now();
 				})
@@ -169,9 +169,9 @@ impl routing::Score for Scorer {
 }
 
 #[cfg(not(feature = "no-std"))]
-fn decay_from(penalty_msat: u64, last_failure: &SystemTime, decay_interval: Duration) -> u64 {
+fn decay_from(penalty_msat: u64, last_failure: &SystemTime, half_life: Duration) -> u64 {
 	let decays = last_failure.elapsed().ok().map_or(0, |elapsed| {
-		elapsed.as_secs() / decay_interval.as_secs()
+		elapsed.as_secs() / half_life.as_secs()
 	});
 	penalty_msat >> decays
 }
