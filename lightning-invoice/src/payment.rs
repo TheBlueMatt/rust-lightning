@@ -187,6 +187,17 @@ pub enum PaymentError {
 	Sending(PaymentSendFailure),
 }
 
+/// A read-only version of the scorer.
+pub struct ReadOnlyScorer<'a, S: routing::Score>(std::sync::RwLockReadGuard<'a, S>);
+
+impl<'a, S: routing::Score> Deref for ReadOnlyScorer<'a, S> {
+	type Target = S;
+
+	fn deref(&self) -> &Self::Target {
+		&*self.0
+	}
+}
+
 impl<P: Deref, R, S, L: Deref, E> InvoicePayer<P, R, S, L, E>
 where
 	P::Target: Payer,
@@ -217,8 +228,8 @@ where
 	///
 	/// Useful if the scorer needs to be persisted. Be sure to drop the returned guard immediately
 	/// after use since retrying failed payment paths require write access.
-	pub fn scorer(&self) -> std::sync::RwLockReadGuard<'_, S> {
-		self.scorer.read().unwrap()
+	pub fn scorer(&'_ self) -> ReadOnlyScorer<'_, S> {
+		ReadOnlyScorer(self.scorer.read().unwrap())
 	}
 
 	/// Pays the given [`Invoice`], caching it for later use in case a retry is needed.
