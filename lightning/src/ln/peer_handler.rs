@@ -1734,7 +1734,7 @@ mod tests {
 		let (mut fd_a, mut fd_b) = establish_connection(&peers[0], &peers[1]);
 
 		// Make each peer to read the messages that the other peer just wrote to them. Note that
-		// due to the max-messagse-before-bing limits this may take a few iterations to complete.
+		// due to the max-messagse-before-ping limits this may take a few iterations to complete.
 		for _ in 0..150/super::BUFFER_DRAIN_MSGS_PER_TICK + 1 {
 			peers[0].process_events();
 			let b_read_data = fd_a.outbound_data.lock().unwrap().split_off(0);
