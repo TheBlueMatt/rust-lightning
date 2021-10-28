@@ -117,33 +117,36 @@ use lightning::ln::{PaymentHash, PaymentSecret};
 use lightning::ln::channelmanager::{ChannelDetails, PaymentId, PaymentSendFailure};
 use lightning::ln::msgs::LightningError;
 use lightning::routing;
+use lightning::routing::Score;
 use lightning::routing::router::{Payee, Route, RouteParameters};
 use lightning::util::events::{Event, EventHandler};
 use lightning::util::logger::Logger;
+//use lightning::util::ser::{Writeable, Writer};
 
 use secp256k1::key::PublicKey;
 
 use std::collections::hash_map::{self, HashMap};
 use std::ops::Deref;
-use std::sync::{Mutex, RwLock};
+use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
 /// A utility for paying [`Invoice]`s.
-pub struct InvoicePayer<P: Deref, R, S, L: Deref, E>
+pub struct InvoicePayer<'a: 'b, 'b, P: Deref, R, S, L: Deref, E>
 where
 	P::Target: Payer,
 	R: Router,
-	S: routing::Score,
+	S: routing::LockableScore<'a, 'b>,
 	L::Target: Logger,
 	E: EventHandler,
 {
 	payer: P,
 	router: R,
-	scorer: RwLock<S>,
+	scorer: S,
 	logger: L,
 	event_handler: E,
 	payment_cache: Mutex<HashMap<PaymentHash, usize>>,
 	retry_attempts: RetryAttempts,
+	phantom: std::marker::PhantomData<(&'a (), &'b ())>,
 }
 
 /// A trait defining behavior of an [`Invoice`] payer.
@@ -187,22 +190,11 @@ pub enum PaymentError {
 	Sending(PaymentSendFailure),
 }
 
-/// A read-only version of the scorer.
-pub struct ReadOnlyScorer<'a, S: routing::Score>(std::sync::RwLockReadGuard<'a, S>);
-
-impl<'a, S: routing::Score> Deref for ReadOnlyScorer<'a, S> {
-	type Target = S;
-
-	fn deref(&self) -> &Self::Target {
-		&*self.0
-	}
-}
-
-impl<P: Deref, R, S, L: Deref, E> InvoicePayer<P, R, S, L, E>
+impl<'a: 'b, 'b, P: Deref, R, S, L: Deref, E> InvoicePayer<'a, 'b, P, R, S, L, E>
 where
 	P::Target: Payer,
 	R: Router,
-	S: routing::Score,
+	S: routing::LockableScore<'a, 'b>,
 	L::Target: Logger,
 	E: EventHandler,
 {
@@ -216,20 +208,13 @@ where
 		Self {
 			payer,
 			router,
-			scorer: RwLock::new(scorer),
+			scorer,
 			logger,
 			event_handler,
 			payment_cache: Mutex::new(HashMap::new()),
 			retry_attempts,
+			phantom: std::marker::PhantomData,
 		}
-	}
-
-	/// Returns a read-only reference to the parameterized [`routing::Score`].
-	///
-	/// Useful if the scorer needs to be persisted. Be sure to drop the returned guard immediately
-	/// after use since retrying failed payment paths require write access.
-	pub fn scorer(&'_ self) -> ReadOnlyScorer<'_, S> {
-		ReadOnlyScorer(self.scorer.read().unwrap())
 	}
 
 	/// Pays the given [`Invoice`], caching it for later use in case a retry is needed.
@@ -278,7 +263,7 @@ where
 					&payer,
 					&params,
 					Some(&first_hops.iter().collect::<Vec<_>>()),
-					&*self.scorer.read().unwrap(),
+					&self.scorer.lock(),
 				).map_err(|e| PaymentError::Routing(e))?;
 
 				let payment_hash = PaymentHash(invoice.payment_hash().clone().into_inner());
@@ -299,7 +284,7 @@ where
 		let first_hops = self.payer.first_hops();
 		let route = self.router.find_route(
 			&payer, &params, Some(&first_hops.iter().collect::<Vec<_>>()),
-			&*self.scorer.read().unwrap()
+			&self.scorer.lock()
 		).map_err(|e| PaymentError::Routing(e))?;
 		self.payer.retry_payment(&route, payment_id).map_err(|e| PaymentError::Sending(e))
 	}
@@ -322,11 +307,11 @@ fn has_expired(params: &RouteParameters) -> bool {
 	Invoice::is_expired_from_epoch(&SystemTime::UNIX_EPOCH, expiry_time)
 }
 
-impl<P: Deref, R, S, L: Deref, E> EventHandler for InvoicePayer<P, R, S, L, E>
+impl<'a: 'b, 'b, P: Deref, R, S, L: Deref, E> EventHandler for InvoicePayer<'a, 'b, P, R, S, L, E>
 where
 	P::Target: Payer,
 	R: Router,
-	S: routing::Score,
+	S: routing::LockableScore<'a, 'b>,
 	L::Target: Logger,
 	E: EventHandler,
 {
@@ -336,7 +321,7 @@ where
 				payment_id, payment_hash, rejected_by_dest, path, short_channel_id, retry, ..
 			} => {
 				if let Some(short_channel_id) = short_channel_id {
-					self.scorer.write().unwrap().payment_path_failed(path, *short_channel_id);
+					self.scorer.lock().payment_path_failed(path, *short_channel_id);
 				}
 
 				let mut payment_cache = self.payment_cache.lock().unwrap();
@@ -390,6 +375,51 @@ where
 		self.event_handler.handle_event(event)
 	}
 }
+
+/////
+//pub trait WriteableScore: routing::Score + Writeable {}
+//
+/////
+//pub struct ScorePersister<I, P: Deref, R, S, L: Deref, E>
+//where
+//	I: Deref<Target=InvoicePayer<P, R, S, L, E>>,
+//	P::Target: Payer,
+//	R: Router,
+//	S: WriteableScore,
+//	L::Target: Logger,
+//	E: EventHandler,
+//{
+//	invoice_payer: I,
+//}
+//
+//impl<I, P: Deref, R, S, L: Deref, E> ScorePersister<I, P, R, S, L, E>
+//where
+//	I: Deref<Target=InvoicePayer<P, R, S, L, E>>,
+//	P::Target: Payer,
+//	R: Router,
+//	S: WriteableScore,
+//	L::Target: Logger,
+//	E: EventHandler,
+//{
+//	///
+//	pub fn new(invoice_payer: I) -> Self {
+//		Self { invoice_payer }
+//	}
+//}
+//
+//impl<I, P: Deref, R, S, L: Deref, E> Writeable for ScorePersister<I, P, R, S, L, E>
+//where
+//	I: Deref<Target=InvoicePayer<P, R, S, L, E>>,
+//	P::Target: Payer,
+//	R: Router,
+//	S: WriteableScore,
+//	L::Target: Logger,
+//	E: EventHandler,
+//{
+//	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), std::io::Error> {
+//		self.invoice_payer.scorer.read().unwrap().write(writer)
+//	}
+//}
 
 #[cfg(test)]
 mod tests {

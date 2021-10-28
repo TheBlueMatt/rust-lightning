@@ -17,6 +17,8 @@ use routing::network_graph::NodeId;
 use routing::router::RouteHop;
 
 use prelude::*;
+use core::ops::{Deref, DerefMut};
+use sync::{Mutex, MutexGuard};
 
 /// An interface used to score payment channels for path finding.
 ///
@@ -28,4 +30,28 @@ pub trait Score {
 
 	/// Handles updating channel penalties after failing to route through a channel.
 	fn payment_path_failed(&mut self, path: &Vec<RouteHop>, short_channel_id: u64);
+}
+
+pub trait LockableScore<'a: 'b, 'b> {
+	type Locked: Score;
+
+	fn lock(&'a self) -> Self::Locked;
+}
+
+impl<'a: 'b, 'b, S: 'b + Score, T: Deref<Target=Mutex<S>>> LockableScore<'a, 'b> for T {
+	type Locked = MutexGuard<'b, S>;
+
+	fn lock(&'a self) -> Self::Locked {
+		self.deref().lock().unwrap()
+	}
+}
+
+impl<'a, S: Score> Score for MutexGuard<'a, S> {
+	fn channel_penalty_msat(&self, short_channel_id: u64, source: &NodeId, target: &NodeId) -> u64 {
+		self.deref().channel_penalty_msat(short_channel_id, source, target)
+	}
+
+	fn payment_path_failed(&mut self, path: &Vec<RouteHop>, short_channel_id: u64) {
+		self.deref_mut().payment_path_failed(path, short_channel_id)
+	}
 }
