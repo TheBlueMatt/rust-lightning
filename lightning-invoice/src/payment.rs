@@ -131,11 +131,11 @@ use std::sync::Mutex;
 use std::time::{Duration, SystemTime};
 
 /// A utility for paying [`Invoice]`s.
-pub struct InvoicePayer<'a: 'b, 'b, P: Deref, R, S, L: Deref, E>
+pub struct InvoicePayer<P: Deref, R, S, L: Deref, E>
 where
 	P::Target: Payer,
 	R: Router,
-	S: routing::LockableScore<'a, 'b>,
+	S: for <'b> routing::LockableScore<'b>,
 	L::Target: Logger,
 	E: EventHandler,
 {
@@ -146,7 +146,6 @@ where
 	event_handler: E,
 	payment_cache: Mutex<HashMap<PaymentHash, usize>>,
 	retry_attempts: RetryAttempts,
-	phantom: std::marker::PhantomData<(&'a (), &'b ())>,
 }
 
 /// A trait defining behavior of an [`Invoice`] payer.
@@ -190,11 +189,11 @@ pub enum PaymentError {
 	Sending(PaymentSendFailure),
 }
 
-impl<'a: 'b, 'b, P: Deref, R, S, L: Deref, E> InvoicePayer<'a, 'b, P, R, S, L, E>
+impl<P: Deref, R, S, L: Deref, E> InvoicePayer<P, R, S, L, E>
 where
 	P::Target: Payer,
 	R: Router,
-	S: routing::LockableScore<'a, 'b>,
+	S: for <'b> routing::LockableScore<'b>,
 	L::Target: Logger,
 	E: EventHandler,
 {
@@ -213,7 +212,6 @@ where
 			event_handler,
 			payment_cache: Mutex::new(HashMap::new()),
 			retry_attempts,
-			phantom: std::marker::PhantomData,
 		}
 	}
 
@@ -307,11 +305,11 @@ fn has_expired(params: &RouteParameters) -> bool {
 	Invoice::is_expired_from_epoch(&SystemTime::UNIX_EPOCH, expiry_time)
 }
 
-impl<'a: 'b, 'b, P: Deref, R, S, L: Deref, E> EventHandler for InvoicePayer<'a, 'b, P, R, S, L, E>
+impl<P: Deref, R, S, L: Deref, E> EventHandler for InvoicePayer<P, R, S, L, E>
 where
 	P::Target: Payer,
 	R: Router,
-	S: routing::LockableScore<'a, 'b>,
+	S: for <'b> routing::LockableScore<'b>,
 	L::Target: Logger,
 	E: EventHandler,
 {

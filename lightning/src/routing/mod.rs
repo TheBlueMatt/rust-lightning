@@ -32,16 +32,17 @@ pub trait Score {
 	fn payment_path_failed(&mut self, path: &Vec<RouteHop>, short_channel_id: u64);
 }
 
-pub trait LockableScore<'a: 'b, 'b> {
-	type Locked: Score;
-
-	fn lock(&'a self) -> Self::Locked;
+///
+pub trait LockableScore<'b> {
+	///
+	type Locked: Score + 'b;
+	///
+	fn lock(&'b self) -> Self::Locked;
 }
 
-impl<'a: 'b, 'b, S: 'b + Score, T: Deref<Target=Mutex<S>>> LockableScore<'a, 'b> for T {
+impl<'b, S: Score + 'b, T: Deref<Target=Mutex<S>>> LockableScore<'b> for T {
 	type Locked = MutexGuard<'b, S>;
-
-	fn lock(&'a self) -> Self::Locked {
+	fn lock(&'b self) -> MutexGuard<'b, S> {
 		self.deref().lock().unwrap()
 	}
 }
