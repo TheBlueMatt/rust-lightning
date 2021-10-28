@@ -493,6 +493,10 @@ impl<Descriptor: SocketDescriptor, RM: Deref, L: Deref> PeerManager<Descriptor, 
 	}
 }
 
+/// A simple wrapper that optionally prints " from <pubkey>" for an optional pubkey.
+/// This works around `format!()` taking a reference to each argument, preventing
+/// `if let Some(node_id) = peer.their_node_id { format!(.., node_id) } else { .. }` from compiling
+/// due to lifetime errors.
 struct OptionalFromDebugger<'a>(&'a Option<PublicKey>);
 impl core::fmt::Display for OptionalFromDebugger<'_> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
