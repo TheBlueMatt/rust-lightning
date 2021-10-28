@@ -860,7 +860,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 									let features = InitFeatures::known();
 									let resp = msgs::Init { features };
 									self.enqueue_message(peer, &resp);
-									peer.awaiting_pong_tick_intervals = 0;
+									peer.awaiting_pong_timer_tick_intervals = 0;
 								},
 								NextNoiseStep::ActThree => {
 									let their_node_id = try_potential_handleerror!(peer.channel_encryptor.process_act_three(&peer.pending_read_buffer[..]));
@@ -871,7 +871,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 									let features = InitFeatures::known();
 									let resp = msgs::Init { features };
 									self.enqueue_message(peer, &resp);
-									peer.awaiting_pong_tick_intervals = 0;
+									peer.awaiting_pong_timer_tick_intervals = 0;
 								},
 								NextNoiseStep::NoiseComplete => {
 									if peer.pending_read_is_header {
@@ -1536,26 +1536,26 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 				if !peer.channel_encryptor.is_ready_for_encryption() || peer.their_node_id.is_none() {
 					// The peer needs to complete its handshake before we can exchange messages. We
 					// give peers one timer tick to complete handshake, reusing
-					// `awaiting_pong_tick_intervals` to track number of timer ticks taken for
-					// handshake completion.
-					if peer.awaiting_pong_tick_intervals != 0 {
+					// `awaiting_pong_timer_tick_intervals` to track number of timer ticks taken
+					// for handshake completion.
+					if peer.awaiting_pong_timer_tick_intervals != 0 {
 						do_disconnect_peer = true;
 					} else {
-						peer.awaiting_pong_tick_intervals = 1;
+						peer.awaiting_pong_timer_tick_intervals = 1;
 						return true;
 					}
 				}
 
-				if peer.awaiting_pong_tick_intervals == -1 {
+				if peer.awaiting_pong_timer_tick_intervals == -1 {
 					// Magic value set in `maybe_send_extra_ping`.
-					peer.awaiting_pong_tick_intervals = 1;
+					peer.awaiting_pong_timer_tick_intervals = 1;
 					peer.received_message_since_timer_tick = false;
 					return true;
 				}
 
 				if do_disconnect_peer
-					|| (peer.awaiting_pong_timertick_intervals > 0 && !peer.received_message_since_timer_tick)
-					|| peer.awaiting_pong_timertick_intervals as u64 >
+					|| (peer.awaiting_pong_timer_tick_intervals > 0 && !peer.received_message_since_timer_tick)
+					|| peer.awaiting_pong_timer_tick_intervals as u64 >
 						MAX_BUFFER_DRAIN_TICK_INTERVALS_PER_PEER as u64 * peer_count as u64
 				{
 					descriptors_needing_disconnect.push(descriptor.clone());
