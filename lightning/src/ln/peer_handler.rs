@@ -336,7 +336,7 @@ struct Peer {
 	sync_status: InitSyncTracker,
 
 	msgs_sent_since_pong: usize,
-	awaiting_pong_tick_intervals: i8,
+	awaiting_pong_timer_tick_intervals: i8,
 	received_message_since_timer_tick: bool,
 }
 
@@ -580,7 +580,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 			sync_status: InitSyncTracker::NoSyncRequested,
 
 			msgs_sent_since_pong: 0,
-			awaiting_pong_tick_intervals: 0,
+			awaiting_pong_timer_tick_intervals: 0,
 			received_message_since_timer_tick: false,
 		}).is_some() {
 			panic!("PeerManager driver duplicated descriptors!");
@@ -620,7 +620,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 			sync_status: InitSyncTracker::NoSyncRequested,
 
 			msgs_sent_since_pong: 0,
-			awaiting_pong_tick_intervals: 0,
+			awaiting_pong_timer_tick_intervals: 0,
 			received_message_since_timer_tick: false,
 		}).is_some() {
 			panic!("PeerManager driver duplicated descriptors!");
@@ -1022,7 +1022,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 				}
 			},
 			wire::Message::Pong(_msg) => {
-				peer.awaiting_pong_tick_intervals = 0;
+				peer.awaiting_pong_timer_tick_intervals = 0;
 				peer.msgs_sent_since_pong = 0;
 			},
 
@@ -1497,10 +1497,10 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 
 	/// This is called when we're blocked on sending additional gossip messages until we receive a
 	/// pong. If we aren't waiting on a pong, we take this opportunity to send a ping (setting
-	/// `awaiting_pong_tick_intervals` to a special flag value to indicate this).
+	/// `awaiting_pong_timer_tick_intervals` to a special flag value to indicate this).
 	fn maybe_send_extra_ping(&self, peer: &mut Peer) {
-		if peer.awaiting_pong_tick_intervals == 0 {
-			peer.awaiting_pong_tick_intervals = -1;
+		if peer.awaiting_pong_timer_tick_intervals == 0 {
+			peer.awaiting_pong_timer_tick_intervals = -1;
 			let ping = msgs::Ping {
 				ponglen: 0,
 				byteslen: 64,
@@ -1535,8 +1535,8 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 					return true;
 				}
 
-				if (peer.awaiting_pong_tick_intervals > 0 && !peer.received_message_since_timer_tick)
-					|| peer.awaiting_pong_tick_intervals as u64 >
+				if (peer.awaiting_pong_timer_tick_intervals > 0 && !peer.received_message_since_timer_tick)
+					|| peer.awaiting_pong_timer_tick_intervals as u64 >
 						MAX_BUFFER_DRAIN_TICK_INTERVALS_PER_PEER as u64 * peer_count as u64
 				{
 					descriptors_needing_disconnect.push(descriptor.clone());
@@ -1556,18 +1556,18 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, L: Deref, CMH: Deref> P
 				}
 
 				peer.received_message_since_timer_tick = false;
-				if peer.awaiting_pong_tick_intervals == -1 {
+				if peer.awaiting_pong_timer_tick_intervals == -1 {
 					// Magic value set in `maybe_send_extra_ping`.
-					peer.awaiting_pong_tick_intervals = 1;
+					peer.awaiting_pong_timer_tick_intervals = 1;
 					return true;
 				}
 
-				if peer.awaiting_pong_tick_intervals > 0 {
-					peer.awaiting_pong_tick_intervals += 1;
+				if peer.awaiting_pong_timer_tick_intervals > 0 {
+					peer.awaiting_pong_timer_tick_intervals += 1;
 					return true;
 				}
 
-				peer.awaiting_pong_tick_intervals = 1;
+				peer.awaiting_pong_timer_tick_intervals = 1;
 				let ping = msgs::Ping {
 					ponglen: 0,
 					byteslen: 64,
