@@ -13,25 +13,18 @@ use std::io::Write;
 
 pub trait Output : Clone  + 'static {
 	fn locked_write(&self, data: &[u8]);
-	fn locked_contains(&self, pattern: &str) -> bool;
 }
 
 #[derive(Clone)]
 pub struct DevNull {}
 impl Output for DevNull {
 	fn locked_write(&self, _data: &[u8]) {}
-	fn locked_contains(&self, _pattern: &str) -> bool {
-		false
-	}
 }
 #[derive(Clone)]
 pub struct StringBuffer(Arc<Mutex<String>>);
 impl Output for StringBuffer {
 	fn locked_write(&self, data: &[u8]) {
 		self.0.lock().unwrap().push_str(&String::from_utf8(data.to_vec()).unwrap());
-	}
-	fn locked_contains(&self, pattern: &str) -> bool {
-		self.0.lock().unwrap().contains(pattern)
 	}
 }
 impl StringBuffer {
