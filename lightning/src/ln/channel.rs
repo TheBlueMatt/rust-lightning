@@ -2430,7 +2430,10 @@ panic!();
 
 	fn check_state_for_htlc_msg(&self) -> Result<(), ChannelError> {
 		if (self.channel_state & (ChannelState::ChannelFunded as u32)) != (ChannelState::ChannelFunded as u32) {
-			return Err(ChannelError::Close("Got HTLC message when channel was not in an operational state".to_owned()));
+			let early_funding_locked_state = ChannelState::FundingSent as u32 | ChannelState::OurFundingLocked as u32;
+			if self.channel_state & early_funding_locked_state != early_funding_locked_state {
+				return Err(ChannelError::Close("Got HTLC message when channel was not in an operational state".to_owned()));
+			}
 		}
 		if self.channel_state & (ChannelState::PeerDisconnected as u32) == ChannelState::PeerDisconnected as u32 {
 			return Err(ChannelError::Close("Peer sent HTLC message when we needed a channel_reestablish".to_owned()));
@@ -4282,6 +4285,7 @@ panic!();
 
 	/// Returns true if this channel is fully established and not known to be closing.
 	/// Allowed in any state (including after shutdown)
+	#[inline]
 	pub fn is_usable(&self) -> bool {
 		let mask = ChannelState::ChannelFunded as u32 | BOTH_SIDES_SHUTDOWN_MASK;
 		(self.channel_state & mask) == (ChannelState::ChannelFunded as u32) && !self.monitor_pending_funding_locked
@@ -4290,8 +4294,24 @@ panic!();
 	/// Returns true if this channel is currently available for use. This is a superset of
 	/// is_usable() and considers things like the channel being temporarily disabled.
 	/// Allowed in any state (including after shutdown)
+	#[inline]
 	pub fn is_live(&self) -> bool {
 		self.is_usable() && (self.channel_state & (ChannelState::PeerDisconnected as u32) == 0)
+	}
+
+	/// Returns true if this channel is currently available for receiving inbound payments *to us*.
+	/// This may be true even if [`is_usable`] (or [`is_live`]) is *not* true, if our counterparty
+	/// is willing to forward payments to us with 0 confirmations on the funding transaction.
+	/// Note that payments received on this channel MUST NOT be forwarded unless we've marked the
+	/// channel trusted or [`is_usable`] is also true.
+	/// Allowed in any state (including after shutdown)
+	pub fn is_receivable(&self) -> bool {
+		let non_live_state_reqd = ChannelState::TheirFundingLocked as u32 | ChannelState::ChannelState::FundingSent as u32;
+		self.is_live() || (
+			(self.channel_state & BOTH_SIDES_SHUTDOWN_MASK) == 0 &&
+			(self.channel_state & ChannelState::PeerDisconnected as u32) == 0 &&
+			(self.channel_state & non_live_state_reqd) == non_live_state_reqd
+		)
 	}
 
 	/// Returns true if this channel has been marked as awaiting a monitor update to move forward.

@@ -1274,6 +1274,7 @@ pub struct ChannelDetails {
 	///
 	/// This is a strict superset of `is_funding_locked`.
 	pub is_usable: bool,
+	pub is_receivable: bool,
 	/// True if this channel is (or will be) publicly-announced.
 	pub is_public: bool,
 }
@@ -1828,7 +1829,8 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					force_close_spend_delay: channel.get_counterparty_selected_contest_delay(),
 					is_outbound: channel.is_outbound(),
 					is_funding_locked: channel.is_usable(),
-					is_usable: channel.is_live(),
+					is_outbound_usable: channel.is_live(),
+					is_inbound_usable: channel.is_live(),
 					is_public: channel.should_announce(),
 				});
 			}
@@ -1859,6 +1861,19 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		// internal/external nomenclature, but that's ok cause that's probably what the user
 		// really wanted anyway.
 		self.list_channels_with_filter(|&(_, ref channel)| channel.is_live())
+	}
+
+	/// Gets the list of channels on which we can receive a payment to us, in random order. Useful
+	/// to generate a list of route hints when generating an invoice.
+	///
+	/// These are guaranteed to have their [`ChannelDetails::is_receivable`] value set to true, see the
+	/// documentation for [`ChannelDetails::is_receivable`] for more info on exactly what the criteria
+	/// are.
+	pub fn list_receivable_channels(&self) -> Vec<ChannelDetails> {
+		// Note we use is_live here instead of usable which leads to somewhat confused
+		// internal/external nomenclature, but that's ok cause that's probably what the user
+		// really wanted anyway.
+		self.list_channels_with_filter(|&(_, ref channel)| channel.is_receivable())
 	}
 
 	/// Helper function that issues the channel close events
