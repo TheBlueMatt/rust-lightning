@@ -3596,6 +3596,9 @@ panic!();
 
 			// We have OurFundingLocked set!
 			let next_per_commitment_point = self.holder_signer.get_per_commitment_point(self.cur_holder_commitment_transaction_number, &self.secp_ctx);
+// XXX: We need to figure out exactly what format the FundingLocked should take if the channel has
+// moved forward already due to receiving payments prior to the funding locking in.
+// This needs spec discussion.
 			return Ok(ReestablishResponses {
 				funding_locked: Some(msgs::FundingLocked {
 					channel_id: self.channel_id(),
@@ -4389,7 +4392,8 @@ panic!();
 		if need_commitment_update {
 			if self.channel_state & (ChannelState::MonitorUpdateFailed as u32) == 0 {
 				if self.channel_state & (ChannelState::PeerDisconnected as u32) == 0 {
-					let next_per_commitment_point = self.holder_signer.get_per_commitment_point(self.cur_holder_commitment_transaction_number, &self.secp_ctx);
+					let next_per_commitment_point =
+						self.holder_signer.get_per_commitment_point(INITIAL_COMMITMENT_NUMBER - 1, &self.secp_ctx);
 					return Some(msgs::FundingLocked {
 						channel_id: self.channel_id,
 						next_per_commitment_point,
