@@ -399,12 +399,11 @@ pub trait KeysInterface {
 	fn sign_invoice(&self, invoice_preimage: Vec<u8>) -> Result<RecoverableSignature, ()>;
 }
 
+/// Private key material in [`InMemorySigner`]. This is re-derived from the original key material
+/// upon de-serialization (though for backwards-compatibility is currently written to disk as a
+/// part of the [`InMemorySigner`] serialization, though this will change in the future).
 #[derive(Clone)]
-/// A simple implementation of Sign that just keeps the private keys in memory.
-///
-/// This implementation performs no policy checks and is insufficient by itself as
-/// a secure external signer.
-pub struct InMemorySigner {
+pub struct InMemorySignerKeys {
 	/// Private key of anchor tx
 	pub funding_key: SecretKey,
 	/// Holder secret key for blinded revocation pubkey
@@ -417,6 +416,32 @@ pub struct InMemorySigner {
 	pub htlc_base_key: SecretKey,
 	/// Commitment seed
 	pub commitment_seed: [u8; 32],
+}
+
+impl InMemorySignerKeys {
+	/// Create a new InMemorySignerKeys
+	pub fn new(funding_key: SecretKey, revocation_base_key: SecretKey, payment_key: SecretKey,
+		delayed_payment_base_key: SecretKey, htlc_base_key: SecretKey, commitment_seed: [u8; 32],
+	) -> InMemorySignerKeys {
+		InMemorySignerKeys {
+			funding_key,
+			revocation_base_key,
+			payment_key,
+			delayed_payment_base_key,
+			htlc_base_key,
+			commitment_seed,
+		}
+	}
+}
+
+#[derive(Clone)]
+/// A simple implementation of Sign that just keeps the private keys in memory.
+///
+/// This implementation performs no policy checks and is insufficient by itself as
+/// a secure external signer.
+pub struct InMemorySigner {
+	/// The private key material used to sign.
+	pub key_material: InMemorySignerKeys,
 	/// Holder public keys and basepoints
 	pub(crate) holder_channel_pubkeys: ChannelPublicKeys,
 	/// Counterparty public keys and counterparty/holder selected_contest_delay, populated on channel acceptance
@@ -429,27 +454,17 @@ pub struct InMemorySigner {
 
 impl InMemorySigner {
 	/// Create a new InMemorySigner
-	pub fn new<C: Signing>(
-		secp_ctx: &Secp256k1<C>,
-		funding_key: SecretKey,
-		revocation_base_key: SecretKey,
-		payment_key: SecretKey,
-		delayed_payment_base_key: SecretKey,
-		htlc_base_key: SecretKey,
-		commitment_seed: [u8; 32],
-		channel_value_satoshis: u64,
-		channel_keys_id: [u8; 32]) -> InMemorySigner {
+	pub fn new<C: Signing>(secp_ctx: &Secp256k1<C>, funding_key: SecretKey, revocation_base_key: SecretKey,
+		payment_key: SecretKey, delayed_payment_base_key: SecretKey, htlc_base_key: SecretKey,
+		commitment_seed: [u8; 32], channel_value_satoshis: u64, channel_keys_id: [u8; 32])
+	-> InMemorySigner {
 		let holder_channel_pubkeys =
 			InMemorySigner::make_holder_keys(secp_ctx, &funding_key, &revocation_base_key,
 			                                     &payment_key, &delayed_payment_base_key,
 			                                     &htlc_base_key);
 		InMemorySigner {
-			funding_key,
-			revocation_base_key,
-			payment_key,
-			delayed_payment_base_key,
-			htlc_base_key,
-			commitment_seed,
+			key_material: InMemorySignerKeys::new(funding_key, revocation_base_key, payment_key,
+				delayed_payment_base_key, htlc_base_key, commitment_seed),
 			channel_value_satoshis,
 			holder_channel_pubkeys,
 			channel_parameters: None,
@@ -528,7 +543,7 @@ impl InMemorySigner {
 		let remotepubkey = self.pubkeys().payment_point;
 		let witness_script = bitcoin::Address::p2pkh(&::bitcoin::PublicKey{compressed: true, key: remotepubkey}, Network::Testnet).script_pubkey();
 		let sighash = hash_to_message!(&bip143::SigHashCache::new(spend_tx).signature_hash(input_idx, &witness_script, descriptor.output.value, SigHashType::All)[..]);
-		let remotesig = secp_ctx.sign(&sighash, &self.payment_key);
+		let remotesig = secp_ctx.sign(&sighash, &self.key_material.payment_key);
 
 		let mut witness = Vec::with_capacity(2);
 		witness.push(remotesig.serialize_der().to_vec());
@@ -553,7 +568,7 @@ impl InMemorySigner {
 		if spend_tx.input[input_idx].previous_output != descriptor.outpoint.into_bitcoin_outpoint() { return Err(()); }
 		if spend_tx.input[input_idx].sequence != descriptor.to_self_delay as u32 { return Err(()); }
 
-		let delayed_payment_key = chan_utils::derive_private_key(&secp_ctx, &descriptor.per_commitment_point, &self.delayed_payment_base_key)
+		let delayed_payment_key = chan_utils::derive_private_key(&secp_ctx, &descriptor.per_commitment_point, &self.key_material.delayed_payment_base_key)
 			.expect("We constructed the payment_base_key, so we can only fail here if the RNG is busted.");
 		let delayed_payment_pubkey = PublicKey::from_secret_key(&secp_ctx, &delayed_payment_key);
 		let witness_script = chan_utils::get_revokeable_redeemscript(&descriptor.revocation_pubkey, descriptor.to_self_delay, &delayed_payment_pubkey);
@@ -571,12 +586,12 @@ impl InMemorySigner {
 
 impl BaseSign for InMemorySigner {
 	fn get_per_commitment_point(&self, idx: u64, secp_ctx: &Secp256k1<secp256k1::All>) -> PublicKey {
-		let commitment_secret = SecretKey::from_slice(&chan_utils::build_commitment_secret(&self.commitment_seed, idx)).unwrap();
+		let commitment_secret = SecretKey::from_slice(&chan_utils::build_commitment_secret(&self.key_material.commitment_seed, idx)).unwrap();
 		PublicKey::from_secret_key(secp_ctx, &commitment_secret)
 	}
 
 	fn release_commitment_secret(&self, idx: u64) -> [u8; 32] {
-		chan_utils::build_commitment_secret(&self.commitment_seed, idx)
+		chan_utils::build_commitment_secret(&self.key_material.commitment_seed, idx)
 	}
 
 	fn validate_holder_commitment(&self, _holder_tx: &HolderCommitmentTransaction) -> Result<(), ()> {
@@ -590,11 +605,11 @@ impl BaseSign for InMemorySigner {
 		let trusted_tx = commitment_tx.trust();
 		let keys = trusted_tx.keys();
 
-		let funding_pubkey = PublicKey::from_secret_key(secp_ctx, &self.funding_key);
+		let funding_pubkey = PublicKey::from_secret_key(secp_ctx, &self.key_material.funding_key);
 		let channel_funding_redeemscript = make_funding_redeemscript(&funding_pubkey, &self.counterparty_pubkeys().funding_pubkey);
 
 		let built_tx = trusted_tx.built_transaction();
-		let commitment_sig = built_tx.sign(&self.funding_key, &channel_funding_redeemscript, self.channel_value_satoshis, secp_ctx);
+		let commitment_sig = built_tx.sign(&self.key_material.funding_key, &channel_funding_redeemscript, self.channel_value_satoshis, secp_ctx);
 		let commitment_txid = built_tx.txid;
 
 		let mut htlc_sigs = Vec::with_capacity(commitment_tx.htlcs().len());
@@ -602,7 +617,7 @@ impl BaseSign for InMemorySigner {
 			let htlc_tx = chan_utils::build_htlc_transaction(&commitment_txid, commitment_tx.feerate_per_kw(), self.holder_selected_contest_delay(), htlc, self.opt_anchors(), &keys.broadcaster_delayed_payment_key, &keys.revocation_key);
 			let htlc_redeemscript = chan_utils::get_htlc_redeemscript(&htlc, self.opt_anchors(), &keys);
 			let htlc_sighash = hash_to_message!(&bip143::SigHashCache::new(&htlc_tx).signature_hash(0, &htlc_redeemscript, htlc.amount_msat / 1000, SigHashType::All)[..]);
-			let holder_htlc_key = chan_utils::derive_private_key(&secp_ctx, &keys.per_commitment_point, &self.htlc_base_key).map_err(|_| ())?;
+			let holder_htlc_key = chan_utils::derive_private_key(&secp_ctx, &keys.per_commitment_point, &self.key_material.htlc_base_key).map_err(|_| ())?;
 			htlc_sigs.push(secp_ctx.sign(&htlc_sighash, &holder_htlc_key));
 		}
 
@@ -614,28 +629,28 @@ impl BaseSign for InMemorySigner {
 	}
 
 	fn sign_holder_commitment_and_htlcs(&self, commitment_tx: &HolderCommitmentTransaction, secp_ctx: &Secp256k1<secp256k1::All>) -> Result<(Signature, Vec<Signature>), ()> {
-		let funding_pubkey = PublicKey::from_secret_key(secp_ctx, &self.funding_key);
+		let funding_pubkey = PublicKey::from_secret_key(secp_ctx, &self.key_material.funding_key);
 		let funding_redeemscript = make_funding_redeemscript(&funding_pubkey, &self.counterparty_pubkeys().funding_pubkey);
 		let trusted_tx = commitment_tx.trust();
-		let sig = trusted_tx.built_transaction().sign(&self.funding_key, &funding_redeemscript, self.channel_value_satoshis, secp_ctx);
+		let sig = trusted_tx.built_transaction().sign(&self.key_material.funding_key, &funding_redeemscript, self.channel_value_satoshis, secp_ctx);
 		let channel_parameters = self.get_channel_parameters();
-		let htlc_sigs = trusted_tx.get_htlc_sigs(&self.htlc_base_key, &channel_parameters.as_holder_broadcastable(), secp_ctx)?;
+		let htlc_sigs = trusted_tx.get_htlc_sigs(&self.key_material.htlc_base_key, &channel_parameters.as_holder_broadcastable(), secp_ctx)?;
 		Ok((sig, htlc_sigs))
 	}
 
 	#[cfg(any(test,feature = "unsafe_revoked_tx_signing"))]
 	fn unsafe_sign_holder_commitment_and_htlcs(&self, commitment_tx: &HolderCommitmentTransaction, secp_ctx: &Secp256k1<secp256k1::All>) -> Result<(Signature, Vec<Signature>), ()> {
-		let funding_pubkey = PublicKey::from_secret_key(secp_ctx, &self.funding_key);
+		let funding_pubkey = PublicKey::from_secret_key(secp_ctx, &self.key_material.funding_key);
 		let funding_redeemscript = make_funding_redeemscript(&funding_pubkey, &self.counterparty_pubkeys().funding_pubkey);
 		let trusted_tx = commitment_tx.trust();
-		let sig = trusted_tx.built_transaction().sign(&self.funding_key, &funding_redeemscript, self.channel_value_satoshis, secp_ctx);
+		let sig = trusted_tx.built_transaction().sign(&self.key_material.funding_key, &funding_redeemscript, self.channel_value_satoshis, secp_ctx);
 		let channel_parameters = self.get_channel_parameters();
-		let htlc_sigs = trusted_tx.get_htlc_sigs(&self.htlc_base_key, &channel_parameters.as_holder_broadcastable(), secp_ctx)?;
+		let htlc_sigs = trusted_tx.get_htlc_sigs(&self.key_material.htlc_base_key, &channel_parameters.as_holder_broadcastable(), secp_ctx)?;
 		Ok((sig, htlc_sigs))
 	}
 
 	fn sign_justice_revoked_output(&self, justice_tx: &Transaction, input: usize, amount: u64, per_commitment_key: &SecretKey, secp_ctx: &Secp256k1<secp256k1::All>) -> Result<Signature, ()> {
-		let revocation_key = chan_utils::derive_private_revocation_key(&secp_ctx, &per_commitment_key, &self.revocation_base_key).map_err(|_| ())?;
+		let revocation_key = chan_utils::derive_private_revocation_key(&secp_ctx, &per_commitment_key, &self.key_material.revocation_base_key).map_err(|_| ())?;
 		let per_commitment_point = PublicKey::from_secret_key(secp_ctx, &per_commitment_key);
 		let revocation_pubkey = chan_utils::derive_public_revocation_key(&secp_ctx, &per_commitment_point, &self.pubkeys().revocation_basepoint).map_err(|_| ())?;
 		let witness_script = {
@@ -648,7 +663,7 @@ impl BaseSign for InMemorySigner {
 	}
 
 	fn sign_justice_revoked_htlc(&self, justice_tx: &Transaction, input: usize, amount: u64, per_commitment_key: &SecretKey, htlc: &HTLCOutputInCommitment, secp_ctx: &Secp256k1<secp256k1::All>) -> Result<Signature, ()> {
-		let revocation_key = chan_utils::derive_private_revocation_key(&secp_ctx, &per_commitment_key, &self.revocation_base_key).map_err(|_| ())?;
+		let revocation_key = chan_utils::derive_private_revocation_key(&secp_ctx, &per_commitment_key, &self.key_material.revocation_base_key).map_err(|_| ())?;
 		let per_commitment_point = PublicKey::from_secret_key(secp_ctx, &per_commitment_key);
 		let revocation_pubkey = chan_utils::derive_public_revocation_key(&secp_ctx, &per_commitment_point, &self.pubkeys().revocation_basepoint).map_err(|_| ())?;
 		let witness_script = {
@@ -662,7 +677,7 @@ impl BaseSign for InMemorySigner {
 	}
 
 	fn sign_counterparty_htlc_transaction(&self, htlc_tx: &Transaction, input: usize, amount: u64, per_commitment_point: &PublicKey, htlc: &HTLCOutputInCommitment, secp_ctx: &Secp256k1<secp256k1::All>) -> Result<Signature, ()> {
-		if let Ok(htlc_key) = chan_utils::derive_private_key(&secp_ctx, &per_commitment_point, &self.htlc_base_key) {
+		if let Ok(htlc_key) = chan_utils::derive_private_key(&secp_ctx, &per_commitment_point, &self.key_material.htlc_base_key) {
 			let witness_script = if let Ok(revocation_pubkey) = chan_utils::derive_public_revocation_key(&secp_ctx, &per_commitment_point, &self.pubkeys().revocation_basepoint) {
 				if let Ok(counterparty_htlcpubkey) = chan_utils::derive_public_key(&secp_ctx, &per_commitment_point, &self.counterparty_pubkeys().htlc_basepoint) {
 					if let Ok(htlcpubkey) = chan_utils::derive_public_key(&secp_ctx, &per_commitment_point, &self.pubkeys().htlc_basepoint) {
@@ -678,14 +693,14 @@ impl BaseSign for InMemorySigner {
 	}
 
 	fn sign_closing_transaction(&self, closing_tx: &ClosingTransaction, secp_ctx: &Secp256k1<secp256k1::All>) -> Result<Signature, ()> {
-		let funding_pubkey = PublicKey::from_secret_key(secp_ctx, &self.funding_key);
+		let funding_pubkey = PublicKey::from_secret_key(secp_ctx, &self.key_material.funding_key);
 		let channel_funding_redeemscript = make_funding_redeemscript(&funding_pubkey, &self.counterparty_pubkeys().funding_pubkey);
-		Ok(closing_tx.trust().sign(&self.funding_key, &channel_funding_redeemscript, self.channel_value_satoshis, secp_ctx))
+		Ok(closing_tx.trust().sign(&self.key_material.funding_key, &channel_funding_redeemscript, self.channel_value_satoshis, secp_ctx))
 	}
 
 	fn sign_channel_announcement(&self, msg: &UnsignedChannelAnnouncement, secp_ctx: &Secp256k1<secp256k1::All>) -> Result<Signature, ()> {
 		let msghash = hash_to_message!(&Sha256dHash::hash(&msg.encode()[..])[..]);
-		Ok(secp_ctx.sign(&msghash, &self.funding_key))
+		Ok(secp_ctx.sign(&msghash, &self.key_material.funding_key))
 	}
 
 	fn ready_channel(&mut self, channel_parameters: &ChannelTransactionParameters) {
@@ -704,12 +719,12 @@ impl Writeable for InMemorySigner {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), Error> {
 		write_ver_prefix!(writer, SERIALIZATION_VERSION, MIN_SERIALIZATION_VERSION);
 
-		self.funding_key.write(writer)?;
-		self.revocation_base_key.write(writer)?;
-		self.payment_key.write(writer)?;
-		self.delayed_payment_base_key.write(writer)?;
-		self.htlc_base_key.write(writer)?;
-		self.commitment_seed.write(writer)?;
+		self.key_material.funding_key.write(writer)?;
+		self.key_material.revocation_base_key.write(writer)?;
+		self.key_material.payment_key.write(writer)?;
+		self.key_material.delayed_payment_base_key.write(writer)?;
+		self.key_material.htlc_base_key.write(writer)?;
+		self.key_material.commitment_seed.write(writer)?;
 		self.channel_parameters.write(writer)?;
 		self.channel_value_satoshis.write(writer)?;
 		self.channel_keys_id.write(writer)?;
@@ -720,16 +735,22 @@ impl Writeable for InMemorySigner {
 	}
 }
 
-impl Readable for InMemorySigner {
-	fn read<R: io::Read>(reader: &mut R) -> Result<Self, DecodeError> {
-		let _ver = read_ver_prefix!(reader, SERIALIZATION_VERSION);
+impl ReadableArgs<InMemorySignerKeys> for InMemorySigner {
+	fn read<R: io::Read>(reader: &mut R, key_material: InMemorySignerKeys) -> Result<Self, DecodeError> {
+		let _ver = read_ver_prefix!(&mut reader, SERIALIZATION_VERSION);
 
-		let funding_key = Readable::read(reader)?;
-		let revocation_base_key = Readable::read(reader)?;
-		let payment_key = Readable::read(reader)?;
-		let delayed_payment_base_key = Readable::read(reader)?;
-		let htlc_base_key = Readable::read(reader)?;
-		let commitment_seed = Readable::read(reader)?;
+		// Historically, `InMemorySigner` was written to disk by simply writing out all its private
+		// keys. There's little reason to do this as we can re-derive the keys here, and its
+		// somewhat surprising to users that `InMemorySigner` is written to disk with its private
+		// keys.
+		// Thus, here we re-derive the keys, ignoring the first 6 32-byte chunks (which used to be
+		// key material). After some upgrade time, we can stop writing out the private key material
+		// in `<InMemorySigner as Writeable>::write()`. We switched to deriving the keys here in
+		// version 0.0.104.
+		for _ in 0..6 {
+			let _dummy_read: [u8; 32] = Readable::read(&mut reader)?;
+		}
+
 		let counterparty_channel_data = Readable::read(reader)?;
 		let channel_value_satoshis = Readable::read(reader)?;
 		let secp_ctx = Secp256k1::signing_only();
@@ -742,12 +763,7 @@ impl Readable for InMemorySigner {
 		read_tlv_fields!(reader, {});
 
 		Ok(InMemorySigner {
-			funding_key,
-			revocation_base_key,
-			payment_key,
-			delayed_payment_base_key,
-			htlc_base_key,
-			commitment_seed,
+			key_material,
 			channel_value_satoshis,
 			holder_channel_pubkeys,
 			channel_parameters: counterparty_channel_data,
@@ -1067,8 +1083,10 @@ impl KeysInterface for KeysManager {
 		Sha256::from_engine(sha).into_inner()
 	}
 
-	fn read_chan_signer(&self, reader: &[u8]) -> Result<Self::Signer, DecodeError> {
-		InMemorySigner::read(&mut io::Cursor::new(reader))
+	fn read_chan_signer(&self, bytes: &[u8]) -> Result<Self::Signer, DecodeError> {
+		if bytes.len() < 
+		let mut reader = io::Cursor::new(bytes);
+	Ok(res)
 	}
 
 	fn sign_invoice(&self, invoice_preimage: Vec<u8>) -> Result<RecoverableSignature, ()> {
