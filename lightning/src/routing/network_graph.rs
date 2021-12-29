@@ -649,6 +649,48 @@ pub struct ChannelInfo {
 	announcement_received_time: u64,
 }
 
+impl ChannelInfo {
+	/// Returns a [`DirectedChannelInfo`] for the channel from `source` to `target`.
+	///
+	/// # Panics
+	///
+	/// Panics if `source` and `target` are not the channel's counterparties.
+	pub fn as_directed(&self, source: &NodeId, target: &NodeId) -> DirectedChannelInfo {
+		let (direction, source, target) = {
+			if source == &self.node_one && target == &self.node_two {
+				(self.one_to_two.as_ref(), &self.node_one, &self.node_two)
+			} else if source == &self.node_two && target == &self.node_one {
+				(self.two_to_one.as_ref(), &self.node_two, &self.node_one)
+			} else if source != &self.node_one && source != &self.node_two {
+				panic!("Unknown source node: {:?}", source)
+			} else if target != &self.node_one && target != &self.node_two {
+				panic!("Unknown target node: {:?}", target)
+			} else {
+				unreachable!()
+			}
+		};
+		DirectedChannelInfo { channel: self, direction, source, target }
+	}
+
+	/// Returns a [`DirectedChannelInfo`] for the channel directed to the given `target`.
+	///
+	/// # Panics
+	///
+	/// Panics if `target` is not one of the channel's counterparties.
+	pub fn directed_to(&self, target: &NodeId) -> DirectedChannelInfo {
+		let (direction, source, target) = {
+			if target == &self.node_one {
+				(self.two_to_one.as_ref(), &self.node_two, &self.node_one)
+			} else if target == &self.node_two {
+				(self.one_to_two.as_ref(), &self.node_one, &self.node_two)
+			} else {
+				panic!("Unknown target node: {:?}", target)
+			}
+		};
+		DirectedChannelInfo { channel: self, direction, source, target }
+	}
+}
+
 impl fmt::Display for ChannelInfo {
 	fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
 		write!(f, "features: {}, node_one: {}, one_to_two: {:?}, node_two: {}, two_to_one: {:?}",
@@ -668,6 +710,105 @@ impl_writeable_tlv_based!(ChannelInfo, {
 	(12, announcement_message, required),
 });
 
+/// A wrapper around [`ChannelInfo`] representing information about the channel as directed from a
+/// source node to a target node.
+pub struct DirectedChannelInfo<'a: 'b, 'b> {
+	channel: &'a ChannelInfo,
+	direction: Option<&'b DirectionalChannelInfo>,
+	source: &'b NodeId,
+	target: &'b NodeId,
+}
+
+impl<'a: 'b, 'b> DirectedChannelInfo<'a, 'b> {
+	/// Returns the node id for the source.
+	pub fn source(&self) -> &'b NodeId { self.source }
+
+	/// Returns the node id for the target.
+	pub fn target(&self) -> &'b NodeId { self.target }
+
+	/// Consumes the [`DirectedChannelInfo`], returning the wrapped parts.
+	pub fn into_parts(self) -> (&'a ChannelInfo, Option<&'b DirectionalChannelInfo>) {
+		(self.channel, self.direction)
+	}
+
+	/// Returns the [`EffectiveCapacity`] of the channel in a specific direction.
+	///
+	/// This is either the total capacity from the funding transaction, if known, or the
+	/// `htlc_maximum_msat` for the direction as advertised by the gossip network, if known,
+	/// whichever is smaller.
+	pub fn effective_capacity(&self) -> EffectiveCapacity {
+		Self::effective_capacity_from_parts(self.channel, self.direction)
+	}
+
+	/// Returns the [`EffectiveCapacity`] of the channel in the given direction.
+	///
+	/// See [`Self::effective_capacity`] for details.
+	pub fn effective_capacity_from_parts(
+		channel: &ChannelInfo, direction: Option<&DirectionalChannelInfo>
+	) -> EffectiveCapacity {
+		let capacity_msat = channel.capacity_sats.map(|capacity_sats| capacity_sats * 1000);
+		direction
+			.and_then(|direction| direction.htlc_maximum_msat)
+			.map(|max_htlc_msat| {
+				let capacity_msat = capacity_msat.unwrap_or(u64::max_value());
+				if max_htlc_msat < capacity_msat {
+					EffectiveCapacity::MaximumHTLC { amount_msat: max_htlc_msat }
+				} else {
+					EffectiveCapacity::Total { capacity_msat }
+				}
+			})
+			.or_else(|| capacity_msat.map(|capacity_msat|
+					EffectiveCapacity::Total { capacity_msat }))
+			.unwrap_or(EffectiveCapacity::Unknown)
+	}
+}
+
+/// The effective capacity of a channel for routing purposes.
+///
+/// While this may be smaller than the actual channel capacity, amounts greater than
+/// [`Self::as_msat`] should not be routed through the channel.
+pub enum EffectiveCapacity {
+	/// The available liquidity in the channel known from being a channel counterparty, and thus a
+	/// direct hop.
+	ExactLiquidity {
+		/// Either the inbound or outbound liquidity depending on the direction, denominated in
+		/// millisatoshi.
+		liquidity_msast: u64,
+	},
+	/// The maximum HTLC amount in one direction as advertised on the gossip network.
+	MaximumHTLC {
+		/// The maximum HTLC amount denominated in millisatoshi.
+		amount_msat: u64,
+	},
+	/// The total capacity of the channel as determined by the funding transaction.
+	Total {
+		/// The funding amount denominated in millisatoshi.
+		capacity_msat: u64,
+	},
+	/// A capacity sufficient to route any payment, typically used for private channels provided by
+	/// an invoice, though may not be the case for zero-amount invoices.
+	Infinite,
+	/// A capacity that is unknown possibly because either the chain state is unavailable to know
+	/// the total capacity or the `htlc_maximum_msat` was not advertised on the gossip network.
+	Unknown,
+}
+
+/// The presumed channel capacity denominated in millisatoshi for [`EffectiveCapacity::Unknown`] to
+/// use when making routing decisions.
+pub const UNKNOWN_CHANNEL_CAPACITY_MSAT: u64 = 250_000 * 1000;
+
+impl EffectiveCapacity {
+	/// Returns the effective capacity denominated in millisatoshi.
+	pub fn as_msat(&self) -> u64 {
+		match self {
+			EffectiveCapacity::ExactLiquidity { liquidity_msast } => *liquidity_msast,
+			EffectiveCapacity::MaximumHTLC { amount_msat } => *amount_msat,
+			EffectiveCapacity::Total { capacity_msat } => *capacity_msat,
+			EffectiveCapacity::Infinite => u64::max_value(),
+			EffectiveCapacity::Unknown => UNKNOWN_CHANNEL_CAPACITY_MSAT,
+		}
+	}
+}
 
 /// Fees for routing via a given channel or a node
 #[derive(Eq, PartialEq, Copy, Clone, Debug, Hash)]
