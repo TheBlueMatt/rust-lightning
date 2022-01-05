@@ -1295,7 +1295,7 @@ mod tests {
 
 	impl Score for TestScorer {
 		fn channel_penalty_msat(
-			&self, _short_channel_id: u64, _send_amt: u64, _chan_amt: Option<u64>, _source: &NodeId, _target: &NodeId
+			&self, _short_channel_id: u64, _send_amt: u64, _chan_amt: u64, _source: &NodeId, _target: &NodeId
 		) -> u64 { 0 }
 
 		fn payment_path_failed(&mut self, actual_path: &[&RouteHop], actual_short_channel_id: u64) {

@@ -331,6 +331,7 @@ impl cmp::PartialOrd for RouteGraphNode {
 /// A wrapper around the various hop representations.
 ///
 /// Used to construct a [`PathBuildingHop`] and to estimate [`EffectiveCapacity`].
+#[derive(Clone, Debug)]
 enum CandidateRouteHop<'a> {
 	/// A hop from the payer to the next hop to the payee, where the outbound liquidity is known.
 	FirstHop {
@@ -409,22 +410,18 @@ impl<'a> CandidateRouteHop<'a> {
 /// Fee values should be updated only in the context of the whole path, see update_value_and_recompute_fees.
 /// These fee values are useful to choose hops as we traverse the graph "payee-to-payer".
 #[derive(Clone, Debug)]
-struct PathBuildingHop {
-	// The RouteHintHop fields which will eventually be used if this hop is used in a final Route.
-	// Note that node_features is calculated separately after our initial graph walk.
+struct PathBuildingHop<'a> {
+	// Note that this should be dropped in favor of loading it from CandidateRouteHop, but doing so
+	// is a larger refactor and will require careful performance analysis.
 	node_id: NodeId,
-	short_channel_id: u64,
-	channel_features: ChannelFeatures,
+	candidate: CandidateRouteHop<'a>,
 	fee_msat: u64,
-	cltv_expiry_delta: u32,
 
 	/// Minimal fees required to route to the source node of the current hop via any of its inbound channels.
 	src_lowest_inbound_fees: RoutingFees,
-	/// Fees of the channel used in this hop.
-	channel_fees: RoutingFees,
 	/// All the fees paid *after* this channel on the way to the destination
 	next_hops_fee_msat: u64,
-	/// Fee paid for the use of the current channel (see channel_fees).
+	/// Fee paid for the use of the current channel (see candidate.fees()).
 	/// The value will be actually deducted from the counterparty balance on the previous link.
 	hop_use_fee_msat: u64,
 	/// Used to compare channels when choosing the for routing.
@@ -432,10 +429,6 @@ struct PathBuildingHop {
 	/// an estimated cost of reaching this hop.
 	/// Might get stale when fees are recomputed. Primarily for internal use.
 	total_fee_msat: u64,
-	/// This is useful for update_value_and_recompute_fees to make sure
-	/// we don't fall below the minimum. Should not be updated manually and
-	/// generally should not be accessed.
-	htlc_minimum_msat: u64,
 	/// A mirror of the same field in RouteGraphNode. Note that this is only used during the graph
 	/// walk and may be invalid thereafter.
 	path_htlc_minimum_msat: u64,
@@ -459,11 +452,11 @@ struct PathBuildingHop {
 // Instantiated with a list of hops with correct data in them collected during path finding,
 // an instance of this struct should be further modified only via given methods.
 #[derive(Clone)]
-struct PaymentPath {
-	hops: Vec<(PathBuildingHop, NodeFeatures)>,
+struct PaymentPath<'a> {
+	hops: Vec<(PathBuildingHop<'a>, NodeFeatures)>,
 }
 
-impl PaymentPath {
+impl<'a> PaymentPath<'a> {
 	// TODO: Add a value_msat field to PaymentPath and use it instead of this function.
 	fn get_value_msat(&self) -> u64 {
 		self.hops.last().unwrap().0.fee_msat
@@ -514,7 +507,7 @@ impl PaymentPath {
 			// set it too high just to maliciously take more fees by exploiting this
 			// match htlc_minimum_msat logic.
 			let mut cur_hop_transferred_amount_msat = total_fee_paid_msat + value_msat;
-			if let Some(extra_fees_msat) = cur_hop.htlc_minimum_msat.checked_sub(cur_hop_transferred_amount_msat) {
+			if let Some(extra_fees_msat) = cur_hop.candidate.htlc_minimum_msat().checked_sub(cur_hop_transferred_amount_msat) {
 				// Note that there is a risk that *previous hops* (those closer to us, as we go
 				// payee->our_node here) would exceed their htlc_maximum_msat or available balance.
 				//
@@ -542,7 +535,7 @@ impl PaymentPath {
 			// Irrelevant for the first hop, as it doesn't have the previous hop, and the use of
 			// this channel is free for us.
 			if i != 0 {
-				if let Some(new_fee) = compute_fees(cur_hop_transferred_amount_msat, cur_hop.channel_fees) {
+				if let Some(new_fee) = compute_fees(cur_hop_transferred_amount_msat, cur_hop.candidate.fees()) {
 					cur_hop.hop_use_fee_msat = new_fee;
 					total_fee_paid_msat += new_fee;
 				} else {
@@ -869,19 +862,15 @@ where L::Target: Logger {
 							}
 							PathBuildingHop {
 								node_id: $dest_node_id.clone(),
-								short_channel_id: 0,
-								channel_features: $candidate.features(),
+								candidate: $candidate.clone(),
 								fee_msat: 0,
-								cltv_expiry_delta: 0,
 								src_lowest_inbound_fees: RoutingFees {
 									base_msat: fee_base_msat,
 									proportional_millionths: fee_proportional_millionths,
 								},
-								channel_fees: $candidate.fees(),
 								next_hops_fee_msat: u64::max_value(),
 								hop_use_fee_msat: u64::max_value(),
 								total_fee_msat: u64::max_value(),
-								htlc_minimum_msat: $candidate.htlc_minimum_msat(),
 								path_htlc_minimum_msat,
 								path_penalty_msat: u64::max_value(),
 								was_processed: false,
@@ -976,12 +965,8 @@ where L::Target: Logger {
 								old_entry.hop_use_fee_msat = hop_use_fee_msat;
 								old_entry.total_fee_msat = total_fee_msat;
 								old_entry.node_id = $dest_node_id.clone();
-								old_entry.short_channel_id = short_channel_id;
-								old_entry.channel_features = $candidate.features();
+								old_entry.candidate = $candidate.clone();
 								old_entry.fee_msat = 0; // This value will be later filled with hop_use_fee_msat of the following channel
-								old_entry.cltv_expiry_delta = $candidate.cltv_expiry_delta();
-								old_entry.channel_fees = $candidate.fees();
-								old_entry.htlc_minimum_msat = $candidate.htlc_minimum_msat();
 								old_entry.path_htlc_minimum_msat = path_htlc_minimum_msat;
 								old_entry.path_penalty_msat = path_penalty_msat;
 								#[cfg(any(test, feature = "fuzztarget"))]
@@ -1246,7 +1231,7 @@ where L::Target: Logger {
 					let mut features_set = false;
 					if let Some(first_channels) = first_hop_targets.get(&ordered_hops.last().unwrap().0.node_id) {
 						for details in first_channels {
-							if details.short_channel_id.unwrap() == ordered_hops.last().unwrap().0.short_channel_id {
+							if details.short_channel_id.unwrap() == ordered_hops.last().unwrap().0.candidate.short_channel_id() {
 								ordered_hops.last_mut().unwrap().1 = details.counterparty.features.to_context();
 								features_set = true;
 								break;
@@ -1287,12 +1272,10 @@ where L::Target: Logger {
 					// so that fees paid for a HTLC forwarding on the current channel are
 					// associated with the previous channel (where they will be subtracted).
 					ordered_hops.last_mut().unwrap().0.fee_msat = new_entry.hop_use_fee_msat;
-					ordered_hops.last_mut().unwrap().0.cltv_expiry_delta = new_entry.cltv_expiry_delta;
 					ordered_hops.push((new_entry.clone(), NodeFeatures::empty()));
 				}
 				ordered_hops.last_mut().unwrap().0.fee_msat = value_contribution_msat;
 				ordered_hops.last_mut().unwrap().0.hop_use_fee_msat = 0;
-				ordered_hops.last_mut().unwrap().0.cltv_expiry_delta = final_cltv_expiry_delta;
 
 				log_trace!(logger, "Found a path back to us from the target with {} hops contributing up to {} msat: {:?}",
 					ordered_hops.len(), value_contribution_msat, ordered_hops);
@@ -1317,7 +1300,7 @@ where L::Target: Logger {
 				// on the same liquidity in future paths.
 				let mut prevented_redundant_path_selection = false;
 				for (payment_hop, _) in payment_path.hops.iter() {
-					let channel_liquidity_available_msat = bookkeeped_channels_liquidity_available_msat.get_mut(&payment_hop.short_channel_id).unwrap();
+					let channel_liquidity_available_msat = bookkeeped_channels_liquidity_available_msat.get_mut(&payment_hop.candidate.short_channel_id()).unwrap();
 					let mut spent_on_hop_msat = value_contribution_msat;
 					let next_hops_fee_msat = payment_hop.next_hops_fee_msat;
 					spent_on_hop_msat += next_hops_fee_msat;
@@ -1332,7 +1315,7 @@ where L::Target: Logger {
 					// If we weren't capped by hitting a liquidity limit on a channel in the path,
 					// we'll probably end up picking the same path again on the next iteration.
 					// Decrease the available liquidity of a hop in the middle of the path.
-					let victim_scid = payment_path.hops[(payment_path.hops.len() - 1) / 2].0.short_channel_id;
+					let victim_scid = payment_path.hops[(payment_path.hops.len() - 1) / 2].0.candidate.short_channel_id();
 					log_trace!(logger, "Disabling channel {} for future path building iterations to avoid duplicates.", victim_scid);
 					let victim_liquidity = bookkeeped_channels_liquidity_available_msat.get_mut(&victim_scid).unwrap();
 					*victim_liquidity = 0;
@@ -1463,7 +1446,7 @@ where L::Target: Logger {
 				// Now, substract the overpaid value from the most-expensive path.
 				// TODO: this could also be optimized by also sorting by feerate_per_sat_routed,
 				// so that the sender pays less fees overall. And also htlc_minimum_msat.
-				cur_route.sort_by_key(|path| { path.hops.iter().map(|hop| hop.0.channel_fees.proportional_millionths as u64).sum::<u64>() });
+				cur_route.sort_by_key(|path| { path.hops.iter().map(|hop| hop.0.candidate.fees().proportional_millionths as u64).sum::<u64>() });
 				let expensive_payment_path = cur_route.first_mut().unwrap();
 				// We already dropped all the small channels above, meaning all the
 				// remaining channels are larger than remaining overpaid_value_msat.
@@ -1481,16 +1464,21 @@ where L::Target: Logger {
 	drawn_routes.sort_by_key(|paths| paths.iter().map(|path| path.get_total_fee_paid_msat()).sum::<u64>());
 	let mut selected_paths = Vec::<Vec<Result<RouteHop, LightningError>>>::new();
 	for payment_path in drawn_routes.first().unwrap() {
-		selected_paths.push(payment_path.hops.iter().map(|(payment_hop, node_features)| {
+		let mut path = payment_path.hops.iter().map(|(payment_hop, node_features)| {
 			Ok(RouteHop {
 				pubkey: PublicKey::from_slice(payment_hop.node_id.as_slice()).map_err(|_| LightningError{err: format!("Public key {:?} is invalid", &payment_hop.node_id), action: ErrorAction::IgnoreAndLog(Level::Trace)})?,
 				node_features: node_features.clone(),
-				short_channel_id: payment_hop.short_channel_id,
-				channel_features: payment_hop.channel_features.clone(),
+				short_channel_id: payment_hop.candidate.short_channel_id(),
+				channel_features: payment_hop.candidate.features(),
 				fee_msat: payment_hop.fee_msat,
-				cltv_expiry_delta: payment_hop.cltv_expiry_delta,
+				cltv_expiry_delta: payment_hop.candidate.cltv_expiry_delta(),
 			})
-		}).collect());
+		}).collect::<Vec<_>>();
+		let mut prev_cltv_expiry_delta = final_cltv_expiry_delta;
+		for hop in path.iter_mut().rev() {
+			core::mem::swap(&mut prev_cltv_expiry_delta, &mut hop.as_mut().unwrap().cltv_expiry_delta);
+		}
+		selected_paths.push(path);
 	}
 
 	if let Some(features) = &payee.features {
