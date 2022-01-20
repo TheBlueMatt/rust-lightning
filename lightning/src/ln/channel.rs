@@ -39,7 +39,7 @@ use util::events::ClosureReason;
 use util::ser::{Readable, ReadableArgs, Writeable, Writer, VecWriter};
 use util::logger::Logger;
 use util::errors::APIError;
-use util::config::{UserConfig,ChannelConfig};
+use util::config::{UserConfig,ChannelConfig,ChannelHandshakeConfig};
 use util::scid_utils::scid_from_parts;
 
 use io;
@@ -751,7 +751,7 @@ impl<Signer: Sign> Channel<Signer> {
 		let mut secp_ctx = Secp256k1::new();
 		secp_ctx.seeded_randomize(&keys_provider.get_secure_random_bytes());
 
-		let shutdown_scriptpubkey = if config.channel_options.commit_upfront_shutdown_pubkey {
+		let shutdown_scriptpubkey = if config.own_channel_config.commit_upfront_shutdown_pubkey {
 			Some(keys_provider.get_shutdown_scriptpubkey())
 		} else { None };
 
@@ -1046,7 +1046,7 @@ impl<Signer: Sign> Channel<Signer> {
 			}
 		} else { None };
 
-		let shutdown_scriptpubkey = if config.channel_options.commit_upfront_shutdown_pubkey {
+		let shutdown_scriptpubkey = if config.own_channel_config.commit_upfront_shutdown_pubkey {
 			Some(keys_provider.get_shutdown_scriptpubkey())
 		} else { None };
 
@@ -5450,6 +5450,7 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<(&'a K, u32)> for Channel<Signer>
 		let user_id = Readable::read(reader)?;
 
 		let mut config = Some(ChannelConfig::default());
+		let mut handshake_config = Some(ChannelHandshakeConfig::default());
 		if ver == 1 {
 			// Read the old serialization of the ChannelConfig from version 0.0.98.
 			config.as_mut().unwrap().forwarding_fee_proportional_millionths = Readable::read(reader)?;
@@ -5460,6 +5461,8 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<(&'a K, u32)> for Channel<Signer>
 			// Read the 8 bytes of backwards-compatibility ChannelConfig data.
 			let mut _val: u64 = Readable::read(reader)?;
 		}
+		
+		handshake_config.as_mut().unwrap().commit_upfront_shutdown_pubkey = Readable::read(reader)?;
 
 		let channel_id = Readable::read(reader)?;
 		let channel_state = Readable::read(reader)?;
