@@ -17,7 +17,7 @@ use bitcoin::secp256k1::key::PublicKey;
 use ln::channelmanager::ChannelDetails;
 use ln::features::{ChannelFeatures, InvoiceFeatures, NodeFeatures};
 use ln::msgs::{DecodeError, ErrorAction, LightningError, MAX_VALUE_MSAT};
-use routing::scoring::Score;
+use routing::scoring::{ChannelUseParameters, Score};
 use routing::network_graph::{DirectedChannelInfo, EffectiveCapacity, NetworkGraph, NodeId, RoutingFees};
 use util::ser::{Writeable, Readable};
 use util::logger::{Level, Logger};
@@ -321,18 +321,18 @@ struct RouteGraphNode {
 	/// The effective htlc_minimum_msat at this hop. If a later hop on the path had a higher HTLC
 	/// minimum, we use it, plus the fees required at each earlier hop to meet it.
 	path_htlc_minimum_msat: u64,
-	/// All penalties incurred from this hop on the way to the destination, as calculated using
-	/// channel scoring.
-	path_penalty_msat: u64,
+	/// All costs incurred from this hop on the way to the destination, as calculated using channel
+	/// scoring.
+	path_cost: u64,
 }
 
 impl cmp::Ord for RouteGraphNode {
 	fn cmp(&self, other: &RouteGraphNode) -> cmp::Ordering {
 		let other_score = cmp::max(other.lowest_fee_to_peer_through_node, other.path_htlc_minimum_msat)
-			.checked_add(other.path_penalty_msat)
+			.checked_add(other.path_cost)
 			.unwrap_or_else(|| u64::max_value());
 		let self_score = cmp::max(self.lowest_fee_to_peer_through_node, self.path_htlc_minimum_msat)
-			.checked_add(self.path_penalty_msat)
+			.checked_add(self.path_cost)
 			.unwrap_or_else(|| u64::max_value());
 		other_score.cmp(&self_score).then_with(|| other.node_id.cmp(&self.node_id))
 	}
@@ -496,9 +496,9 @@ struct PathBuildingHop<'a> {
 	/// A mirror of the same field in RouteGraphNode. Note that this is only used during the graph
 	/// walk and may be invalid thereafter.
 	path_htlc_minimum_msat: u64,
-	/// All penalties incurred from this channel on the way to the destination, as calculated using
+	/// All costs incurred from this channel on the way to the destination, as calculated using
 	/// channel scoring.
-	path_penalty_msat: u64,
+	path_cost: u64,
 	/// If we've already processed a node as the best node, we shouldn't process it again. Normally
 	/// we'd just ignore it if we did as all channels would have a higher new fee, but because we
 	/// may decrease the amounts in use as we walk the graph, the actual calculated fee may
@@ -839,7 +839,7 @@ where L::Target: Logger {
 		// Returns whether this channel caused an update to `targets`.
 		( $candidate: expr, $src_node_id: expr, $dest_node_id: expr, $next_hops_fee_msat: expr,
 		   $next_hops_value_contribution: expr, $next_hops_path_htlc_minimum_msat: expr,
-		   $next_hops_path_penalty_msat: expr, $next_hops_cltv_delta: expr ) => { {
+		   $next_hops_path_cost: expr, $next_hops_cltv_delta: expr ) => { {
 			// We "return" whether we updated the path at the end, via this:
 			let mut did_add_update_path_to_src_node = false;
 			// Channels to self should not be used. This is more of belt-and-suspenders, because in
@@ -944,7 +944,7 @@ where L::Target: Logger {
 								hop_use_fee_msat: u64::max_value(),
 								total_fee_msat: u64::max_value(),
 								path_htlc_minimum_msat,
-								path_penalty_msat: u64::max_value(),
+								path_cost: u64::max_value(),
 								was_processed: false,
 								#[cfg(any(test, feature = "fuzztarget"))]
 								value_contribution_msat,
@@ -996,9 +996,18 @@ where L::Target: Logger {
 								}
 							}
 
-							let path_penalty_msat = $next_hops_path_penalty_msat.checked_add(
-								scorer.channel_penalty_msat(short_channel_id, amount_to_transfer_over_msat, available_liquidity_msat,
-									&$src_node_id, &$dest_node_id)).unwrap_or_else(|| u64::max_value());
+							let effective_capacity_msat = $candidate.effective_capacity().as_msat();
+							let params = ChannelUseParameters {
+								amount_msat: amount_to_transfer_over_msat,
+								inflight_htlc_msat: effective_capacity_msat - available_liquidity_msat,
+								fees_msat: cmp::max(total_fee_msat, path_htlc_minimum_msat),
+								effective_capacity_msat,
+							};
+							let channel_cost = scorer.channel_cost(short_channel_id, &$src_node_id, &$dest_node_id, params);
+							let path_cost = $next_hops_path_cost
+								.checked_add(channel_cost)
+								.unwrap_or_else(|| u64::max_value());
+
 							let new_graph_node = RouteGraphNode {
 								node_id: $src_node_id,
 								lowest_fee_to_peer_through_node: total_fee_msat,
@@ -1006,9 +1015,10 @@ where L::Target: Logger {
 								total_cltv_delta: hop_total_cltv_delta,
 								value_contribution_msat: value_contribution_msat,
 								path_htlc_minimum_msat,
-								path_penalty_msat,
+								path_cost,
 							};
 
+							// TODO: Rewrite?
 							// Update the way of reaching $src_node_id with the given short_channel_id (from $dest_node_id),
 							// if this way is cheaper than the already known
 							// (considering the cost to "reach" this channel from the route destination,
@@ -1025,14 +1035,8 @@ where L::Target: Logger {
 							// but it may require additional tracking - we don't want to double-count
 							// the fees included in $next_hops_path_htlc_minimum_msat, but also
 							// can't use something that may decrease on future hops.
-							let old_cost = cmp::max(old_entry.total_fee_msat, old_entry.path_htlc_minimum_msat)
-								.checked_add(old_entry.path_penalty_msat)
-								.unwrap_or_else(|| u64::max_value());
-							let new_cost = cmp::max(total_fee_msat, path_htlc_minimum_msat)
-								.checked_add(path_penalty_msat)
-								.unwrap_or_else(|| u64::max_value());
 
-							if !old_entry.was_processed && new_cost < old_cost {
+							if !old_entry.was_processed && path_cost < old_entry.path_cost {
 								targets.push(new_graph_node);
 								old_entry.next_hops_fee_msat = $next_hops_fee_msat;
 								old_entry.hop_use_fee_msat = hop_use_fee_msat;
@@ -1041,13 +1045,13 @@ where L::Target: Logger {
 								old_entry.candidate = $candidate.clone();
 								old_entry.fee_msat = 0; // This value will be later filled with hop_use_fee_msat of the following channel
 								old_entry.path_htlc_minimum_msat = path_htlc_minimum_msat;
-								old_entry.path_penalty_msat = path_penalty_msat;
+								old_entry.path_cost = path_cost;
 								#[cfg(any(test, feature = "fuzztarget"))]
 								{
 									old_entry.value_contribution_msat = value_contribution_msat;
 								}
 								did_add_update_path_to_src_node = true;
-							} else if old_entry.was_processed && new_cost < old_cost {
+							} else if old_entry.was_processed && path_cost < old_entry.path_cost {
 								#[cfg(any(test, feature = "fuzztarget"))]
 								{
 									// If we're skipping processing a node which was previously
@@ -1070,9 +1074,10 @@ where L::Target: Logger {
 									// with a lower htlc_maximum_msat instead of the one we'd
 									// already decided to use.
 									debug_assert!(path_htlc_minimum_msat < old_entry.path_htlc_minimum_msat);
+									// TODO: Does this assertion still make sense?
 									debug_assert!(
-										value_contribution_msat + path_penalty_msat <
-										old_entry.value_contribution_msat + old_entry.path_penalty_msat
+										value_contribution_msat + path_cost <
+										old_entry.value_contribution_msat + old_entry.path_cost
 									);
 								}
 							}
@@ -1091,7 +1096,7 @@ where L::Target: Logger {
 	// meaning how much will be paid in fees after this node (to the best of our knowledge).
 	// This data can later be helpful to optimize routing (pay lower fees).
 	macro_rules! add_entries_to_cheapest_to_target_node {
-		( $node: expr, $node_id: expr, $fee_to_target_msat: expr, $next_hops_value_contribution: expr, $next_hops_path_htlc_minimum_msat: expr, $next_hops_path_penalty_msat: expr, $next_hops_cltv_delta: expr ) => {
+		( $node: expr, $node_id: expr, $fee_to_target_msat: expr, $next_hops_value_contribution: expr, $next_hops_path_htlc_minimum_msat: expr, $next_hops_path_cost: expr, $next_hops_cltv_delta: expr ) => {
 			let skip_node = if let Some(elem) = dist.get_mut(&$node_id) {
 				let was_processed = elem.was_processed;
 				elem.was_processed = true;
@@ -1108,7 +1113,7 @@ where L::Target: Logger {
 				if let Some(first_channels) = first_hop_targets.get(&$node_id) {
 					for details in first_channels {
 						let candidate = CandidateRouteHop::FirstHop { details };
-						add_entry!(candidate, our_node_id, $node_id, $fee_to_target_msat, $next_hops_value_contribution, $next_hops_path_htlc_minimum_msat, $next_hops_path_penalty_msat, $next_hops_cltv_delta);
+						add_entry!(candidate, our_node_id, $node_id, $fee_to_target_msat, $next_hops_value_contribution, $next_hops_path_htlc_minimum_msat, $next_hops_path_cost, $next_hops_cltv_delta);
 					}
 				}
 
@@ -1133,7 +1138,7 @@ where L::Target: Logger {
 											info: directed_channel,
 											short_channel_id: *chan_id,
 										};
-										add_entry!(candidate, *source, *target, $fee_to_target_msat, $next_hops_value_contribution, $next_hops_path_htlc_minimum_msat, $next_hops_path_penalty_msat, $next_hops_cltv_delta);
+										add_entry!(candidate, *source, *target, $fee_to_target_msat, $next_hops_value_contribution, $next_hops_path_htlc_minimum_msat, $next_hops_path_cost, $next_hops_cltv_delta);
 									}
 								}
 							}
@@ -1198,7 +1203,7 @@ where L::Target: Logger {
 				let mut hop_used = true;
 				let mut aggregate_next_hops_fee_msat: u64 = 0;
 				let mut aggregate_next_hops_path_htlc_minimum_msat: u64 = 0;
-				let mut aggregate_next_hops_path_penalty_msat: u64 = 0;
+				let mut aggregate_next_hops_path_cost: u64 = 0;
 				let mut aggregate_next_hops_cltv_delta: u32 = 0;
 
 				for (idx, (hop, prev_hop_id)) in hop_iter.zip(prev_hop_iter).enumerate() {
@@ -1213,16 +1218,23 @@ where L::Target: Logger {
 							short_channel_id: hop.short_channel_id,
 						})
 						.unwrap_or_else(|| CandidateRouteHop::PrivateHop { hint: hop });
-					let capacity_msat = candidate.effective_capacity().as_msat();
-					aggregate_next_hops_path_penalty_msat = aggregate_next_hops_path_penalty_msat
-						.checked_add(scorer.channel_penalty_msat(hop.short_channel_id, final_value_msat, capacity_msat, &source, &target))
+
+					let params = ChannelUseParameters {
+						amount_msat: final_value_msat,
+						inflight_htlc_msat: 0,
+						fees_msat: aggregate_next_hops_fee_msat,
+						effective_capacity_msat: candidate.effective_capacity().as_msat(),
+					};
+					let channel_cost = scorer.channel_cost(hop.short_channel_id, &source, &target, params);
+					aggregate_next_hops_path_cost = aggregate_next_hops_path_cost
+						.checked_add(channel_cost)
 						.unwrap_or_else(|| u64::max_value());
 
 					aggregate_next_hops_cltv_delta = aggregate_next_hops_cltv_delta
 						.checked_add(hop.cltv_expiry_delta as u32)
 						.unwrap_or_else(|| u32::max_value());
 
-					if !add_entry!(candidate, source, target, aggregate_next_hops_fee_msat, path_value_msat, aggregate_next_hops_path_htlc_minimum_msat, aggregate_next_hops_path_penalty_msat, aggregate_next_hops_cltv_delta) {
+					if !add_entry!(candidate, source, target, aggregate_next_hops_fee_msat, path_value_msat, aggregate_next_hops_path_htlc_minimum_msat, aggregate_next_hops_path_cost, aggregate_next_hops_cltv_delta) {
 						// If this hop was not used then there is no use checking the preceding hops
 						// in the RouteHint. We can break by just searching for a direct channel between
 						// last checked hop and first_hop_targets
@@ -1233,7 +1245,7 @@ where L::Target: Logger {
 					if let Some(first_channels) = first_hop_targets.get(&NodeId::from_pubkey(&prev_hop_id)) {
 						for details in first_channels {
 							let candidate = CandidateRouteHop::FirstHop { details };
-							add_entry!(candidate, our_node_id, NodeId::from_pubkey(&prev_hop_id), aggregate_next_hops_fee_msat, path_value_msat, aggregate_next_hops_path_htlc_minimum_msat, aggregate_next_hops_path_penalty_msat, aggregate_next_hops_cltv_delta);
+							add_entry!(candidate, our_node_id, NodeId::from_pubkey(&prev_hop_id), aggregate_next_hops_fee_msat, path_value_msat, aggregate_next_hops_path_htlc_minimum_msat, aggregate_next_hops_path_cost, aggregate_next_hops_cltv_delta);
 						}
 					}
 
@@ -1269,7 +1281,7 @@ where L::Target: Logger {
 						if let Some(first_channels) = first_hop_targets.get(&NodeId::from_pubkey(&hop.src_node_id)) {
 							for details in first_channels {
 								let candidate = CandidateRouteHop::FirstHop { details };
-								add_entry!(candidate, our_node_id, NodeId::from_pubkey(&hop.src_node_id), aggregate_next_hops_fee_msat, path_value_msat, aggregate_next_hops_path_htlc_minimum_msat, aggregate_next_hops_path_penalty_msat, aggregate_next_hops_cltv_delta);
+								add_entry!(candidate, our_node_id, NodeId::from_pubkey(&hop.src_node_id), aggregate_next_hops_fee_msat, path_value_msat, aggregate_next_hops_path_htlc_minimum_msat, aggregate_next_hops_path_cost, aggregate_next_hops_cltv_delta);
 							}
 						}
 					}
@@ -1292,7 +1304,7 @@ where L::Target: Logger {
 		// Both these cases (and other cases except reaching recommended_value_msat) mean that
 		// paths_collection will be stopped because found_new_path==false.
 		// This is not necessarily a routing failure.
-		'path_construction: while let Some(RouteGraphNode { node_id, lowest_fee_to_node, total_cltv_delta, value_contribution_msat, path_htlc_minimum_msat, path_penalty_msat, .. }) = targets.pop() {
+		'path_construction: while let Some(RouteGraphNode { node_id, lowest_fee_to_node, total_cltv_delta, value_contribution_msat, path_htlc_minimum_msat, path_cost, .. }) = targets.pop() {
 
 			// Since we're going payee-to-payer, hitting our node as a target means we should stop
 			// traversing the graph and arrange the path out of what we found.
@@ -1416,7 +1428,7 @@ where L::Target: Logger {
 			match network_nodes.get(&node_id) {
 				None => {},
 				Some(node) => {
-					add_entries_to_cheapest_to_target_node!(node, node_id, lowest_fee_to_node, value_contribution_msat, path_htlc_minimum_msat, path_penalty_msat, total_cltv_delta);
+					add_entries_to_cheapest_to_target_node!(node, node_id, lowest_fee_to_node, value_contribution_msat, path_htlc_minimum_msat, path_cost, total_cltv_delta);
 				},
 			}
 		}
@@ -1573,7 +1585,7 @@ where L::Target: Logger {
 
 #[cfg(test)]
 mod tests {
-	use routing::scoring::{ProbabilisticScorer, ProbabilisticScoringParameters, Score};
+	use routing::scoring::{ChannelUseParameters, ProbabilisticScorer, ProbabilisticScoringParameters, Score};
 	use routing::network_graph::{NetworkGraph, NetGraphMsgHandler, NodeId};
 	use routing::router::{get_route, Payee, Route, RouteHint, RouteHintHop, RouteHop, RoutingFees};
 	use chain::transaction::OutPoint;
@@ -4756,7 +4768,7 @@ mod tests {
 		fn write<W: Writer>(&self, _w: &mut W) -> Result<(), ::io::Error> { unimplemented!() }
 	}
 	impl Score for BadChannelScorer {
-		fn channel_penalty_msat(&self, short_channel_id: u64, _send_amt: u64, _capacity_msat: u64, _source: &NodeId, _target: &NodeId) -> u64 {
+		fn channel_cost(&self, short_channel_id: u64, _: &NodeId, _: &NodeId, _: ChannelUseParameters) -> u64 {
 			if short_channel_id == self.short_channel_id { u64::max_value() } else { 0 }
 		}
 
@@ -4774,7 +4786,7 @@ mod tests {
 	}
 
 	impl Score for BadNodeScorer {
-		fn channel_penalty_msat(&self, _short_channel_id: u64, _send_amt: u64, _capacity_msat: u64, _source: &NodeId, target: &NodeId) -> u64 {
+		fn channel_cost(&self, _: u64, _: &NodeId, target: &NodeId, _: ChannelUseParameters) -> u64 {
 			if *target == self.node_id { u64::max_value() } else { 0 }
 		}
 
