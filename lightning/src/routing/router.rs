@@ -1222,7 +1222,7 @@ where L::Target: Logger {
 					let params = ChannelUseParameters {
 						amount_msat: final_value_msat,
 						inflight_htlc_msat: 0,
-						fees_msat: aggregate_next_hops_fee_msat,
+						fees_msat: cmp::max(aggregate_next_hops_fee_msat, aggregate_next_hops_path_htlc_minimum_msat),
 						effective_capacity_msat: candidate.effective_capacity().as_msat(),
 					};
 					let channel_cost = scorer.channel_cost(hop.short_channel_id, &source, &target, params);
