@@ -417,7 +417,7 @@ impl<T: Time> Score for ScorerUsingTime<T> {
 				.unwrap_or(u64::max_value());
 		}
 
-		penalty_msat
+		params.fees_msat.checked_add(penalty_msat).unwrap_or(u64::max_value())
 	}
 
 	fn payment_path_failed(&mut self, _path: &[&RouteHop], short_channel_id: u64) {
@@ -761,9 +761,9 @@ impl<G: Deref<Target = NetworkGraph>, T: Time> Score for ProbabilisticScorerUsin
 		if success_probability == 0.0 {
 			u64::max_value()
 		} else if success_probability == 1.0 {
-			0
+			params.fees_msat
 		} else {
-			(-(success_probability.log10()) * liquidity_penalty_multiplier_msat as f64) as u64
+			params.fees_msat + (-(success_probability.log10()) * liquidity_penalty_multiplier_msat as f64) as u64
 		}
 	}
 
