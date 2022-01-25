@@ -4724,9 +4724,24 @@ mod tests {
 
 	#[test]
 	fn prefers_shorter_route_with_higher_fees() {
-		let (secp_ctx, network_graph, _, _, logger) = build_graph();
-		let (_, our_id, _, nodes) = get_nodes(&secp_ctx);
+		let (secp_ctx, network_graph, net_graph_msg_handler, _, logger) = build_graph();
+		let (our_privkey, our_id, _, nodes) = get_nodes(&secp_ctx);
 		let payee = Payee::from_node_id(nodes[6]).with_route_hints(last_hops(&nodes));
+
+
+		update_channel(&net_graph_msg_handler, &secp_ctx, &our_privkey, UnsignedChannelUpdate {
+			chain_hash: genesis_block(Network::Testnet).header.block_hash(),
+			short_channel_id: 2,
+			timestamp: 1,
+			flags: 0,
+			cltv_expiry_delta: (5 << 4) | 3,
+			htlc_minimum_msat: 0,
+			htlc_maximum_msat: OptionalField::Absent,
+			fee_base_msat: 0,
+			fee_proportional_millionths: u32::max_value(),
+			excess_data: Vec::new()
+		});
+
 
 		// Without penalizing each hop 100 msats, a longer path with lower fees is chosen.
 		let scorer = test_utils::TestScorer::with_penalty(0);
