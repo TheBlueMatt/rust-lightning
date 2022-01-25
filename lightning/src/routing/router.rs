@@ -848,10 +848,10 @@ where L::Target: Logger {
 			// - for first and last hops early in get_route
 			if $src_node_id != $dest_node_id {
 				let short_channel_id = $candidate.short_channel_id();
-				let available_liquidity_msat = available_channel_liquidities
-					.entry(short_channel_id)
-					.or_insert_with(|| $candidate.available_liquidity())
-					.as_msat();
+				let available_liquidity = available_channel_liquidities
+					.entry((short_channel_id, $src_node_id < $dest_node_id))
+					.or_insert_with(|| $candidate.available_liquidity());
+				let available_liquidity_msat = available_liquidity.as_msat();
 
 				// It is tricky to substract $next_hops_fee_msat from available liquidity here.
 				// It may be misleading because we might later choose to reduce the value transferred
@@ -999,7 +999,7 @@ where L::Target: Logger {
 							let effective_capacity_msat = $candidate.effective_capacity().as_msat();
 							let params = ChannelUseParameters {
 								amount_msat: amount_to_transfer_over_msat,
-								inflight_htlc_msat: effective_capacity_msat - available_liquidity_msat,
+								inflight_htlc_msat: effective_capacity_msat - available_liquidity.remaining_capacity_msat,
 								fees_msat: cmp::max(total_fee_msat, path_htlc_minimum_msat),
 								effective_capacity_msat,
 							};
@@ -1384,10 +1384,12 @@ where L::Target: Logger {
 				// Remember that we used these channels so that we don't rely
 				// on the same liquidity in future paths.
 				let mut prevented_redundant_path_selection = false;
-				for (payment_hop, _) in payment_path.hops.iter() {
-					let spent_on_hop_msat = value_contribution_msat + payment_hop.next_hops_fee_msat;
+				let prev_hop_iter = core::iter::once(&our_node_id)
+					.chain(payment_path.hops.iter().map(|(hop, _)| &hop.node_id));
+				for (prev_hop, (hop, _)) in prev_hop_iter.zip(payment_path.hops.iter()) {
+					let spent_on_hop_msat = value_contribution_msat + hop.next_hops_fee_msat;
 					let available_liquidity_msat = available_channel_liquidities
-						.get_mut(&payment_hop.candidate.short_channel_id())
+						.get_mut(&(hop.candidate.short_channel_id(), *prev_hop < hop.node_id))
 						.unwrap()
 						.reduce_by(spent_on_hop_msat)
 						.as_msat();
@@ -1403,7 +1405,8 @@ where L::Target: Logger {
 					// Decrease the available liquidity of a hop in the middle of the path.
 					let victim_scid = payment_path.hops[(payment_path.hops.len() - 1) / 2].0.candidate.short_channel_id();
 					log_trace!(logger, "Disabling channel {} for future path building iterations to avoid duplicates.", victim_scid);
-					available_channel_liquidities.get_mut(&victim_scid).unwrap().exhaust();
+					available_channel_liquidities.get_mut(&(victim_scid, false)).map(|l| l.exhaust());
+					available_channel_liquidities.get_mut(&(victim_scid, true)).map(|l| l.exhaust());
 				}
 
 				// Track the total amount all our collected paths allow to send so that we:
