@@ -651,6 +651,7 @@ impl<L: DerefMut<Target = u64>> DirectedChannelLiquidity<L> {
 }
 
 impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
+	#[allow(clippy::float_cmp)]
 	fn channel_penalty_msat(
 		&self, short_channel_id: u64, amount_msat: u64, capacity_msat: u64, source: &NodeId,
 		target: &NodeId
