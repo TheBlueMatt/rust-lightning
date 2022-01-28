@@ -695,7 +695,7 @@ impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
 			if hop.short_channel_id == short_channel_id {
 				self.channel_liquidities
 					.entry(hop.short_channel_id)
-					.or_insert_with(|| ChannelLiquidity::new())
+					.or_insert_with(ChannelLiquidity::new)
 					.as_directed_mut(&source, &target, capacity_msat)
 					.failed_at_channel(amount_msat);
 				break;
@@ -703,7 +703,7 @@ impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
 
 			self.channel_liquidities
 				.entry(hop.short_channel_id)
-				.or_insert_with(|| ChannelLiquidity::new())
+				.or_insert_with(ChannelLiquidity::new)
 				.as_directed_mut(&source, &target, capacity_msat)
 				.failed_downstream(amount_msat);
 		}
@@ -728,7 +728,7 @@ impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
 
 			self.channel_liquidities
 				.entry(hop.short_channel_id)
-				.or_insert_with(|| ChannelLiquidity::new())
+				.or_insert_with(ChannelLiquidity::new)
 				.as_directed_mut(&source, &target, capacity_msat)
 				.successful(amount_msat);
 		}
