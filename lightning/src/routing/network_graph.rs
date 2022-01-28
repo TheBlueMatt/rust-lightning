@@ -697,7 +697,7 @@ impl_writeable_tlv_based!(ChannelInfo, {
 
 /// A wrapper around [`ChannelInfo`] representing information about the channel as directed from a
 /// source node to a target node.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct DirectedChannelInfo<'a> {
 	channel: &'a ChannelInfo,
 	direction: Option<&'a ChannelUpdateInfo>,
@@ -749,8 +749,18 @@ impl<'a> DirectedChannelInfo<'a> {
 	}
 }
 
+impl<'a> fmt::Debug for DirectedChannelInfo<'a> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+		f.debug_struct("DirectedChannelInfo")
+			.field("source", &self.source)
+			.field("target", &self.target)
+			.field("channel", &self.channel)
+			.finish()
+	}
+}
+
 /// A [`DirectedChannelInfo`] with [`ChannelUpdateInfo`] available in its the direction.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(super) struct DirectedChannelInfoWithUpdate<'a> {
 	inner: DirectedChannelInfo<'a>,
 }
@@ -767,6 +777,12 @@ impl<'a> DirectedChannelInfoWithUpdate<'a> {
 	/// Returns the [`EffectiveCapacity`] of the channel in the direction.
 	#[inline]
 	pub(super) fn effective_capacity(&self) -> EffectiveCapacity { self.inner.effective_capacity() }
+}
+
+impl<'a> fmt::Debug for DirectedChannelInfoWithUpdate<'a> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+		self.inner.fmt(f)
+	}
 }
 
 /// The effective capacity of a channel for routing purposes.
