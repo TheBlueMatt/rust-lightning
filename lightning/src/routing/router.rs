@@ -355,7 +355,7 @@ enum CandidateRouteHop<'a> {
 	},
 	/// A hop found in the [`NetworkGraph`], where the channel capacity may or may not be known.
 	PublicHop {
-		info: DirectedChannelInfoWithUpdate<'a, 'a>,
+		info: DirectedChannelInfoWithUpdate<'a>,
 		short_channel_id: u64,
 	},
 	/// A hop to the payee found in the payment invoice, though not necessarily a direct channel.

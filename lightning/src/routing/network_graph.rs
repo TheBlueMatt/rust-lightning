@@ -698,25 +698,25 @@ impl_writeable_tlv_based!(ChannelInfo, {
 /// A wrapper around [`ChannelInfo`] representing information about the channel as directed from a
 /// source node to a target node.
 #[derive(Clone, Debug)]
-pub struct DirectedChannelInfo<'a: 'b, 'b> {
+pub struct DirectedChannelInfo<'a> {
 	channel: &'a ChannelInfo,
-	direction: Option<&'b ChannelUpdateInfo>,
-	source: &'b NodeId,
-	target: &'b NodeId,
+	direction: Option<&'a ChannelUpdateInfo>,
+	source: &'a NodeId,
+	target: &'a NodeId,
 }
 
-impl<'a: 'b, 'b> DirectedChannelInfo<'a, 'b> {
+impl<'a: 'b, 'b> DirectedChannelInfo<'a> {
 	/// Returns information for the channel.
 	pub fn channel(&self) -> &'a ChannelInfo { self.channel }
 
 	/// Returns information for the direction.
-	pub fn direction(&self) -> Option<&'b ChannelUpdateInfo> { self.direction }
+	pub fn direction(&self) -> Option<&'a ChannelUpdateInfo> { self.direction }
 
 	/// Returns the node id for the source.
-	pub fn source(&self) -> &'b NodeId { self.source }
+	pub fn source(&self) -> &'a NodeId { self.source }
 
 	/// Returns the node id for the target.
-	pub fn target(&self) -> &'b NodeId { self.target }
+	pub fn target(&self) -> &'a NodeId { self.target }
 
 	/// Returns the [`EffectiveCapacity`] of the channel in the direction.
 	///
@@ -741,7 +741,7 @@ impl<'a: 'b, 'b> DirectedChannelInfo<'a, 'b> {
 	}
 
 	/// Returns `Some` if [`ChannelUpdateInfo`] is available in the direction.
-	pub(super) fn with_update(self) -> Option<DirectedChannelInfoWithUpdate<'a, 'b>> {
+	pub(super) fn with_update(self) -> Option<DirectedChannelInfoWithUpdate<'a>> {
 		match self.direction {
 			Some(_) => Some(DirectedChannelInfoWithUpdate { inner: self }),
 			None => None,
@@ -751,18 +751,18 @@ impl<'a: 'b, 'b> DirectedChannelInfo<'a, 'b> {
 
 /// A [`DirectedChannelInfo`] with [`ChannelUpdateInfo`] available in its the direction.
 #[derive(Clone, Debug)]
-pub(super) struct DirectedChannelInfoWithUpdate<'a: 'b, 'b> {
-	inner: DirectedChannelInfo<'a, 'b>,
+pub(super) struct DirectedChannelInfoWithUpdate<'a> {
+	inner: DirectedChannelInfo<'a>,
 }
 
-impl<'a: 'b, 'b> DirectedChannelInfoWithUpdate<'a, 'b> {
+impl<'a> DirectedChannelInfoWithUpdate<'a> {
 	/// Returns information for the channel.
 	#[inline]
 	pub(super) fn channel(&self) -> &'a ChannelInfo { &self.inner.channel }
 
 	/// Returns information for the direction.
 	#[inline]
-	pub(super) fn direction(&self) -> &'b ChannelUpdateInfo { self.inner.direction.unwrap() }
+	pub(super) fn direction(&self) -> &'a ChannelUpdateInfo { self.inner.direction.unwrap() }
 
 	/// Returns the [`EffectiveCapacity`] of the channel in the direction.
 	#[inline]
