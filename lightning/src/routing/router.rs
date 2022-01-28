@@ -18,7 +18,7 @@ use ln::channelmanager::ChannelDetails;
 use ln::features::{ChannelFeatures, InvoiceFeatures, NodeFeatures};
 use ln::msgs::{DecodeError, ErrorAction, LightningError, MAX_VALUE_MSAT};
 use routing::scoring::Score;
-use routing::network_graph::{DirectedChannelInfo, EffectiveCapacity, NetworkGraph, NodeId, RoutingFees};
+use routing::network_graph::{DirectedChannelInfoWithUpdate, EffectiveCapacity, NetworkGraph, NodeId, RoutingFees};
 use util::ser::{Writeable, Readable};
 use util::logger::{Level, Logger};
 
@@ -355,8 +355,7 @@ enum CandidateRouteHop<'a> {
 	},
 	/// A hop found in the [`NetworkGraph`], where the channel capacity may or may not be known.
 	PublicHop {
-		// `DirectedChannelInfo::direction` MUST NOT be `None`.
-		info: DirectedChannelInfo<'a, 'a>,
+		info: DirectedChannelInfoWithUpdate<'a, 'a>,
 		short_channel_id: u64,
 	},
 	/// A hop to the payee found in the payment invoice, though not necessarily a direct channel.
@@ -377,7 +376,7 @@ impl<'a> CandidateRouteHop<'a> {
 	fn features(&self) -> ChannelFeatures {
 		match self {
 			CandidateRouteHop::FirstHop { details } => details.counterparty.features.to_context(),
-			CandidateRouteHop::PublicHop { info, .. } => info.channel().features.clone(),
+			CandidateRouteHop::PublicHop { info, .. } => info.inner().channel().features.clone(),
 			CandidateRouteHop::PrivateHop { .. } => ChannelFeatures::empty(),
 		}
 	}
@@ -386,7 +385,7 @@ impl<'a> CandidateRouteHop<'a> {
 		match self {
 			CandidateRouteHop::FirstHop { .. } => 0,
 			CandidateRouteHop::PublicHop { info, .. } => {
-				info.direction().unwrap().cltv_expiry_delta as u32
+				info.inner().direction().unwrap().cltv_expiry_delta as u32
 			},
 			CandidateRouteHop::PrivateHop { hint } => hint.cltv_expiry_delta as u32,
 		}
@@ -396,7 +395,7 @@ impl<'a> CandidateRouteHop<'a> {
 		match self {
 			CandidateRouteHop::FirstHop { .. } => 0,
 			CandidateRouteHop::PublicHop { info, .. } => {
-				info.direction().unwrap().htlc_minimum_msat
+				info.inner().direction().unwrap().htlc_minimum_msat
 			},
 			CandidateRouteHop::PrivateHop { hint } => hint.htlc_minimum_msat.unwrap_or(0),
 		}
@@ -407,7 +406,7 @@ impl<'a> CandidateRouteHop<'a> {
 			CandidateRouteHop::FirstHop { .. } => RoutingFees {
 				base_msat: 0, proportional_millionths: 0,
 			},
-			CandidateRouteHop::PublicHop { info, .. } => info.direction().unwrap().fees,
+			CandidateRouteHop::PublicHop { info, .. } => info.inner().direction().unwrap().fees,
 			CandidateRouteHop::PrivateHop { hint } => hint.fees,
 		}
 	}
@@ -417,7 +416,7 @@ impl<'a> CandidateRouteHop<'a> {
 			CandidateRouteHop::FirstHop { details } => EffectiveCapacity::ExactLiquidity {
 				liquidity_msat: details.outbound_capacity_msat,
 			},
-			CandidateRouteHop::PublicHop { info, .. } => info.effective_capacity(),
+			CandidateRouteHop::PublicHop { info, .. } => info.inner().effective_capacity(),
 			CandidateRouteHop::PrivateHop { .. } => EffectiveCapacity::Infinite,
 		}
 	}
@@ -1084,7 +1083,7 @@ where L::Target: Logger {
 								if let Some(direction) = directed_channel.direction() {
 									if direction.enabled {
 										let candidate = CandidateRouteHop::PublicHop {
-											info: directed_channel,
+											info: directed_channel.with_update().unwrap(),
 											short_channel_id: *chan_id,
 										};
 										add_entry!(candidate, *source, *target, $fee_to_target_msat, $next_hops_value_contribution, $next_hops_path_htlc_minimum_msat, $next_hops_path_penalty_msat, $next_hops_cltv_delta);
@@ -1162,7 +1161,7 @@ where L::Target: Logger {
 					let candidate = network_channels
 						.get(&hop.short_channel_id)
 						.and_then(|channel| channel.as_directed_to(&target))
-						.and_then(|channel| channel.direction().map(|_| channel))
+						.and_then(|channel| channel.with_update())
 						.map(|info| CandidateRouteHop::PublicHop {
 							info,
 							short_channel_id: hop.short_channel_id,

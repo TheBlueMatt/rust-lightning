@@ -718,7 +718,7 @@ impl<'a: 'b, 'b> DirectedChannelInfo<'a, 'b> {
 	/// Returns the node id for the target.
 	pub fn target(&self) -> &'b NodeId { self.target }
 
-	/// Returns the [`EffectiveCapacity`] of the channel in a specific direction.
+	/// Returns the [`EffectiveCapacity`] of the channel in the direction.
 	///
 	/// This is either the total capacity from the funding transaction, if known, or the
 	/// `htlc_maximum_msat` for the direction as advertised by the gossip network, if known,
@@ -738,6 +738,27 @@ impl<'a: 'b, 'b> DirectedChannelInfo<'a, 'b> {
 			.or_else(|| capacity_msat.map(|capacity_msat|
 					EffectiveCapacity::Total { capacity_msat }))
 			.unwrap_or(EffectiveCapacity::Unknown)
+	}
+
+	/// Returns `Some` if [`ChannelUpdateInfo`] is available in the direction.
+	pub(super) fn with_update(self) -> Option<DirectedChannelInfoWithUpdate<'a, 'b>> {
+		match self.direction {
+			Some(_) => Some(DirectedChannelInfoWithUpdate { inner: self }),
+			None => None,
+		}
+	}
+}
+
+/// A [`DirectedChannelInfo`] with [`ChannelUpdateInfo`] available in its the direction.
+#[derive(Clone, Debug)]
+pub(super) struct DirectedChannelInfoWithUpdate<'a: 'b, 'b> {
+	inner: DirectedChannelInfo<'a, 'b>,
+}
+
+impl<'a: 'b, 'b> DirectedChannelInfoWithUpdate<'a, 'b> {
+	/// Returns the underlying [`DirectedChannelInfo`].
+	pub(super) fn inner(&self) -> &DirectedChannelInfo<'a, 'b> {
+		&self.inner
 	}
 }
 
