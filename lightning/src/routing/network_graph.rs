@@ -705,7 +705,7 @@ pub struct DirectedChannelInfo<'a> {
 	target: &'a NodeId,
 }
 
-impl<'a: 'b, 'b> DirectedChannelInfo<'a> {
+impl<'a> DirectedChannelInfo<'a> {
 	/// Returns information for the channel.
 	pub fn channel(&self) -> &'a ChannelInfo { self.channel }
 
