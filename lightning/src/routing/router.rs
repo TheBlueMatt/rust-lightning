@@ -373,6 +373,7 @@ impl<'a> CandidateRouteHop<'a> {
 		}
 	}
 
+	// NOTE: This may copy bytes to so avoid calling it in a hot code path.
 	fn features(&self) -> ChannelFeatures {
 		match self {
 			CandidateRouteHop::FirstHop { details } => details.counterparty.features.to_context(),
