@@ -756,10 +756,17 @@ pub(super) struct DirectedChannelInfoWithUpdate<'a: 'b, 'b> {
 }
 
 impl<'a: 'b, 'b> DirectedChannelInfoWithUpdate<'a, 'b> {
-	/// Returns the underlying [`DirectedChannelInfo`].
-	pub(super) fn inner(&self) -> &DirectedChannelInfo<'a, 'b> {
-		&self.inner
-	}
+	/// Returns information for the channel.
+	#[inline]
+	pub(super) fn channel(&self) -> &'a ChannelInfo { &self.inner.channel }
+
+	/// Returns information for the direction.
+	#[inline]
+	pub(super) fn direction(&self) -> &'b ChannelUpdateInfo { self.inner.direction.unwrap() }
+
+	/// Returns the [`EffectiveCapacity`] of the channel in the direction.
+	#[inline]
+	pub(super) fn effective_capacity(&self) -> EffectiveCapacity { self.inner.effective_capacity() }
 }
 
 /// The effective capacity of a channel for routing purposes.

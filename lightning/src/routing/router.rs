@@ -376,7 +376,7 @@ impl<'a> CandidateRouteHop<'a> {
 	fn features(&self) -> ChannelFeatures {
 		match self {
 			CandidateRouteHop::FirstHop { details } => details.counterparty.features.to_context(),
-			CandidateRouteHop::PublicHop { info, .. } => info.inner().channel().features.clone(),
+			CandidateRouteHop::PublicHop { info, .. } => info.channel().features.clone(),
 			CandidateRouteHop::PrivateHop { .. } => ChannelFeatures::empty(),
 		}
 	}
@@ -384,9 +384,7 @@ impl<'a> CandidateRouteHop<'a> {
 	fn cltv_expiry_delta(&self) -> u32 {
 		match self {
 			CandidateRouteHop::FirstHop { .. } => 0,
-			CandidateRouteHop::PublicHop { info, .. } => {
-				info.inner().direction().unwrap().cltv_expiry_delta as u32
-			},
+			CandidateRouteHop::PublicHop { info, .. } => info.direction().cltv_expiry_delta as u32,
 			CandidateRouteHop::PrivateHop { hint } => hint.cltv_expiry_delta as u32,
 		}
 	}
@@ -394,9 +392,7 @@ impl<'a> CandidateRouteHop<'a> {
 	fn htlc_minimum_msat(&self) -> u64 {
 		match self {
 			CandidateRouteHop::FirstHop { .. } => 0,
-			CandidateRouteHop::PublicHop { info, .. } => {
-				info.inner().direction().unwrap().htlc_minimum_msat
-			},
+			CandidateRouteHop::PublicHop { info, .. } => info.direction().htlc_minimum_msat,
 			CandidateRouteHop::PrivateHop { hint } => hint.htlc_minimum_msat.unwrap_or(0),
 		}
 	}
@@ -406,7 +402,7 @@ impl<'a> CandidateRouteHop<'a> {
 			CandidateRouteHop::FirstHop { .. } => RoutingFees {
 				base_msat: 0, proportional_millionths: 0,
 			},
-			CandidateRouteHop::PublicHop { info, .. } => info.inner().direction().unwrap().fees,
+			CandidateRouteHop::PublicHop { info, .. } => info.direction().fees,
 			CandidateRouteHop::PrivateHop { hint } => hint.fees,
 		}
 	}
@@ -416,7 +412,7 @@ impl<'a> CandidateRouteHop<'a> {
 			CandidateRouteHop::FirstHop { details } => EffectiveCapacity::ExactLiquidity {
 				liquidity_msat: details.outbound_capacity_msat,
 			},
-			CandidateRouteHop::PublicHop { info, .. } => info.inner().effective_capacity(),
+			CandidateRouteHop::PublicHop { info, .. } => info.effective_capacity(),
 			CandidateRouteHop::PrivateHop { .. } => EffectiveCapacity::Infinite,
 		}
 	}
