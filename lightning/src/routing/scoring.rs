@@ -719,8 +719,9 @@ impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
 impl<G: Deref<Target = NetworkGraph>> Writeable for ProbabilisticScorer<G> {
 	#[inline]
 	fn write<W: Writer>(&self, w: &mut W) -> Result<(), io::Error> {
-		self.channel_liquidities.write(w)?;
-		write_tlv_fields!(w, {});
+		write_tlv_fields!(w, {
+			(0, self.channel_liquidities, required)
+		});
 		Ok(())
 	}
 }
@@ -732,13 +733,15 @@ for ProbabilisticScorer<G> {
 		r: &mut R, args: (ProbabilisticScoringParameters, G)
 	) -> Result<Self, DecodeError> {
 		let (params, network_graph) = args;
-		let res = Ok(Self {
+		let mut channel_liquidities = HashMap::new();
+		read_tlv_fields!(r, {
+			(0, channel_liquidities, required)
+		});
+		Ok(Self {
 			params,
 			network_graph,
-			channel_liquidities: Readable::read(r)?,
-		});
-		read_tlv_fields!(r, {});
-		res
+			channel_liquidities,
+		})
 	}
 }
 
