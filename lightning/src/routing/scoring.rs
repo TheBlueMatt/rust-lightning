@@ -528,6 +528,8 @@ struct ChannelLiquidity<T: Time> {
 
 	/// Upper channel liquidity bound in terms of an offset from the effective capacity.
 	max_liquidity_offset_msat: u64,
+
+	/// Time when the liquidity bounds were last modified.
 	last_updated: T,
 }
 
