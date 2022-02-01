@@ -648,7 +648,6 @@ impl<L: DerefMut<Target = u64>> DirectedChannelLiquidity<L> {
 }
 
 impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
-	#[allow(clippy::float_cmp)]
 	fn channel_penalty_msat(
 		&self, short_channel_id: u64, amount_msat: u64, capacity_msat: u64, source: &NodeId,
 		target: &NodeId
@@ -659,13 +658,10 @@ impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
 			.unwrap_or(&ChannelLiquidity::new())
 			.as_directed(source, target, capacity_msat)
 			.success_probability(amount_msat);
-		if success_probability == 0.0 {
-			u64::max_value()
-		} else if success_probability == 1.0 {
-			0
-		} else {
-			(-(success_probability.log10()) * liquidity_penalty_multiplier_msat as f64) as u64
-		}
+		// NOTE: If success_probability is ever changed to return 0.0, log10 is undefined so return
+		// u64::max_value instead.
+		debug_assert!(success_probability > core::f64::EPSILON);
+		(-(success_probability.log10()) * liquidity_penalty_multiplier_msat as f64) as u64
 	}
 
 	fn payment_path_failed(&mut self, path: &[&RouteHop], short_channel_id: u64) {
