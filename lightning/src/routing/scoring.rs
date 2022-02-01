@@ -32,14 +32,14 @@
 //! #
 //! // Use the default channel penalties.
 //! let params = ProbabilisticScoringParameters::default();
-//! let scorer = ProbabilisticScorer::new(params, &payer, &network_graph);
+//! let scorer = ProbabilisticScorer::new(params, &network_graph);
 //!
 //! // Or use custom channel penalties.
 //! let params = ProbabilisticScoringParameters {
 //!     liquidity_penalty_multiplier_msat: 2 * 1000,
 //!     ..ProbabilisticScoringParameters::default()
 //! };
-//! let scorer = ProbabilisticScorer::new(params, &payer, &network_graph);
+//! let scorer = ProbabilisticScorer::new(params, &network_graph);
 //!
 //! let route = find_route(&payer, &route_params, &network_graph, None, &logger, &scorer);
 //! # }
@@ -51,8 +51,6 @@
 //! different types and thus is undefined.
 //!
 //! [`find_route`]: crate::routing::router::find_route
-
-use bitcoin::secp256k1::key::PublicKey;
 
 use ln::msgs::DecodeError;
 use routing::network_graph::{EffectiveCapacity, NetworkGraph, NodeId};
@@ -466,7 +464,6 @@ impl<T: Time> Readable for ChannelFailure<T> {
 /// [1]: https://arxiv.org/abs/2107.05322
 pub struct ProbabilisticScorer<G: Deref<Target = NetworkGraph>> {
 	params: ProbabilisticScoringParameters,
-	node_id: NodeId,
 	network_graph: G,
 	// TODO: Remove entries of closed channels.
 	channel_liquidities: HashMap<u64, ChannelLiquidity>,
@@ -513,12 +510,9 @@ struct DirectedChannelLiquidity<L: Deref<Target = u64>> {
 impl<G: Deref<Target = NetworkGraph>> ProbabilisticScorer<G> {
 	/// Creates a new scorer using the given scoring parameters for sending payments from a node
 	/// through a network graph.
-	pub fn new(
-		params: ProbabilisticScoringParameters, node_pubkey: &PublicKey, network_graph: G
-	) -> Self {
+	pub fn new(params: ProbabilisticScoringParameters, network_graph: G) -> Self {
 		Self {
 			params,
-			node_id: NodeId::from_pubkey(node_pubkey),
 			network_graph,
 			channel_liquidities: HashMap::new(),
 		}
@@ -659,10 +653,6 @@ impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
 		&self, short_channel_id: u64, amount_msat: u64, capacity_msat: u64, source: &NodeId,
 		target: &NodeId
 	) -> u64 {
-		if *source == self.node_id || *target == self.node_id {
-			return 0;
-		}
-
 		let liquidity_penalty_multiplier_msat = self.params.liquidity_penalty_multiplier_msat;
 		let success_probability = self.channel_liquidities
 			.get(&short_channel_id)
@@ -681,14 +671,9 @@ impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
 	fn payment_path_failed(&mut self, path: &[&RouteHop], short_channel_id: u64) {
 		let amount_msat = path.split_last().map(|(hop, _)| hop.fee_msat).unwrap_or(0);
 		let network_graph = self.network_graph.read_only();
-		let hop_sources = core::iter::once(self.node_id)
-			.chain(path.iter().map(|hop| NodeId::from_pubkey(&hop.pubkey)));
-		for (source, hop) in hop_sources.zip(path.iter()) {
+		let hop_sources = path.iter().map(|hop| NodeId::from_pubkey(&hop.pubkey));
+		for (source, hop) in hop_sources.zip(path.iter().skip(1)) {
 			let target = NodeId::from_pubkey(&hop.pubkey);
-			if source == self.node_id || target == self.node_id {
-				continue;
-			}
-
 			let capacity_msat = network_graph.channels()
 				.get(&hop.short_channel_id)
 				.and_then(|channel| channel.as_directed_to(&target).map(|(d, _)| d.effective_capacity()))
@@ -715,14 +700,9 @@ impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
 	fn payment_path_successful(&mut self, path: &[&RouteHop]) {
 		let amount_msat = path.split_last().map(|(hop, _)| hop.fee_msat).unwrap_or(0);
 		let network_graph = self.network_graph.read_only();
-		let hop_sources = core::iter::once(self.node_id)
-			.chain(path.iter().map(|hop| NodeId::from_pubkey(&hop.pubkey)));
-		for (source, hop) in hop_sources.zip(path.iter()) {
+		let hop_sources = path.iter().map(|hop| NodeId::from_pubkey(&hop.pubkey));
+		for (source, hop) in hop_sources.zip(path.iter().skip(1)) {
 			let target = NodeId::from_pubkey(&hop.pubkey);
-			if source == self.node_id || target == self.node_id {
-				continue;
-			}
-
 			let capacity_msat = network_graph.channels()
 				.get(&hop.short_channel_id)
 				.and_then(|channel| channel.as_directed_to(&target).map(|(d, _)| d.effective_capacity()))
@@ -747,16 +727,15 @@ impl<G: Deref<Target = NetworkGraph>> Writeable for ProbabilisticScorer<G> {
 	}
 }
 
-impl<G: Deref<Target = NetworkGraph>> ReadableArgs<(ProbabilisticScoringParameters, &PublicKey, G)>
+impl<G: Deref<Target = NetworkGraph>> ReadableArgs<(ProbabilisticScoringParameters, G)>
 for ProbabilisticScorer<G> {
 	#[inline]
 	fn read<R: Read>(
-		r: &mut R, args: (ProbabilisticScoringParameters, &PublicKey, G)
+		r: &mut R, args: (ProbabilisticScoringParameters, G)
 	) -> Result<Self, DecodeError> {
-		let (params, node_pubkey, network_graph) = args;
+		let (params, network_graph) = args;
 		let res = Ok(Self {
 			params,
-			node_id: NodeId::from_pubkey(node_pubkey),
 			network_graph,
 			channel_liquidities: Readable::read(r)?,
 		});
@@ -1331,7 +1310,7 @@ mod tests {
 	fn liquidity_bounds_directed_from_lowest_node_id() {
 		let network_graph = network_graph();
 		let params = ProbabilisticScoringParameters::default();
-		let mut scorer = ProbabilisticScorer::new(params, &sender_pubkey(), &network_graph)
+		let mut scorer = ProbabilisticScorer::new(params, &network_graph)
 			.with_channel(42,
 				ChannelLiquidity {
 					min_liquidity_offset_msat: 700, max_liquidity_offset_msat: 100
@@ -1375,7 +1354,7 @@ mod tests {
 	fn resets_liquidity_upper_bound_when_crossed_by_lower_bound() {
 		let network_graph = network_graph();
 		let params = ProbabilisticScoringParameters::default();
-		let mut scorer = ProbabilisticScorer::new(params, &sender_pubkey(), &network_graph)
+		let mut scorer = ProbabilisticScorer::new(params, &network_graph)
 			.with_channel(42,
 				ChannelLiquidity {
 					min_liquidity_offset_msat: 200, max_liquidity_offset_msat: 400
@@ -1430,7 +1409,7 @@ mod tests {
 	fn resets_liquidity_lower_bound_when_crossed_by_upper_bound() {
 		let network_graph = network_graph();
 		let params = ProbabilisticScoringParameters::default();
-		let mut scorer = ProbabilisticScorer::new(params, &sender_pubkey(), &network_graph)
+		let mut scorer = ProbabilisticScorer::new(params, &network_graph)
 			.with_channel(42,
 				ChannelLiquidity {
 					min_liquidity_offset_msat: 200, max_liquidity_offset_msat: 400
@@ -1485,7 +1464,7 @@ mod tests {
 	fn increased_penalty_nearing_liquidity_upper_bound() {
 		let network_graph = network_graph();
 		let params = ProbabilisticScoringParameters::default();
-		let scorer = ProbabilisticScorer::new(params, &sender_pubkey(), &network_graph);
+		let scorer = ProbabilisticScorer::new(params, &network_graph);
 		let source = source_node_id();
 		let target = target_node_id();
 
@@ -1507,7 +1486,7 @@ mod tests {
 	fn constant_penalty_outside_liquidity_bounds() {
 		let network_graph = network_graph();
 		let params = ProbabilisticScoringParameters::default();
-		let scorer = ProbabilisticScorer::new(params, &sender_pubkey(), &network_graph)
+		let scorer = ProbabilisticScorer::new(params, &network_graph)
 			.with_channel(42,
 				ChannelLiquidity { min_liquidity_offset_msat: 40, max_liquidity_offset_msat: 40 });
 		let source = source_node_id();
@@ -1520,29 +1499,29 @@ mod tests {
 	}
 
 	#[test]
-	fn does_not_penalize_own_channel() {
+	fn does_not_further_penalize_own_channel() {
 		let network_graph = network_graph();
 		let params = ProbabilisticScoringParameters::default();
-		let mut scorer = ProbabilisticScorer::new(params, &sender_pubkey(), &network_graph);
+		let mut scorer = ProbabilisticScorer::new(params, &network_graph);
 		let sender = sender_node_id();
 		let source = source_node_id();
 		let failed_path = payment_path_for_amount(500);
 		let successful_path = payment_path_for_amount(200);
 
-		assert_eq!(scorer.channel_penalty_msat(41, 500, 1_000, &sender, &source), 0);
+		assert_eq!(scorer.channel_penalty_msat(41, 500, 1_000, &sender, &source), 300);
 
 		scorer.payment_path_failed(&failed_path.iter().collect::<Vec<_>>(), 41);
-		assert_eq!(scorer.channel_penalty_msat(41, 500, 1_000, &sender, &source), 0);
+		assert_eq!(scorer.channel_penalty_msat(41, 500, 1_000, &sender, &source), 300);
 
 		scorer.payment_path_successful(&successful_path.iter().collect::<Vec<_>>());
-		assert_eq!(scorer.channel_penalty_msat(41, 500, 1_000, &sender, &source), 0);
+		assert_eq!(scorer.channel_penalty_msat(41, 500, 1_000, &sender, &source), 300);
 	}
 
 	#[test]
 	fn sets_liquidity_lower_bound_on_downstream_failure() {
 		let network_graph = network_graph();
 		let params = ProbabilisticScoringParameters::default();
-		let mut scorer = ProbabilisticScorer::new(params, &sender_pubkey(), &network_graph);
+		let mut scorer = ProbabilisticScorer::new(params, &network_graph);
 		let source = source_node_id();
 		let target = target_node_id();
 		let path = payment_path_for_amount(500);
@@ -1562,7 +1541,7 @@ mod tests {
 	fn sets_liquidity_upper_bound_on_failure() {
 		let network_graph = network_graph();
 		let params = ProbabilisticScoringParameters::default();
-		let mut scorer = ProbabilisticScorer::new(params, &sender_pubkey(), &network_graph);
+		let mut scorer = ProbabilisticScorer::new(params, &network_graph);
 		let source = source_node_id();
 		let target = target_node_id();
 		let path = payment_path_for_amount(500);
@@ -1582,20 +1561,20 @@ mod tests {
 	fn reduces_liquidity_upper_bound_along_path_on_success() {
 		let network_graph = network_graph();
 		let params = ProbabilisticScoringParameters::default();
-		let mut scorer = ProbabilisticScorer::new(params, &sender_pubkey(), &network_graph);
+		let mut scorer = ProbabilisticScorer::new(params, &network_graph);
 		let sender = sender_node_id();
 		let source = source_node_id();
 		let target = target_node_id();
 		let recipient = recipient_node_id();
 		let path = payment_path_for_amount(500);
 
-		assert_eq!(scorer.channel_penalty_msat(41, 250, 1_000, &sender, &source), 0);
+		assert_eq!(scorer.channel_penalty_msat(41, 250, 1_000, &sender, &source), 124);
 		assert_eq!(scorer.channel_penalty_msat(42, 250, 1_000, &source, &target), 124);
 		assert_eq!(scorer.channel_penalty_msat(43, 250, 1_000, &target, &recipient), 124);
 
 		scorer.payment_path_successful(&path.iter().collect::<Vec<_>>());
 
-		assert_eq!(scorer.channel_penalty_msat(41, 250, 1_000, &sender, &source), 0);
+		assert_eq!(scorer.channel_penalty_msat(41, 250, 1_000, &sender, &source), 124);
 		assert_eq!(scorer.channel_penalty_msat(42, 250, 1_000, &source, &target), 300);
 		assert_eq!(scorer.channel_penalty_msat(43, 250, 1_000, &target, &recipient), 300);
 	}
