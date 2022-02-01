@@ -496,7 +496,10 @@ impl_writeable_tlv_based!(ProbabilisticScoringParameters, {
 /// first node in the ordering of the channel's counterparties. Thus, swapping the two liquidity
 /// offset fields gives the opposite direction.
 struct ChannelLiquidity {
+	/// Lower channel liquidity bound in terms of an offset from zero.
 	min_liquidity_offset_msat: u64,
+
+	/// Upper channel liquidity bound in terms of an offset from the effective capacity.
 	max_liquidity_offset_msat: u64,
 }
 
