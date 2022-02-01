@@ -482,13 +482,14 @@ pub struct ProbabilisticScorerUsingTime<G: Deref<Target = NetworkGraph>, T: Time
 /// Parameters for configuring [`ProbabilisticScorer`].
 #[derive(Clone, Copy)]
 pub struct ProbabilisticScoringParameters {
-	/// A penalty applied after multiplying by the negative log of the channel's success probability
-	/// for a payment.
+	/// A multiplier used to determine the amount in msats willing to be paid to avoid routing
+	/// through a channel, as per multiplying by the negative log of the channel's success
+	/// probability for a payment.
 	///
 	/// The success probability is determined by the effective channel capacity, the payment amount,
 	/// and knowledge learned from prior successful and unsuccessful payments. The lower bound of
 	/// the success probability is 0.01, effectively limiting the penalty to the range
-	/// `0..=2*liquidity_penalty_multiplier_msat`. The knowledge learned is reduced over time based
+	/// `0..=2*liquidity_penalty_multiplier_msat`. The knowledge learned is decayed over time based
 	/// on [`liquidity_offset_half_life`].
 	///
 	/// Default value: 10,000 msat
@@ -499,9 +500,9 @@ pub struct ProbabilisticScoringParameters {
 	/// The time required to elapse before any knowledge learned about channel liquidity balances is
 	/// cut in half.
 	///
-	/// The bounds are defined in terms offsets and are initially zero. Increasing the offsets gives
-	/// tighter bounds on the channel liquidity balance. Thus, halving the offsets decreases the
-	/// certainty of the channel liquidity balance.
+	/// The bounds are defined in terms of offsets and are initially zero. Increasing the offsets
+	/// gives tighter bounds on the channel liquidity balance. Thus, halving the offsets decreases
+	/// the certainty of the channel liquidity balance.
 	///
 	/// Default value: 1 hour
 	///
