@@ -808,7 +808,7 @@ pub enum EffectiveCapacity {
 		capacity_msat: u64,
 	},
 	/// A capacity sufficient to route any payment, typically used for private channels provided by
-	/// an invoice, though may not be the case for zero-amount invoices.
+	/// an invoice.
 	Infinite,
 	/// A capacity that is unknown possibly because either the chain state is unavailable to know
 	/// the total capacity or the `htlc_maximum_msat` was not advertised on the gossip network.
