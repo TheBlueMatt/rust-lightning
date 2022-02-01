@@ -84,8 +84,9 @@ pub trait Score $(: $supertrait)* {
 	///
 	/// The channel's capacity (less any other MPP parts that are also being considered for use in
 	/// the same payment) is given by `capacity_msat`. It may be determined from various sources
-	/// such as a chain data, network gossip, or invoice hints, the latter indicating sufficient
-	/// capacity (i.e., near [`u64::max_value`]). Thus, implementations should be overflow-safe.
+	/// such as a chain data, network gossip, or invoice hints. For invoice hints, a capacity near
+	/// [`u64::max_value`] is given to indicate sufficient capacity for the invoice's full amount.
+	/// Thus, implementations should be overflow-safe.
 	fn channel_penalty_msat(&self, short_channel_id: u64, send_amt_msat: u64, capacity_msat: u64, source: &NodeId, target: &NodeId) -> u64;
 
 	/// Handles updating channel penalties after failing to route through a channel.
