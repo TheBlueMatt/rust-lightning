@@ -534,8 +534,8 @@ struct ChannelLiquidity<T: Time> {
 	last_updated: T,
 }
 
-/// A view of [`ChannelLiquidity`] in one direction assuming a certain channel capacity and decayed
-/// with a given half life.
+/// A snapshot of [`ChannelLiquidity`] in one direction assuming a certain channel capacity and
+/// decayed with a given half life.
 struct DirectedChannelLiquidity<L: Deref<Target = u64>, T: Time, U: Deref<Target = T>> {
 	min_liquidity_offset_msat: L,
 	max_liquidity_offset_msat: L,
