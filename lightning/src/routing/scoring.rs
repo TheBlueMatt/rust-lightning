@@ -479,7 +479,7 @@ pub struct ProbabilisticScoringParameters {
 	/// the success probability is 0.01, effectively limiting the penalty to the range
 	/// `0..=2*liquidity_penalty_multiplier_msat`.
 	///
-	/// Default value: 1,000 msat
+	/// Default value: 10,000 msat
 	pub liquidity_penalty_multiplier_msat: u64,
 }
 
@@ -528,7 +528,7 @@ impl<G: Deref<Target = NetworkGraph>> ProbabilisticScorer<G> {
 impl Default for ProbabilisticScoringParameters {
 	fn default() -> Self {
 		Self {
-			liquidity_penalty_multiplier_msat: 1000,
+			liquidity_penalty_multiplier_msat: 10_000,
 		}
 	}
 }
@@ -1463,7 +1463,9 @@ mod tests {
 	#[test]
 	fn increased_penalty_nearing_liquidity_upper_bound() {
 		let network_graph = network_graph();
-		let params = ProbabilisticScoringParameters::default();
+		let params = ProbabilisticScoringParameters {
+			liquidity_penalty_multiplier_msat: 1_000, ..Default::default()
+		};
 		let scorer = ProbabilisticScorer::new(params, &network_graph);
 		let source = source_node_id();
 		let target = target_node_id();
@@ -1485,7 +1487,9 @@ mod tests {
 	#[test]
 	fn constant_penalty_outside_liquidity_bounds() {
 		let network_graph = network_graph();
-		let params = ProbabilisticScoringParameters::default();
+		let params = ProbabilisticScoringParameters {
+			liquidity_penalty_multiplier_msat: 1_000, ..Default::default()
+		};
 		let scorer = ProbabilisticScorer::new(params, &network_graph)
 			.with_channel(42,
 				ChannelLiquidity { min_liquidity_offset_msat: 40, max_liquidity_offset_msat: 40 });
@@ -1501,7 +1505,9 @@ mod tests {
 	#[test]
 	fn does_not_further_penalize_own_channel() {
 		let network_graph = network_graph();
-		let params = ProbabilisticScoringParameters::default();
+		let params = ProbabilisticScoringParameters {
+			liquidity_penalty_multiplier_msat: 1_000, ..Default::default()
+		};
 		let mut scorer = ProbabilisticScorer::new(params, &network_graph);
 		let sender = sender_node_id();
 		let source = source_node_id();
@@ -1520,7 +1526,9 @@ mod tests {
 	#[test]
 	fn sets_liquidity_lower_bound_on_downstream_failure() {
 		let network_graph = network_graph();
-		let params = ProbabilisticScoringParameters::default();
+		let params = ProbabilisticScoringParameters {
+			liquidity_penalty_multiplier_msat: 1_000, ..Default::default()
+		};
 		let mut scorer = ProbabilisticScorer::new(params, &network_graph);
 		let source = source_node_id();
 		let target = target_node_id();
@@ -1540,7 +1548,9 @@ mod tests {
 	#[test]
 	fn sets_liquidity_upper_bound_on_failure() {
 		let network_graph = network_graph();
-		let params = ProbabilisticScoringParameters::default();
+		let params = ProbabilisticScoringParameters {
+			liquidity_penalty_multiplier_msat: 1_000, ..Default::default()
+		};
 		let mut scorer = ProbabilisticScorer::new(params, &network_graph);
 		let source = source_node_id();
 		let target = target_node_id();
@@ -1560,7 +1570,9 @@ mod tests {
 	#[test]
 	fn reduces_liquidity_upper_bound_along_path_on_success() {
 		let network_graph = network_graph();
-		let params = ProbabilisticScoringParameters::default();
+		let params = ProbabilisticScoringParameters {
+			liquidity_penalty_multiplier_msat: 1_000, ..Default::default()
+		};
 		let mut scorer = ProbabilisticScorer::new(params, &network_graph);
 		let sender = sender_node_id();
 		let source = source_node_id();
