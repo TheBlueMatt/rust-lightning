@@ -767,6 +767,16 @@ impl<'a> DirectedChannelInfoWithUpdate<'a> {
 	/// Returns the [`EffectiveCapacity`] of the channel in the direction.
 	#[inline]
 	pub(super) fn effective_capacity(&self) -> EffectiveCapacity { self.inner.effective_capacity() }
+
+    #[inline]
+    pub(super) fn dest_node_id(&self) -> &NodeId {
+        let ott = self.inner.channel.one_to_two.as_ref();
+        if ott.is_some() && core::ptr::eq(self.inner.direction.unwrap(), ott.unwrap()) {
+            &self.inner.channel.node_two
+        } else {
+            &self.inner.channel.node_one
+        }
+    }
 }
 
 impl<'a> fmt::Debug for DirectedChannelInfoWithUpdate<'a> {
