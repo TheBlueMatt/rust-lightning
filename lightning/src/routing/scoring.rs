@@ -53,7 +53,7 @@
 //! [`find_route`]: crate::routing::router::find_route
 
 use ln::msgs::DecodeError;
-use routing::network_graph::{EffectiveCapacity, NetworkGraph, NodeId};
+use routing::network_graph::{NetworkGraph, NodeId};
 use routing::router::RouteHop;
 use util::ser::{Readable, ReadableArgs, Writeable, Writer};
 
@@ -671,49 +671,51 @@ impl<G: Deref<Target = NetworkGraph>> Score for ProbabilisticScorer<G> {
 	fn payment_path_failed(&mut self, path: &[&RouteHop], short_channel_id: u64) {
 		let amount_msat = path.split_last().map(|(hop, _)| hop.fee_msat).unwrap_or(0);
 		let network_graph = self.network_graph.read_only();
-		let hop_sources = path.iter().map(|hop| NodeId::from_pubkey(&hop.pubkey));
-		for (source, hop) in hop_sources.zip(path.iter().skip(1)) {
+		for hop in path {
 			let target = NodeId::from_pubkey(&hop.pubkey);
-			let capacity_msat = network_graph.channels()
+			let channel_directed_from_source = network_graph.channels()
 				.get(&hop.short_channel_id)
-				.and_then(|channel| channel.as_directed_to(&target).map(|(d, _)| d.effective_capacity()))
-				.unwrap_or(EffectiveCapacity::Unknown)
-				.as_msat();
+				.and_then(|channel| channel.as_directed_to(&target));
 
-			if hop.short_channel_id == short_channel_id {
+			// Only score announced channels.
+			if let Some((channel, source)) = channel_directed_from_source {
+				let capacity_msat = channel.effective_capacity().as_msat();
+				if hop.short_channel_id == short_channel_id {
+					self.channel_liquidities
+						.entry(hop.short_channel_id)
+						.or_insert_with(ChannelLiquidity::new)
+						.as_directed_mut(source, &target, capacity_msat)
+						.failed_at_channel(amount_msat);
+					break;
+				}
+
 				self.channel_liquidities
 					.entry(hop.short_channel_id)
 					.or_insert_with(ChannelLiquidity::new)
-					.as_directed_mut(&source, &target, capacity_msat)
-					.failed_at_channel(amount_msat);
-				break;
+					.as_directed_mut(source, &target, capacity_msat)
+					.failed_downstream(amount_msat);
 			}
-
-			self.channel_liquidities
-				.entry(hop.short_channel_id)
-				.or_insert_with(ChannelLiquidity::new)
-				.as_directed_mut(&source, &target, capacity_msat)
-				.failed_downstream(amount_msat);
 		}
 	}
 
 	fn payment_path_successful(&mut self, path: &[&RouteHop]) {
 		let amount_msat = path.split_last().map(|(hop, _)| hop.fee_msat).unwrap_or(0);
 		let network_graph = self.network_graph.read_only();
-		let hop_sources = path.iter().map(|hop| NodeId::from_pubkey(&hop.pubkey));
-		for (source, hop) in hop_sources.zip(path.iter().skip(1)) {
+		for hop in path {
 			let target = NodeId::from_pubkey(&hop.pubkey);
-			let capacity_msat = network_graph.channels()
+			let channel_directed_from_source = network_graph.channels()
 				.get(&hop.short_channel_id)
-				.and_then(|channel| channel.as_directed_to(&target).map(|(d, _)| d.effective_capacity()))
-				.unwrap_or(EffectiveCapacity::Unknown)
-				.as_msat();
+				.and_then(|channel| channel.as_directed_to(&target));
 
-			self.channel_liquidities
-				.entry(hop.short_channel_id)
-				.or_insert_with(ChannelLiquidity::new)
-				.as_directed_mut(&source, &target, capacity_msat)
-				.successful(amount_msat);
+			// Only score announced channels.
+			if let Some((channel, source)) = channel_directed_from_source {
+				let capacity_msat = channel.effective_capacity().as_msat();
+				self.channel_liquidities
+					.entry(hop.short_channel_id)
+					.or_insert_with(ChannelLiquidity::new)
+					.as_directed_mut(source, &target, capacity_msat)
+					.successful(amount_msat);
+			}
 		}
 	}
 }
@@ -1212,7 +1214,6 @@ mod tests {
 	fn network_graph() -> NetworkGraph {
 		let genesis_hash = genesis_block(Network::Testnet).header.block_hash();
 		let mut network_graph = NetworkGraph::new(genesis_hash);
-		add_channel(&mut network_graph, 41, sender_privkey(), source_privkey());
 		add_channel(&mut network_graph, 42, source_privkey(), target_privkey());
 		add_channel(&mut network_graph, 43, target_privkey(), recipient_privkey());
 
