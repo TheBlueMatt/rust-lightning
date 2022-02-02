@@ -660,19 +660,19 @@ pub struct ChannelInfo {
 }
 
 impl ChannelInfo {
-	/// Returns a [`DirectedChannelInfo`] for the channel directed to the given `target`, or `None`
-	/// if `target` is not one of the channel's counterparties.
-	pub fn as_directed_to(&self, target: &NodeId) -> Option<DirectedChannelInfo> {
-		let (direction, source, target) = {
+	/// Returns a [`DirectedChannelInfo`] for the channel directed to the given `target` from a
+	/// returned `source`, or `None` if `target` is not one of the channel's counterparties.
+	pub fn as_directed_to(&self, target: &NodeId) -> Option<(DirectedChannelInfo, &NodeId)> {
+		let (direction, source) = {
 			if target == &self.node_one {
-				(self.two_to_one.as_ref(), &self.node_two, &self.node_one)
+				(self.two_to_one.as_ref(), &self.node_two)
 			} else if target == &self.node_two {
-				(self.one_to_two.as_ref(), &self.node_one, &self.node_two)
+				(self.one_to_two.as_ref(), &self.node_one)
 			} else {
 				return None;
 			}
 		};
-		Some(DirectedChannelInfo { channel: self, direction, source, target })
+		Some((DirectedChannelInfo { channel: self, direction }, source))
 	}
 }
 
@@ -701,8 +701,6 @@ impl_writeable_tlv_based!(ChannelInfo, {
 pub struct DirectedChannelInfo<'a> {
 	channel: &'a ChannelInfo,
 	direction: Option<&'a ChannelUpdateInfo>,
-	source: &'a NodeId,
-	target: &'a NodeId,
 }
 
 impl<'a> DirectedChannelInfo<'a> {
@@ -711,12 +709,6 @@ impl<'a> DirectedChannelInfo<'a> {
 
 	/// Returns information for the direction.
 	pub fn direction(&self) -> Option<&'a ChannelUpdateInfo> { self.direction }
-
-	/// Returns the node id for the source.
-	pub fn source(&self) -> &'a NodeId { self.source }
-
-	/// Returns the node id for the target.
-	pub fn target(&self) -> &'a NodeId { self.target }
 
 	/// Returns the [`EffectiveCapacity`] of the channel in the direction.
 	///
@@ -752,8 +744,6 @@ impl<'a> DirectedChannelInfo<'a> {
 impl<'a> fmt::Debug for DirectedChannelInfo<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
 		f.debug_struct("DirectedChannelInfo")
-			.field("source", &self.source)
-			.field("target", &self.target)
 			.field("channel", &self.channel)
 			.finish()
 	}

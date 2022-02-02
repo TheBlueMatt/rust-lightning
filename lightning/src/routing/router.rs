@@ -1072,10 +1072,8 @@ where L::Target: Logger {
 					for chan_id in $node.channels.iter() {
 						let chan = network_channels.get(chan_id).unwrap();
 						if !chan.features.requires_unknown_bits() {
-							let directed_channel =
+							let (directed_channel, source) =
 								chan.as_directed_to(&$node_id).expect("inconsistent NetworkGraph");
-							let source = directed_channel.source();
-							let target = directed_channel.target();
 							if first_hops.is_none() || *source != our_node_id {
 								if let Some(direction) = directed_channel.direction() {
 									if direction.enabled {
@@ -1083,7 +1081,7 @@ where L::Target: Logger {
 											info: directed_channel.with_update().unwrap(),
 											short_channel_id: *chan_id,
 										};
-										add_entry!(candidate, *source, *target, $fee_to_target_msat, $next_hops_value_contribution, $next_hops_path_htlc_minimum_msat, $next_hops_path_penalty_msat, $next_hops_cltv_delta);
+										add_entry!(candidate, *source, $node_id, $fee_to_target_msat, $next_hops_value_contribution, $next_hops_path_htlc_minimum_msat, $next_hops_path_penalty_msat, $next_hops_cltv_delta);
 									}
 								}
 							}
@@ -1158,7 +1156,7 @@ where L::Target: Logger {
 					let candidate = network_channels
 						.get(&hop.short_channel_id)
 						.and_then(|channel| channel.as_directed_to(&target))
-						.and_then(|channel| channel.with_update())
+						.and_then(|(channel, _)| channel.with_update())
 						.map(|info| CandidateRouteHop::PublicHop {
 							info,
 							short_channel_id: hop.short_channel_id,
