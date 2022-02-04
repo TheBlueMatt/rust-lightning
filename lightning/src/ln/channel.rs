@@ -425,6 +425,7 @@ pub(super) struct Channel<Signer: Sign> {
 	pub(crate) config: ChannelConfig,
 	#[cfg(not(any(test, feature = "_test_utils")))]
 	config: ChannelConfig,
+	commit_upfront_shutdown_pubkey: bool,
 
 	user_id: u64,
 
@@ -764,6 +765,7 @@ impl<Signer: Sign> Channel<Signer> {
 		Ok(Channel {
 			user_id,
 			config: config.channel_options.clone(),
+			commit_upfront_shutdown_pubkey: config.own_channel_config.commit_upfront_shutdown_pubkey.clone(),
 
 			channel_id: keys_provider.get_secure_random_bytes(),
 			channel_state: ChannelState::OurInitSent as u32,
@@ -1062,7 +1064,7 @@ impl<Signer: Sign> Channel<Signer> {
 		let chan = Channel {
 			user_id,
 			config: local_config,
-
+			commit_upfront_shutdown_pubkey: config.own_channel_config.commit_upfront_shutdown_pubkey,
 			channel_id: msg.temporary_channel_id,
 			channel_state: (ChannelState::OurInitSent as u32) | (ChannelState::TheirInitSent as u32),
 			secp_ctx,
@@ -5191,7 +5193,8 @@ impl<Signer: Sign> Writeable for Channel<Signer> {
 		self.config.forwarding_fee_proportional_millionths.write(writer)?;
 		self.config.cltv_expiry_delta.write(writer)?;
 		self.config.announced_channel.write(writer)?;
-		self.config.commit_upfront_shutdown_pubkey.write(writer)?;
+		// self.config.commit_upfront_shutdown_pubkey.write(writer)?;
+		self.commit_upfront_shutdown_pubkey.write(writer)?;
 
 		self.channel_id.write(writer)?;
 		(self.channel_state | ChannelState::PeerDisconnected as u32).write(writer)?;
@@ -5450,21 +5453,17 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<(&'a K, u32)> for Channel<Signer>
 		let user_id = Readable::read(reader)?;
 
 		let mut config = Some(ChannelConfig::default());
-		let mut handshake_config = Some(ChannelHandshakeConfig::default());
 		if ver == 1 {
 			// Read the old serialization of the ChannelConfig from version 0.0.98.
 			config.as_mut().unwrap().forwarding_fee_proportional_millionths = Readable::read(reader)?;
 			config.as_mut().unwrap().cltv_expiry_delta = Readable::read(reader)?;
 			config.as_mut().unwrap().announced_channel = Readable::read(reader)?;
-			config.as_mut().unwrap().commit_upfront_shutdown_pubkey = Readable::read(reader)?;
+			// config.as_mut().unwrap().commit_upfront_shutdown_pubkey = Readable::read(reader)?;
 		} else {
 			// Read the 8 bytes of backwards-compatibility ChannelConfig data.
 			let mut _val: u64 = Readable::read(reader)?;
 		}
-		
-		handshake_config.as_mut().unwrap().commit_upfront_shutdown_pubkey = Readable::read(reader)?;
-
-		let channel_id = Readable::read(reader)?;
+		let handshake_config = Some(ChannelHandshakeConfig::default());		let channel_id = Readable::read(reader)?;
 		let channel_state = Readable::read(reader)?;
 		let channel_value_satoshis = Readable::read(reader)?;
 
@@ -5709,7 +5708,7 @@ impl<'a, Signer: Sign, K: Deref> ReadableArgs<(&'a K, u32)> for Channel<Signer>
 
 		Ok(Channel {
 			user_id,
-
+			commit_upfront_shutdown_pubkey: handshake_config.unwrap().commit_upfront_shutdown_pubkey,
 			config: config.unwrap(),
 			channel_id,
 			channel_state,
