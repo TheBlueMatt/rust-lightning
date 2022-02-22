@@ -358,7 +358,7 @@ mod inbound_payment {
 // our payment, which we can use to decode errors or inform the user that the payment was sent.
 
 #[derive(Clone)] // See Channel::revoke_and_ack for why, tl;dr: Rust bug
-enum PendingHTLCRouting {
+pub(super) enum PendingHTLCRouting {
 	Forward {
 		onion_packet: msgs::OnionPacket,
 		short_channel_id: u64, // This should be NonZero<u64> eventually when we bump MSRV
@@ -375,8 +375,8 @@ enum PendingHTLCRouting {
 
 #[derive(Clone)] // See Channel::revoke_and_ack for why, tl;dr: Rust bug
 pub(super) struct PendingHTLCInfo {
-	routing: PendingHTLCRouting,
-	incoming_shared_secret: [u8; 32],
+	pub(super) routing: PendingHTLCRouting,
+	pub(super) incoming_shared_secret: [u8; 32],
 	payment_hash: PaymentHash,
 	pub(super) amt_to_forward: u64,
 	pub(super) outgoing_cltv_value: u32,
@@ -3011,18 +3011,31 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 									HTLCForwardInfo::AddHTLC { prev_short_channel_id, prev_htlc_id, forward_info: PendingHTLCInfo {
 										routing, incoming_shared_secret, payment_hash, amt_to_forward, outgoing_cltv_value },
 										prev_funding_outpoint } => {
+											let htlc_failure_source = HTLCSource::PreviousHopData(HTLCPreviousHopData {
+												short_channel_id: prev_short_channel_id,
+												outpoint: prev_funding_outpoint,
+												htlc_id: prev_htlc_id,
+												incoming_packet_shared_secret: incoming_shared_secret,
+											});
 											macro_rules! fail_forward {
 												($msg: expr, $err_code: expr, $err_data: expr) => {
 													{
 														log_info!(self.logger, "Failed to accept/forward incoming HTLC: {}", $msg);
-														let htlc_source = HTLCSource::PreviousHopData(HTLCPreviousHopData {
-															short_channel_id: short_chan_id,
-															outpoint: prev_funding_outpoint,
-															htlc_id: prev_htlc_id,
-															incoming_packet_shared_secret: incoming_shared_secret,
-														});
-														failed_forwards.push((htlc_source, payment_hash,
+														failed_forwards.push((htlc_failure_source, payment_hash,
 																HTLCFailReason::Reason { failure_code: $err_code, data: $err_data }
+														));
+														continue;
+													}
+												}
+											}
+											macro_rules! fail_phantom_forward {
+												($msg: expr, $err_code: expr, $err_data: expr, $phantom_shared_secret: expr) => {
+													{
+														log_info!(self.logger, "Failed to accept/forward incoming phantom node HTLC: {}", $msg);
+														let packet = onion_utils::build_failure_packet(&$phantom_shared_secret, $err_code, &$err_data[..]).encode();
+														let error_data =  onion_utils::encrypt_failure_packet(&$phantom_shared_secret, &packet);
+														failed_forwards.push((htlc_failure_source, payment_hash,
+																HTLCFailReason::LightningError { err: error_data }
 														));
 														continue;
 													}
@@ -3031,25 +3044,26 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 											if let PendingHTLCRouting::Forward { onion_packet, .. } = routing {
 												let phantom_secret_res = self.keys_manager.get_node_secret(Recipient::PhantomNode);
 												if phantom_secret_res.is_ok() && fake_scid::is_valid_phantom(&self.fake_scid_rand_bytes, short_chan_id) {
-													let shared_secret = {
+													let phantom_shared_secret = {
 														let mut arr = [0; 32];
 														arr.copy_from_slice(&SharedSecret::new(&onion_packet.public_key.unwrap(), &phantom_secret_res.unwrap())[..]);
 														arr
 													};
-													let next_hop = match onion_utils::decode_next_hop(shared_secret, &onion_packet.hop_data, onion_packet.hmac, payment_hash) {
+													let next_hop = match onion_utils::decode_next_hop(phantom_shared_secret, &onion_packet.hop_data, onion_packet.hmac, payment_hash) {
 														Ok(res) => res,
 														Err(onion_utils::OnionDecodeErr::Malformed { err_msg, err_code }) => {
-															fail_forward!(err_msg, err_code, Vec::new());
+															let sha256_of_onion = Sha256::hash(&onion_packet.hop_data).into_inner();
+															fail_forward!(err_msg, err_code, sha256_of_onion.to_vec());
 														},
 														Err(onion_utils::OnionDecodeErr::Relay { err_msg, err_code }) => {
-															fail_forward!(err_msg, err_code, Vec::new());
+															fail_phantom_forward!(err_msg, err_code, Vec::new(), phantom_shared_secret);
 														},
 													};
 													match next_hop {
 														onion_utils::Hop::Receive(hop_data) => {
-															match self.construct_recv_pending_htlc_info(hop_data, shared_secret, payment_hash, amt_to_forward, outgoing_cltv_value) {
+															match self.construct_recv_pending_htlc_info(hop_data, phantom_shared_secret, payment_hash, amt_to_forward, outgoing_cltv_value) {
 																Ok(info) => phantom_receives.push((prev_short_channel_id, prev_funding_outpoint, vec![(info, prev_htlc_id)])),
-																Err(ReceiveError { err_code, err_data, msg }) => fail_forward!(msg, err_code, err_data)
+																Err(ReceiveError { err_code, err_data, msg }) => fail_phantom_forward!(msg, err_code, err_data, phantom_shared_secret)
 															}
 														},
 														_ => panic!(),
