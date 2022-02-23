@@ -366,6 +366,7 @@ pub(super) enum PendingHTLCRouting {
 	Receive {
 		payment_data: msgs::FinalOnionHopData,
 		incoming_cltv_expiry: u32, // Used to track when we should expire pending HTLCs that go unclaimed
+		phantom_shared_secret: Option<[u8; 32]>,
 	},
 	ReceiveKeysend {
 		payment_preimage: PaymentPreimage,
@@ -2072,7 +2073,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 	}
 
 	fn construct_recv_pending_htlc_info(&self, hop_data: msgs::OnionHopData, shared_secret: [u8; 32],
-		payment_hash: PaymentHash, amt_msat: u64, cltv_expiry: u32) -> Result<PendingHTLCInfo, ReceiveError>
+		payment_hash: PaymentHash, amt_msat: u64, cltv_expiry: u32, phantom_shared_secret: Option<[u8; 32]>) -> Result<PendingHTLCInfo, ReceiveError>
 	{
 		// final_incorrect_cltv_expiry
 		if hop_data.outgoing_cltv_value != cltv_expiry {
@@ -2129,6 +2130,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 					PendingHTLCRouting::Receive {
 						payment_data: data,
 						incoming_cltv_expiry: hop_data.outgoing_cltv_value,
+						phantom_shared_secret,
 					}
 				} else if let Some(payment_preimage) = keysend_preimage {
 					// We need to check that the sender knows the keysend preimage before processing this
@@ -2232,7 +2234,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 		let pending_forward_info = match next_hop {
 			onion_utils::Hop::Receive(next_hop_data) => {
 				// OUR PAYMENT!
-				match self.construct_recv_pending_htlc_info(next_hop_data, shared_secret, msg.payment_hash, msg.amount_msat, msg.cltv_expiry) {
+				match self.construct_recv_pending_htlc_info(next_hop_data, shared_secret, msg.payment_hash, msg.amount_msat, msg.cltv_expiry, None) {
 					Ok(info) => {
 						// Note that we could obviously respond immediately with an update_fulfill_htlc
 						// message, however that would leak that we are the recipient of this payment, so
@@ -3061,7 +3063,7 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 													};
 													match next_hop {
 														onion_utils::Hop::Receive(hop_data) => {
-															match self.construct_recv_pending_htlc_info(hop_data, phantom_shared_secret, payment_hash, amt_to_forward, outgoing_cltv_value) {
+															match self.construct_recv_pending_htlc_info(hop_data, incoming_shared_secret, payment_hash, amt_to_forward, outgoing_cltv_value, Some(phantom_shared_secret)) {
 																Ok(info) => phantom_receives.push((prev_short_channel_id, prev_funding_outpoint, vec![(info, prev_htlc_id)])),
 																Err(ReceiveError { err_code, err_data, msg }) => fail_phantom_forward!(msg, err_code, err_data, phantom_shared_secret)
 															}
@@ -3221,11 +3223,11 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 							HTLCForwardInfo::AddHTLC { prev_short_channel_id, prev_htlc_id, forward_info: PendingHTLCInfo {
 									routing, incoming_shared_secret, payment_hash, amt_to_forward, .. },
 									prev_funding_outpoint } => {
-								let (cltv_expiry, onion_payload) = match routing {
-									PendingHTLCRouting::Receive { payment_data, incoming_cltv_expiry } =>
-										(incoming_cltv_expiry, OnionPayload::Invoice(payment_data)),
+								let (cltv_expiry, onion_payload, phantom_shared_secret) = match routing {
+									PendingHTLCRouting::Receive { payment_data, incoming_cltv_expiry, phantom_shared_secret } =>
+										(incoming_cltv_expiry, OnionPayload::Invoice(payment_data), phantom_shared_secret),
 									PendingHTLCRouting::ReceiveKeysend { payment_preimage, incoming_cltv_expiry } =>
-										(incoming_cltv_expiry, OnionPayload::Spontaneous(payment_preimage)),
+										(incoming_cltv_expiry, OnionPayload::Spontaneous(payment_preimage), None),
 									_ => {
 										panic!("short_channel_id == 0 should imply any pending_forward entries are of type Receive");
 									}
@@ -3248,13 +3250,20 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 										htlc_msat_height_data.extend_from_slice(
 											&byte_utils::be32_to_array(self.best_block.read().unwrap().height()),
 										);
+										let failure_code = 0x4000 | 15;
+										let failure_reason = if let Some(phantom_ss) = phantom_shared_secret {
+											let packet = onion_utils::build_failure_packet(&phantom_ss, failure_code, &htlc_msat_height_data[..]).encode();
+											let error_data =  onion_utils::encrypt_failure_packet(&phantom_ss, &packet);
+											HTLCFailReason::LightningError { err: error_data }
+										} else {
+											HTLCFailReason::Reason { failure_code, data: htlc_msat_height_data }
+										};
 										failed_forwards.push((HTLCSource::PreviousHopData(HTLCPreviousHopData {
 												short_channel_id: $htlc.prev_hop.short_channel_id,
 												outpoint: prev_funding_outpoint,
 												htlc_id: $htlc.prev_hop.htlc_id,
 												incoming_packet_shared_secret: $htlc.prev_hop.incoming_packet_shared_secret,
-											}), payment_hash,
-											HTLCFailReason::Reason { failure_code: 0x4000 | 15, data: htlc_msat_height_data }
+											}), payment_hash, failure_reason
 										));
 									}
 								}
@@ -5993,6 +6002,7 @@ impl_writeable_tlv_based_enum!(PendingHTLCRouting,
 	},
 	(1, Receive) => {
 		(0, payment_data, required),
+		(1, phantom_shared_secret, option),
 		(2, incoming_cltv_expiry, required),
 	},
 	(2, ReceiveKeysend) => {
