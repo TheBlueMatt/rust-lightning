@@ -900,6 +900,56 @@ fn test_phantom_failure_too_low_recv_amt() {
 }
 
 #[test]
+fn test_phantom_failure_reject() {
+	let chanmon_cfgs = create_chanmon_cfgs(2);
+	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
+	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
+	let nodes = create_network(2, &node_cfgs, &node_chanmgrs);
+
+	let channel = create_announced_chan_between_nodes(&nodes, 0, 1, InitFeatures::known(), InitFeatures::known());
+
+	// Get the route with a too-low amount.
+	let recv_amt_msat = 10_000;
+	let (_, payment_hash, payment_secret) = get_payment_preimage_hash!(nodes[1], Some(recv_amt_msat));
+	let (mut route, phantom_scid) = get_phantom_route!(nodes, recv_amt_msat, channel);
+
+	// Route the HTLC through to the destination.
+	nodes[0].node.send_payment(&route, payment_hash.clone(), &Some(payment_secret)).unwrap();
+	check_added_monitors!(nodes[0], 1);
+	let update_0 = get_htlc_update_msgs!(nodes[0], nodes[1].node.get_our_node_id());
+	let mut update_add = update_0.update_add_htlcs[0].clone();
+
+	nodes[1].node.handle_update_add_htlc(&nodes[0].node.get_our_node_id(), &update_add);
+	commitment_signed_dance!(nodes[1], nodes[0], &update_0.commitment_signed, false, true);
+
+	expect_pending_htlcs_forwardable_ignore!(nodes[1]);
+	nodes[1].node.process_pending_htlc_forwards();
+	expect_pending_htlcs_forwardable_ignore!(nodes[1]);
+	nodes[1].node.process_pending_htlc_forwards();
+	expect_payment_received!(nodes[1], payment_hash, payment_secret, recv_amt_msat);
+	assert!(nodes[1].node.fail_htlc_backwards(&payment_hash));
+	expect_pending_htlcs_forwardable_ignore!(nodes[1]);
+	nodes[1].node.process_pending_htlc_forwards();
+
+	let update_1 = get_htlc_update_msgs!(nodes[1], nodes[0].node.get_our_node_id());
+	check_added_monitors!(&nodes[1], 1);
+	assert!(update_1.update_fail_htlcs.len() == 1);
+	let fail_msg = update_1.update_fail_htlcs[0].clone();
+	nodes[0].node.handle_update_fail_htlc(&nodes[1].node.get_our_node_id(), &fail_msg);
+	commitment_signed_dance!(nodes[0], nodes[1], update_1.commitment_signed, false);
+
+	// Ensure the payment fails with the expected error.
+	let mut error_data = byte_utils::be64_to_array(recv_amt_msat).to_vec();
+	error_data.extend_from_slice(
+		&byte_utils::be32_to_array(nodes[1].node.best_block.read().unwrap().height()),
+	);
+	let mut fail_conditions = PaymentFailedConditions::new()
+		.blamed_scid(phantom_scid)
+		.expected_htlc_error_data(0x4000 | 15, &error_data);
+	expect_payment_failed_conditions!(nodes[0], payment_hash, true, fail_conditions);
+}
+
+#[test]
 fn test_phantom_dust_exposure_failure() {
 	// Set the max dust exposure to the dust limit.
 	let max_dust_exposure = 546;
