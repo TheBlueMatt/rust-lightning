@@ -917,7 +917,7 @@ where L::Target: Logger {
 					// Since we're choosing amount_to_transfer_over_msat as maximum possible, it can
 					// be only reduced later (not increased), so this channel should just be skipped
 					// as not sufficient.
-					if !over_path_minimum_msat && doesnt_exceed_cltv_delta_limit {
+					if contributes_sufficient_value && !over_path_minimum_msat && doesnt_exceed_cltv_delta_limit {
 						hit_minimum_limit = true;
 					} else if contributes_sufficient_value && doesnt_exceed_cltv_delta_limit {
 						// Note that low contribution here (limited by available_liquidity_msat)
