@@ -412,7 +412,7 @@ impl<'a> CandidateRouteHop<'a> {
 	fn effective_capacity(&self) -> EffectiveCapacity {
 		match self {
 			CandidateRouteHop::FirstHop { details } => EffectiveCapacity::ExactLiquidity {
-				liquidity_msat: details.outbound_capacity_msat,
+				liquidity_msat: details.outbound_htlc_limit_msat,
 			},
 			CandidateRouteHop::PublicHop { info, .. } => info.effective_capacity(),
 			CandidateRouteHop::PrivateHop { .. } => EffectiveCapacity::Infinite,
@@ -1732,6 +1732,7 @@ mod tests {
 			user_channel_id: 0,
 			balance_msat: 0,
 			outbound_capacity_msat,
+			outbound_htlc_limit_msat: outbound_capacity_msat,
 			inbound_capacity_msat: 42,
 			unspendable_punishment_reserve: None,
 			confirmations_required: None,
