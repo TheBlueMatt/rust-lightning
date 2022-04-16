@@ -361,10 +361,10 @@ struct HTLCCandidate {
 
 impl HTLCCandidate {
 	fn new(amount_msat: u64, origin: HTLCInitiator) -> Self {
-		Self {
-			amount_msat,
-			origin,
-		}
+		Self { amount_msat, origin }
+	}
+	fn non_dust(origin: HTLCInitiator) -> Self {
+		Self { amount_msat: 21_000_000 * 1_0000_0000, origin }
 	}
 }
 
@@ -2340,6 +2340,7 @@ impl<Signer: Sign> Channel<Signer> {
 	pub fn get_inbound_outbound_available_balance_msat(&self) -> (u64, u64, u64) {
 		// Note that we have to handle overflow due to the above case.
 		let outbound_stats = self.get_outbound_pending_htlc_stats(None);
+		let extra_htlc_commitment_fee_msat = self.outbound_htlc_spike_buffer_commitment_tx_fee_msat(HTLCCandidate::non_dust(HTLCInitiator::LocalOffered)) as i64;
 		let outbound_capacity_msat = cmp::max(self.value_to_self_msat as i64
 				- outbound_stats.pending_htlcs_value_msat as i64
 				- self.counterparty_selected_channel_reserve_satoshis.unwrap_or(0) as i64 * 1000,
@@ -2351,9 +2352,17 @@ impl<Signer: Sign> Channel<Signer> {
 				- self.holder_selected_channel_reserve_satoshis as i64 * 1000,
 			0) as u64,
 			outbound_capacity_msat,
-			cmp::max(cmp::min(outbound_capacity_msat as i64,
-				self.counterparty_max_htlc_value_in_flight_msat as i64
-					- outbound_stats.pending_htlcs_value_msat as i64),
+			cmp::max(cmp::min(cmp::min(
+					outbound_capacity_msat as i64,
+					self.counterparty_max_htlc_value_in_flight_msat as i64
+						- outbound_stats.pending_htlcs_value_msat as i64
+						- extra_htlc_commitment_fee_msat)
+					- extra_htlc_commitment_fee_msat,
+					if outbound_stats.pending_htlcs + 1 > self.counterparty_max_accepted_htlcs as u32 { i64::max_value() /*XXX0*/ } else { i64::max_value() }
+				),
+				// TODO: self.counterparty_htlc_maximum_msat as i64),
+				// TODO: Capture feerate avoidance policy
+				// TODO: Capture HTLC count limit
 			0) as u64
 		)
 	}
@@ -5099,6 +5108,12 @@ impl<Signer: Sign> Channel<Signer> {
 	}
 
 
+	fn outbound_htlc_spike_buffer_commitment_tx_fee_msat(&self, htlc_candidate: HTLCCandidate) -> u64 {
+		if self.is_outbound() {
+			FEE_SPIKE_BUFFER_FEE_INCREASE_MULTIPLE * self.next_local_commit_tx_fee_msat(htlc_candidate, Some(()))
+		} else { 0 }
+	}
+
 	// Send stuff to our remote peers:
 
 	/// Adds a pending outbound HTLC to this channel, note that you probably want
@@ -5189,10 +5204,8 @@ impl<Signer: Sign> Channel<Signer> {
 		}
 
 		// `2 *` and extra HTLC are for the fee spike buffer.
-		let commit_tx_fee_msat = if self.is_outbound() {
-			let htlc_candidate = HTLCCandidate::new(amount_msat, HTLCInitiator::LocalOffered);
-			FEE_SPIKE_BUFFER_FEE_INCREASE_MULTIPLE * self.next_local_commit_tx_fee_msat(htlc_candidate, Some(()))
-		} else { 0 };
+		let htlc_candidate = HTLCCandidate::new(amount_msat, HTLCInitiator::LocalOffered);
+		let commit_tx_fee_msat = self.outbound_htlc_spike_buffer_commitment_tx_fee_msat(htlc_candidate);
 		if holder_balance_msat - amount_msat < commit_tx_fee_msat {
 			return Err(ChannelError::Ignore(format!("Cannot send value that would not leave enough to pay for fees. Pending value to self: {}. local_commit_tx_fee {}", holder_balance_msat, commit_tx_fee_msat)));
 		}
