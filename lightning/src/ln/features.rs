@@ -217,7 +217,7 @@ mod sealed {
 			// Byte 4
 			,
 			// Byte 5
-			SCIDPrivacy,
+			SCIDPrivacy | ZeroConf,
 		],
 		optional_features: [
 			// Byte 0
@@ -402,7 +402,9 @@ mod sealed {
 	define_feature!(47, SCIDPrivacy, [InitContext, NodeContext, ChannelTypeContext],
 		"Feature flags for only forwarding with SCID aliasing. Called `option_scid_alias` in the BOLTs",
 		set_scid_privacy_optional, set_scid_privacy_required, supports_scid_privacy, requires_scid_privacy);
-
+	define_feature!(51, ZeroConf, [ChannelTypeContext],
+		"Feature flags for accepting channels with zero confirmations. Called `option_zeroconf` in the BOLTs",
+		set_zero_conf_optional, set_zero_conf_required, supports_zero_conf, requires_zero_conf);
 	define_feature!(55, Keysend, [NodeContext],
 		"Feature flags for keysend payments.", set_keysend_optional, set_keysend_required,
 		supports_keysend, requires_keysend);

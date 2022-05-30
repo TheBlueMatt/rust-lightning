@@ -499,6 +499,10 @@ pub enum Event {
 		/// the resulting [`ChannelManager`] will not be readable by versions of LDK prior to
 		/// 0.0.106.
 		///
+		/// Also note that if [`ChannelTypeFeatures::supports_zero_conf`] returns true on this type,
+		/// the resulting [`ChannelManager`] will not be readable by versions of LDK prior to
+		/// 0.0.107.
+		///
 		/// [`ChannelManager`]: crate::ln::channelmanager::ChannelManager
 		channel_type: ChannelTypeFeatures,
 	},

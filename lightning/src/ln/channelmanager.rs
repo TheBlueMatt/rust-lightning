@@ -4252,7 +4252,11 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 				if *counterparty_node_id != channel.get().get_counterparty_node_id() {
 					return Err(APIError::APIMisuseError { err: "The passed counterparty_node_id doesn't match the channel's counterparty node_id".to_owned() });
 				}
-				if accept_0conf { channel.get_mut().set_0conf(); }
+				if accept_0conf {
+					channel.get_mut().set_0conf();
+				} else if channel.get().get_channel_type().requires_zero_conf() {
+					return Err(APIError::APIMisuseError { err: "This channel requires 0conf. Please use accept_inbound_channel_from_trusted_peer_0conf to accept.".to_owned() });
+				}
 				channel_state.pending_msg_events.push(events::MessageSendEvent::SendAcceptChannel {
 					node_id: channel.get().get_counterparty_node_id(),
 					msg: channel.get_mut().accept_inbound_channel(user_channel_id),
@@ -4294,6 +4298,9 @@ impl<Signer: Sign, M: Deref, T: Deref, K: Deref, F: Deref, L: Deref> ChannelMana
 			},
 			hash_map::Entry::Vacant(entry) => {
 				if !self.default_configuration.manually_accept_inbound_channels {
+					if channel.get_channel_type().requires_zero_conf() {
+						return Err(MsgHandleErrInternal::send_err_msg_no_close("No zero confirmation channels accepted".to_owned(), msg.temporary_channel_id.clone()));
+					}
 					channel_state.pending_msg_events.push(events::MessageSendEvent::SendAcceptChannel {
 						node_id: counterparty_node_id.clone(),
 						msg: channel.accept_inbound_channel(0),
