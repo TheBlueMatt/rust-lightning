@@ -854,13 +854,18 @@ mod tests {
 
 		assert!(InitFeatures::known().supports_scid_privacy());
 		assert!(NodeFeatures::known().supports_scid_privacy());
+		assert!(ChannelTypeFeatures::known().supports_scid_privacy());
 		assert!(!InitFeatures::known().requires_scid_privacy());
 		assert!(!NodeFeatures::known().requires_scid_privacy());
+		assert!(ChannelTypeFeatures::known().requires_scid_privacy());
 
 		assert!(InitFeatures::known().supports_wumbo());
 		assert!(NodeFeatures::known().supports_wumbo());
 		assert!(!InitFeatures::known().requires_wumbo());
 		assert!(!NodeFeatures::known().requires_wumbo());
+
+		assert!(!ChannelTypeFeatures::known().supports_zero_conf());
+		assert!(!ChannelTypeFeatures::known().requires_zero_conf());
 
 		let mut init_features = InitFeatures::known();
 		assert!(init_features.initial_routing_sync());
