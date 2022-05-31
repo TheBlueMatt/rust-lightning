@@ -1084,11 +1084,12 @@ impl<Signer: Sign> Channel<Signer> {
 			// We currently only allow two channel types, so write it all out here - we allow
 			// `only_static_remote_key` in all contexts, and further allow
 			// `static_remote_key|scid_privacy` if the channel is not publicly announced.
-			if *channel_type != ChannelTypeFeatures::only_static_remote_key() {
-				if !channel_type.requires_scid_privacy() && !channel_type.requires_zero_conf() {
+			let mut allowed_type = ChannelTypeFeatures::only_static_remote_key();
+			if *channel_type != allowed_type {
+				if channel_type.supports_unknown_bits() {
 					return Err(ChannelError::Close("Channel Type was not understood".to_owned()));
 				}
-				if announced_channel {
+				if channel_type.supports_scid_privacy() && announced_channel {
 					return Err(ChannelError::Close("SCID Alias/Privacy Channel Type cannot be set on a public channel".to_owned()));
 				}
 			}
