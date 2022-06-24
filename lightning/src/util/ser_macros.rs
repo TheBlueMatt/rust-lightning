@@ -26,6 +26,14 @@ macro_rules! encode_tlv {
 			field.write($stream)?;
 		}
 	};
+	($stream: expr, $type: expr, $field: expr, (tlv_record, $fieldty:ident$(<$gen:ident>)?)) => {
+		if let Some(field) = $field {
+			let field: encoded_tlv_record_ref_type!($fieldty$(<$gen>)?) = From::from(field);
+			BigSize($type).write($stream)?;
+			BigSize(field.serialized_length() as u64).write($stream)?;
+			field.write($stream)?;
+		}
+	};
 }
 
 macro_rules! encode_tlv_stream {
@@ -121,6 +129,9 @@ macro_rules! check_tlv_order {
 	($last_seen_type: expr, $typ: expr, $type: expr, $field: ident, (option: $trait: ident $(, $read_arg: expr)?)) => {{
 		// no-op
 	}};
+	($last_seen_type: expr, $typ: expr, $type: expr, $field: ident, (tlv_record, $fieldty:ident$(<$gen:ident>)?)) => {{
+		// no-op
+	}};
 }
 
 macro_rules! check_missing_tlv {
@@ -150,6 +161,9 @@ macro_rules! check_missing_tlv {
 	($last_seen_type: expr, $type: expr, $field: ident, (option: $trait: ident $(, $read_arg: expr)?)) => {{
 		// no-op
 	}};
+	($last_seen_type: expr, $type: expr, $field: ident, (tlv_record, $fieldty:ident$(<$gen:ident>)?)) => {{
+		// no-op
+	}};
 }
 
 macro_rules! decode_tlv {
@@ -171,6 +185,13 @@ macro_rules! decode_tlv {
 	}};
 	($reader: expr, $field: ident, (option: $trait: ident $(, $read_arg: expr)?)) => {{
 		$field = Some($trait::read(&mut $reader $(, $read_arg)*)?);
+	}};
+	($reader: expr, $field: ident, (tlv_record, $fieldty:ident$(<$gen:ident>)?)) => {{
+		$field = {
+			let field: encoded_tlv_record_type!($fieldty$(<$gen>)?) =
+				ser::Readable::read(&mut $reader)?;
+			Some(field.into())
+		};
 	}};
 }
 
@@ -360,6 +381,9 @@ macro_rules! init_tlv_based_struct_field {
 	($field: ident, vec_type) => {
 		$field.unwrap()
 	};
+	($field: ident, tlv_record) => {
+		$field
+	};
 }
 
 macro_rules! init_tlv_field_var {
@@ -373,6 +397,9 @@ macro_rules! init_tlv_field_var {
 		let mut $field = Some(Vec::new());
 	};
 	($field: ident, option) => {
+		let mut $field = None;
+	};
+	($field: ident, tlv_record) => {
 		let mut $field = None;
 	};
 }
@@ -425,6 +452,139 @@ macro_rules! impl_writeable_tlv_based {
 			}
 		}
 	}
+}
+
+/// Defines a struct for a TLV stream and a similar struct using references for non-primitive types,
+/// implementing [`Readable`] for the former and [`Writeable`] for the latter. Useful as an
+/// intermediary format when reading or writing a type encoded as a TLV stream. Note that each field
+/// representing a TLV record has its type wrapped with an [`Option`].
+///
+/// [`Readable`]: crate::util::ser::Readable
+/// [`Writeable`]: crate::util::ser::Writeable
+macro_rules! tlv_stream {
+	($name:ident, $nameref:ident, {
+		$(($type:expr, $field:ident : $fieldty:ident$(<$gen:ident>)?)),* $(,)*
+	}) => {
+		#[derive(Debug)]
+		struct $name {
+			$(
+				$field: Option<$fieldty$(<$gen>)?>,
+			)*
+		}
+
+		pub(crate) struct $nameref<'a> {
+			$(
+				pub(crate) $field: Option<tlv_record_ref_type!($fieldty$(<$gen>)?)>,
+			)*
+		}
+
+		impl<'a> ::util::ser::Writeable for $nameref<'a> {
+			fn write<W: ::util::ser::Writer>(&self, writer: &mut W) -> Result<(), $crate::io::Error> {
+				encode_tlv_stream!(writer, {
+					$(($type, self.$field, (tlv_record, $fieldty$(<$gen>)?))),*
+				});
+				Ok(())
+			}
+		}
+
+		impl ::util::ser::Readable for $name {
+			fn read<R: $crate::io::Read>(reader: &mut R) -> Result<Self, ::ln::msgs::DecodeError> {
+				$(
+					init_tlv_field_var!($field, tlv_record);
+				)*
+				decode_tlv_stream!(reader, {
+					$(($type, $field, (tlv_record, $fieldty$(<$gen>)?))),*
+				});
+
+				Ok(Self {
+					$(
+						$field: init_tlv_based_struct_field!($field, tlv_record)
+					),*
+				})
+			}
+		}
+	}
+}
+
+macro_rules! tlv_record_ref_type {
+	(u8) => {
+		u8
+	};
+	(u16) => {
+		u16
+	};
+	(u32) => {
+		u32
+	};
+	(u64) => {
+		u64
+	};
+	(char) => {
+		char
+	};
+	(String) => {
+		&'a crate::prelude::String
+	};
+	(Vec<$type:ty>) => {
+		&'a crate::prelude::Vec<$type>
+	};
+	($type:ident$(<$gen:ident>)?) => {
+		&'a $type$(<$gen>)?
+	};
+}
+
+macro_rules! encoded_tlv_record_type {
+	(u8) => {
+		u8
+	};
+	(u16) => {
+		::util::ser::HighZeroBytesDroppedBigSize<u16>
+	};
+	(u32) => {
+		::util::ser::HighZeroBytesDroppedBigSize<u32>
+	};
+	(u64) => {
+		::util::ser::HighZeroBytesDroppedBigSize<u64>
+	};
+	(char) => {
+		char
+	};
+	(String) => {
+		::util::ser::WithoutLength<crate::prelude::String>
+	};
+	(Vec<$type:ty>) => {
+		::util::ser::WithoutLength<crate::prelude::Vec<$type>>
+	};
+	($type:ident$(<$gen:ident>)?) => {
+		$type$(<$gen>)?
+	};
+}
+
+macro_rules! encoded_tlv_record_ref_type {
+	(u8) => {
+		u8
+	};
+	(u16) => {
+		::util::ser::HighZeroBytesDroppedBigSize<u16>
+	};
+	(u32) => {
+		::util::ser::HighZeroBytesDroppedBigSize<u32>
+	};
+	(u64) => {
+		::util::ser::HighZeroBytesDroppedBigSize<u64>
+	};
+	(char) => {
+		char
+	};
+	(String) => {
+		::util::ser::WithoutLength<&crate::prelude::String>
+	};
+	(Vec<$type:ty>) => {
+		::util::ser::WithoutLength<&crate::prelude::Vec<$type>>
+	};
+	($type:ident$(<$gen:ident>)?) => {
+		&$type$(<$gen>)?
+	};
 }
 
 macro_rules! _impl_writeable_tlv_based_enum_common {

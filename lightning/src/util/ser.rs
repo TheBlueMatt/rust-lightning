@@ -452,6 +452,12 @@ macro_rules! impl_writeable_primitive {
 				}
 			}
 		}
+		impl From<$val_type> for HighZeroBytesDroppedBigSize<$val_type> {
+			fn from(val: $val_type) -> Self { Self(val) }
+		}
+		impl From<HighZeroBytesDroppedBigSize<$val_type>> for $val_type {
+			fn from(val: HighZeroBytesDroppedBigSize<$val_type>) -> Self { val.0 }
+		}
 	}
 }
 
@@ -523,6 +529,50 @@ impl_array!(32); // for channel id & hmac
 impl_array!(PUBLIC_KEY_SIZE); // for PublicKey
 impl_array!(COMPACT_SIGNATURE_SIZE); // for Signature
 impl_array!(1300); // for OnionPacket.hop_data
+
+/// For variable-length values within TLV record where the length is encoded as part of the record.
+/// Used to prevent encoding the length twice.
+#[derive(Clone)]
+pub(crate) struct WithoutLength<T>(pub T);
+
+impl Writeable for WithoutLength<&String> {
+	#[inline]
+	fn write<W: Writer>(&self, w: &mut W) -> Result<(), io::Error> {
+		w.write_all(self.0.as_bytes())
+	}
+}
+impl Readable for WithoutLength<String> {
+	#[inline]
+	fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
+		let v: VecReadWrapper<u8> = Readable::read(r)?;
+		Ok(Self(String::from_utf8(v.0).map_err(|_| DecodeError::InvalidValue)?))
+	}
+}
+impl<'a> From<&'a String> for WithoutLength<&'a String> {
+	fn from(s: &'a String) -> Self { Self(s) }
+}
+impl From<WithoutLength<String>> for String {
+	fn from(s: WithoutLength<String>) -> Self { s.0 }
+}
+
+impl<T: Writeable> Writeable for WithoutLength<&Vec<T>> {
+	#[inline]
+	fn write<W: Writer>(&self, w: &mut W) -> Result<(), io::Error> {
+		VecWriteWrapper(self.0).write(w)
+	}
+}
+impl<T: Readable> Readable for WithoutLength<Vec<T>> {
+	#[inline]
+	fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
+		Ok(Self(<VecReadWrapper<T> as Readable>::read(r)?.0))
+	}
+}
+impl<'a, T> From<&'a Vec<T>> for WithoutLength<&'a Vec<T>> {
+	fn from(v: &'a Vec<T>) -> Self { Self(v) }
+}
+impl<T> From<WithoutLength<Vec<T>>> for Vec<T> {
+	fn from(s: WithoutLength<Vec<T>>) -> Self { s.0 }
+}
 
 // HashMap
 impl<K, V> Writeable for HashMap<K, V>
