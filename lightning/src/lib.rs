@@ -78,6 +78,7 @@ extern crate core;
 pub mod util;
 pub mod chain;
 pub mod ln;
+pub mod offers;
 pub mod routing;
 pub mod onion_message;
 
