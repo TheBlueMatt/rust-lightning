@@ -24,8 +24,11 @@ use std::time::SystemTime;
 /// An `Offer` is a potentially long-lived proposal for payment of a good or service.
 ///
 /// An offer is precursor to an `InvoiceRequest`. A merchant publishes an offer from which a
-/// customer may request an `Invoice` for a specific quantity and using a specific amount. Offers
-/// may be denominated in currency other than bitcoin but are ultimately paid using the latter.
+/// customer may request an `Invoice` for a specific quantity and using an amount enough to cover
+/// that quantity (i.e., at least `quantity * amount`). See [`Offer::amount`].
+///
+/// Offers may be denominated in currency other than bitcoin but are ultimately paid using the
+/// latter.
 ///
 /// Through the use of [`BlindedPath`]s, offers provide recipient privacy.
 #[derive(Clone, Debug)]
@@ -64,12 +67,14 @@ impl Offer {
 			.unwrap_or_else(|| vec![ChainHash::using_genesis_block(Network::Bitcoin)])
 	}
 
-	/// Metadata set by the originator. Useful for authentication and validating fields.
+	// TODO: Link to corresponding method in `InvoiceRequest`.
+	/// Metadata set by the originator. Useful for authentication and validating fields since it is
+	/// reflected in `invoice_request` messages along with all the other fields from the `offer`.
 	pub fn metadata(&self) -> Option<&Vec<u8>> {
 		self.contents.metadata.as_ref()
 	}
 
-	/// The minimum amount required for a successful payment.
+	/// The minimum amount required for a successful payment of a single item.
 	pub fn amount(&self) -> Option<&Amount> {
 		self.contents.amount.as_ref()
 	}
@@ -79,7 +84,7 @@ impl Offer {
 		&self.contents.description
 	}
 
-	/// Features for paying the invoice.
+	/// Features pertaining to the offer.
 	pub fn features(&self) -> &OfferFeatures {
 		&self.contents.features
 	}
@@ -103,12 +108,14 @@ impl Offer {
 		}
 	}
 
-	/// The issuer of the offer, possibly beginning with `user@domain` or `domain`.
+	/// The issuer of the offer, possibly beginning with `user@domain` or `domain`. Intended to be
+	/// displayed to the user, so should be human-readable.
 	pub fn issuer(&self) -> Option<&str> {
 		self.contents.issuer.as_ref().map(|issuer| issuer.as_str())
 	}
 
-	/// Paths to the recipient originating from publicly reachable nodes.
+	/// Paths to the recipient originating from publicly reachable nodes. Blinded paths provide
+	/// recipient privacy by obfuscating its node id.
 	pub fn paths(&self) -> &[BlindedPath] {
 		self.contents.paths.as_ref().map(|paths| paths.as_slice()).unwrap_or(&[])
 	}
