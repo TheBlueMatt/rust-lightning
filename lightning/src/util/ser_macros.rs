@@ -381,9 +381,6 @@ macro_rules! init_tlv_based_struct_field {
 	($field: ident, vec_type) => {
 		$field.unwrap()
 	};
-	($field: ident, tlv_record) => {
-		$field
-	};
 }
 
 macro_rules! init_tlv_field_var {
@@ -498,7 +495,7 @@ macro_rules! tlv_stream {
 
 				Ok(Self {
 					$(
-						$field: init_tlv_based_struct_field!($field, tlv_record)
+						$field: $field
 					),*
 				})
 			}
