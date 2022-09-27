@@ -80,8 +80,9 @@ pub struct OfferBuilder {
 }
 
 impl OfferBuilder {
-	/// Creates a new builder for an offer with the given description, using the given pubkey for
-	/// signing invoices. The associated secret key must be remembered while the offer is valid.
+	/// Creates a new builder for an offer setting the [`Offer::description`] and using the
+	/// [`Offer::signing_pubkey`] for signing invoices. The associated secret key must be remembered
+	/// while the offer is valid.
 	///
 	/// Use a different pubkey per offer to avoid correlating offers.
 	pub fn new(description: String, signing_pubkey: PublicKey) -> Self {
@@ -93,8 +94,8 @@ impl OfferBuilder {
 		OfferBuilder { offer }
 	}
 
-	/// Sets a chain hash of the given [`Network`] for the offer. If not called,
-	/// [`Network::Bitcoin`] is assumed.
+	/// Adds the chain hash of the given [`Network`] to [`Offer::chains`]. If not called,
+	/// the chain hash of [`Network::Bitcoin`] is assumed to be the only one supported.
 	///
 	/// Successive calls to this method will add another chain hash.
 	pub fn chain(mut self, network: Network) -> Self {
@@ -107,7 +108,7 @@ impl OfferBuilder {
 		self
 	}
 
-	/// Sets the metadata for the offer. Useful for authentication and validating fields.
+	/// Sets the [`Offer::metadata`].
 	///
 	/// Successive calls to this method will override the previous setting.
 	pub fn metadata(mut self, metadata: Vec<u8>) -> Self {
@@ -115,7 +116,7 @@ impl OfferBuilder {
 		self
 	}
 
-	/// Sets the amount for the offer.
+	/// Sets the [`Offer::amount`].
 	///
 	/// Successive calls to this method will override the previous setting.
 	pub fn amount(mut self, amount: Amount) -> Self {
@@ -123,7 +124,7 @@ impl OfferBuilder {
 		self
 	}
 
-	/// Sets the features for the offer.
+	/// Sets the [`Offer::features`].
 	///
 	/// Successive calls to this method will override the previous setting.
 	#[cfg(test)]
@@ -132,7 +133,8 @@ impl OfferBuilder {
 		self
 	}
 
-	/// Sets the absolute expiry for the offer as seconds since the Unix epoch.
+	/// Sets the [`Offer::absolute_expiry`] as seconds since the Unix epoch. Any expiry that has
+	/// already passed is valid and can be checked for using [`Offer::is_expired`].
 	///
 	/// Successive calls to this method will override the previous setting.
 	pub fn absolute_expiry(mut self, absolute_expiry: Duration) -> Self {
@@ -140,7 +142,7 @@ impl OfferBuilder {
 		self
 	}
 
-	/// Sets the issuer for the offer.
+	/// Sets the [`Offer::issuer`].
 	///
 	/// Successive calls to this method will override the previous setting.
 	pub fn issuer(mut self, issuer: String) -> Self {
@@ -148,7 +150,7 @@ impl OfferBuilder {
 		self
 	}
 
-	/// Sets a blinded path for the offer.
+	/// Adds a blinded path to [`Offer::paths`].
 	///
 	/// Successive calls to this method will add another blinded path. Caller is responsible for not
 	/// adding duplicate paths.
@@ -157,7 +159,8 @@ impl OfferBuilder {
 		self
 	}
 
-	/// Sets a fixed quantity of items for the offer. If not set, `1` is assumed.
+	/// Sets a fixed quantity of items for [`Offer::quantity_min`] and [`Offer::quantity_max`]. If
+	/// not set, `1` is assumed.
 	///
 	/// Successive calls to this method or [`quantity_range`] will override the previous setting.
 	///
@@ -169,7 +172,8 @@ impl OfferBuilder {
 		self
 	}
 
-	/// Sets a quantity range of items for the offer. If not set, `1` is assumed.
+	/// Sets a quantity range of items for [`Offer::quantity_min`] and [`Offer::quantity_max`]. If
+	/// not set, `1` is assumed.
 	///
 	/// Successive calls to this method or [`quantity_fixed`] will override the previous setting.
 	///
