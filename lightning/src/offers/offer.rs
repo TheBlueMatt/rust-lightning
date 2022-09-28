@@ -150,7 +150,8 @@ impl OfferBuilder {
 		self
 	}
 
-	/// Adds a blinded path to [`Offer::paths`].
+	/// Adds a blinded path to [`Offer::paths`]. Must include one path if only connected by private
+	/// channels.
 	///
 	/// Successive calls to this method will add another blinded path. Caller is responsible for not
 	/// adding duplicate paths.
