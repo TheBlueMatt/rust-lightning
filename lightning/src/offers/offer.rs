@@ -63,7 +63,7 @@ use io;
 use ln::features::OfferFeatures;
 use ln::msgs::MAX_VALUE_MSAT;
 use onion_message::BlindedPath;
-use util::ser::{Writeable, Writer};
+use util::ser::{HighZeroBytesDroppedBigSize, WithoutLength, Writeable, Writer};
 
 use prelude::*;
 
@@ -433,17 +433,17 @@ impl Amount {
 pub type CurrencyCode = [u8; 3];
 
 tlv_stream!(OfferTlvStream, OfferTlvStreamRef, {
-	(2, chains: Vec<ChainHash>),
-	(4, metadata: Vec<u8>),
+	(2, chains: (Vec<ChainHash>, WithoutLength)),
+	(4, metadata: (Vec<u8>, WithoutLength)),
 	(6, currency: CurrencyCode),
-	(8, amount: u64),
-	(10, description: String),
+	(8, amount: (u64, HighZeroBytesDroppedBigSize)),
+	(10, description: (String, WithoutLength)),
 	(12, features: OfferFeatures),
-	(14, absolute_expiry: u64),
-	(16, paths: Vec<BlindedPath>),
-	(18, issuer: String),
-	(20, quantity_min: u64),
-	(22, quantity_max: u64),
+	(14, absolute_expiry: (u64, HighZeroBytesDroppedBigSize)),
+	(16, paths: (Vec<BlindedPath>, WithoutLength)),
+	(18, issuer: (String, WithoutLength)),
+	(20, quantity_min: (u64, HighZeroBytesDroppedBigSize)),
+	(22, quantity_max: (u64, HighZeroBytesDroppedBigSize)),
 	(24, node_id: PublicKey),
 });
 
