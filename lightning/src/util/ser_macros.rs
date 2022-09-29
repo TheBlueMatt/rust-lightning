@@ -26,14 +26,6 @@ macro_rules! encode_tlv {
 			field.write($stream)?;
 		}
 	};
-	($stream: expr, $type: expr, $field: expr, (tlv_record, $fieldty:tt)) => {
-		if let Some(field) = $field {
-			let field: encoded_tlv_record_ref_type!($fieldty) = From::from(field);
-			BigSize($type).write($stream)?;
-			BigSize(field.serialized_length() as u64).write($stream)?;
-			field.write($stream)?;
-		}
-	};
 }
 
 macro_rules! encode_tlv_stream {
@@ -450,6 +442,22 @@ macro_rules! impl_writeable_tlv_based {
 	}
 }
 
+macro_rules! _tlv_stream_impl_writeable {
+	($nameref:ident, {
+		$(($type:expr, $field:ident : ($fieldty: ty $(, $serwrapper: ident)?))),* $(,)*
+	}) => {
+		impl<'a> ::util::ser::Writeable for $nameref<'a> {
+			fn write<W: ::util::ser::Writer>(&self, writer: &mut W) -> Result<(), $crate::io::Error> {
+				encode_tlv_stream!(writer, {
+					$(($type, self.$field $(.map(|a| $serwrapper(a)))?, option)),*
+				});
+				Ok(())
+			}
+		}
+	}
+}
+
+
 /// Defines a struct for a TLV stream and a similar struct using references for non-primitive types,
 /// implementing [`Readable`] for the former and [`Writeable`] for the latter. Useful as an
 /// intermediary format when reading or writing a type encoded as a TLV stream. Note that each field
@@ -474,14 +482,7 @@ macro_rules! tlv_stream {
 			)*
 		}
 
-		impl<'a> ::util::ser::Writeable for $nameref<'a> {
-			fn write<W: ::util::ser::Writer>(&self, writer: &mut W) -> Result<(), $crate::io::Error> {
-				encode_tlv_stream!(writer, {
-					$(($type, self.$field, (tlv_record, $fieldty))),*
-				});
-				Ok(())
-			}
-		}
+		_tlv_stream_impl_writeable!($nameref, {$(($type, $field: $fieldty)),*});
 
 		impl ::util::ser::Readable for $name {
 			fn read<R: $crate::io::Read>(reader: &mut R) -> Result<Self, ::ln::msgs::DecodeError> {
@@ -506,25 +507,26 @@ macro_rules! tlv_record_type {
 	(($type:ty, $wrapper:ident)) => {
 		$type
 	};
-	($type:ty) => {
+	(($type:ty)) => {
 		$type
 	};
 }
 
 macro_rules! tlv_record_ref_type {
-	(u8) => {
+	((u8)) => {
 		u8
 	};
-	(char) => {
+	((char)) => {
 		char
 	};
-	(($type:ty, HighZeroBytesDroppedBigSize)) => {
-		$type
-	};
+	((u8, $wrapper: ident)) => { u8 };
+	((u16, $wrapper: ident)) => { u16 };
+	((u32, $wrapper: ident)) => { u32 };
+	((u64, $wrapper: ident)) => { u64 };
 	(($type:ty, $wrapper:ident)) => {
 		&'a $type
 	};
-	($type:ty) => {
+	(($type:ty)) => {
 		&'a $type
 	};
 }
@@ -533,26 +535,8 @@ macro_rules! encoded_tlv_record_type {
 	(($type:ty, $wrapper:ident)) => {
 		$wrapper<$type>
 	};
-	($type:ty) => {
+	(($type:ty)) => {
 		$type
-	};
-}
-
-macro_rules! encoded_tlv_record_ref_type {
-	(u8) => {
-		u8
-	};
-	(char) => {
-		char
-	};
-	(($type:ty, HighZeroBytesDroppedBigSize)) => {
-		HighZeroBytesDroppedBigSize<$type>
-	};
-	(($type:ty, $wrapper:ident)) => {
-		$wrapper<&$type>
-	};
-	($type:ty) => {
-		&$type
 	};
 }
 

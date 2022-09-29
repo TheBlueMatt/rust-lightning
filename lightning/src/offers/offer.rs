@@ -436,16 +436,16 @@ pub type CurrencyCode = [u8; 3];
 tlv_stream!(OfferTlvStream, OfferTlvStreamRef, {
 	(2, chains: (Vec<ChainHash>, WithoutLength)),
 	(4, metadata: (Vec<u8>, WithoutLength)),
-	(6, currency: CurrencyCode),
+	(6, currency: (CurrencyCode)),
 	(8, amount: (u64, HighZeroBytesDroppedBigSize)),
 	(10, description: (String, WithoutLength)),
-	(12, features: OfferFeatures),
+	(12, features: (OfferFeatures)),
 	(14, absolute_expiry: (u64, HighZeroBytesDroppedBigSize)),
 	(16, paths: (Vec<BlindedPath>, WithoutLength)),
 	(18, issuer: (String, WithoutLength)),
 	(20, quantity_min: (u64, HighZeroBytesDroppedBigSize)),
 	(22, quantity_max: (u64, HighZeroBytesDroppedBigSize)),
-	(24, node_id: PublicKey),
+	(24, node_id: (PublicKey)),
 });
 
 #[cfg(test)]
