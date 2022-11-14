@@ -385,6 +385,42 @@ mod tests {
 		(a, waker)
 	}
 
+	use tokio;
+	#[tokio::test]
+	async fn tok_test() {
+		let notifier = Arc::new(Notifier::new());
+
+let start = std::time::Instant::now();
+
+		let nt = Arc::clone(&notifier);
+		let t = std::thread::spawn(move || {
+eprintln!("{:?}, In Thread!", std::time::Instant::now() - start);
+			std::thread::sleep(std::time::Duration::from_secs(1));
+eprintln!("{:?}, Waking 1...", std::time::Instant::now() - start);
+			nt.notify();
+			std::thread::sleep(std::time::Duration::from_secs(10));
+eprintln!("{:?}, Waking 2...", std::time::Instant::now() - start);
+			nt.notify();
+		});
+
+        let mut pm_timer = tokio::time::interval(Duration::from_secs(5));
+		for _ in 0..5 {
+eprintln!("{:?}, Sleeping..", std::time::Instant::now() - start);
+			tokio::select! {
+				_ = notifier.get_future() => {
+eprintln!("{:?}, HIIIIIIIII", std::time::Instant::now() - start);
+				}
+				_ = pm_timer.tick() => {
+eprintln!("{:?}, PMT", std::time::Instant::now() - start);
+				}
+			};
+		}
+eprintln!("{:?}, DONE", std::time::Instant::now() - start);
+t.join();
+eprintln!("{:?}: Joined", std::time::Instant::now() - start);
+panic!();
+	}
+
 	#[test]
 	fn test_future() {
 		let mut future = Future {
