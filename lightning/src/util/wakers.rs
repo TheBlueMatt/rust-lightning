@@ -90,9 +90,11 @@ impl Notifier {
 		let mut lock = self.notify_pending.lock().unwrap();
 		let mut future_probably_generated_calls = false;
 		if let Some(future_state) = lock.1.take() {
-			future_probably_generated_calls |= future_state.lock().unwrap().complete();
-			future_probably_generated_calls |= Arc::strong_count(&future_state) > 1;
-		}
+			let called =  future_state.lock().unwrap().complete();
+			let refs = Arc::strong_count(&future_state) > 1;
+			future_probably_generated_calls |= called || refs;
+			eprintln!("Completed future: called: {}, refs exist: {} (setting flag: {})", called, refs, !future_probably_generated_calls);
+		} else { eprintln!("Completed notification with no futures, setting flag!"); }
 		if future_probably_generated_calls {
 			// If a future made some callbacks or has not yet been drop'd (i.e. the state has more
 			// than the one reference we hold), assume the user was notified and skip setting the
@@ -109,6 +111,7 @@ impl Notifier {
 	pub(crate) fn get_future(&self) -> Future {
 		let mut lock = self.notify_pending.lock().unwrap();
 		if lock.0 {
+eprintln!("Getting pre-completed future as we're pending notify!");
 			Future {
 				state: Arc::new(Mutex::new(FutureState {
 					callbacks: Vec::new(),
@@ -116,8 +119,10 @@ impl Notifier {
 				}))
 			}
 		} else if let Some(existing_state) = &lock.1 {
+eprintln!("Getting copy of existing future");
 			Future { state: Arc::clone(&existing_state) }
 		} else {
+eprintln!("Getting new future");
 			let state = Arc::new(Mutex::new(FutureState {
 				callbacks: Vec::new(),
 				complete: false,
@@ -202,7 +207,7 @@ mod std_future {
 	use core::task::Waker;
 	pub struct StdWaker(pub Waker);
 	impl super::FutureCallback for StdWaker {
-		fn call(&self) { self.0.wake_by_ref() }
+		fn call(&self) { eprintln!("Calling waker..."); self.0.wake_by_ref() }
 	}
 }
 
@@ -213,8 +218,10 @@ impl<'a> StdFuture for Future {
 	fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		let mut state = self.state.lock().unwrap();
 		if state.complete {
+eprintln!("Poll'd complete future - ready!");
 			Poll::Ready(())
 		} else {
+eprintln!("Poll'd waiting future, will call waker when we're ready");
 			let waker = cx.waker().clone();
 			state.callbacks.push(Box::new(std_future::StdWaker(waker)));
 			Poll::Pending
