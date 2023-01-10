@@ -84,13 +84,15 @@ fn get_construction_location(backtrace: &Backtrace) -> String {
 			let symbol_name = symbol.name().unwrap().as_str().unwrap();
 			if !sync_mutex_constr_regex.is_match(symbol_name) {
 				if found_debug_sync {
-					if let Some(col) = symbol.colno() {
-						return format!("{}:{}:{} ({})", symbol.filename().unwrap().display(), symbol.lineno().unwrap(), col, symbol_name);
+					let res = if let Some(col) = symbol.colno() {
+						format!("{}:{}:{}", symbol.filename().unwrap().display(), symbol.lineno().unwrap(), col)
 					} else {
 						// Windows debug symbols don't support column numbers, so fall back to
 						// line numbers only if no `colno` is available
-						return format!("{}:{} ({})", symbol.filename().unwrap().display(), symbol.lineno().unwrap(), symbol_name);
-					}
+						format!("{}:{}", symbol.filename().unwrap().display(), symbol.lineno().unwrap())
+					};
+eprintln!("{}: {}", res, symbol_name);
+return res;
 				}
 			} else { found_debug_sync = true; }
 		}
