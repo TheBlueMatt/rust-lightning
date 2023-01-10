@@ -112,7 +112,7 @@ jobs:
         if: "matrix.toolchain == 'stable'"
         shell: bash # Default on Winblows is powershell
         run: |
-          cd lightning && RUST_BACKTRACE=1 cargo test --verbose --color always --features backtrace chain::chainmonitor::tests
+          cd lightning && RUST_BACKTRACE=1 cargo test --verbose --color always --features backtrace
       - name: Test on Rust ${{ matrix.toolchain }} with net-tokio
         if: "matrix.build-net-tokio && !matrix.coverage"
         run: cargo test --verbose --color always
