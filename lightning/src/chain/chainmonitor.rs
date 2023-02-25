@@ -45,7 +45,7 @@ use core::ops::Deref;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use bitcoin::secp256k1::PublicKey;
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 /// A specific update's ID stored in a `MonitorUpdateId`, separated out to make the contents
 /// entirely opaque.
 enum UpdateOrigin {
@@ -441,6 +441,8 @@ where C::Target: chain::Filter,
 		let mut pending_monitor_updates = monitor_data.pending_monitor_updates.lock().unwrap();
 		pending_monitor_updates.retain(|update_id| *update_id != completed_update_id);
 
+		log_trace!(self.logger, "Received a channel_monitor_updated for id: {:?}",
+			completed_update_id.contents);
 		match completed_update_id {
 			MonitorUpdateId { contents: UpdateOrigin::OffChain(_) } => {
 				// Note that we only check for `UpdateOrigin::OffChain` failures here - if
@@ -457,6 +459,9 @@ where C::Target: chain::Filter,
 					// If there are still monitor updates pending (or an old monitor update
 					// finished after a later one perm-failed), we cannot yet construct an
 					// Completed event.
+					log_debug!(self.logger,
+						"Have pending monitor update for channel {:?}, refusing to generate a Completed event",
+						funding_txo);
 					return Ok(());
 				}
 				self.pending_monitor_events.lock().unwrap().push((funding_txo, vec![MonitorEvent::Completed {
@@ -699,6 +704,8 @@ where C::Target: chain::Filter,
 
 	fn release_pending_monitor_events(&self) -> Vec<(OutPoint, Vec<MonitorEvent>, Option<PublicKey>)> {
 		let mut pending_monitor_events = self.pending_monitor_events.lock().unwrap().split_off(0);
+		log_trace!(self.logger, "Got {} monitor events from ChainMonitor for release.",
+			pending_monitor_events.len());
 		for monitor_state in self.monitors.read().unwrap().values() {
 			let is_pending_monitor_update = monitor_state.has_pending_chainsync_updates(&monitor_state.pending_monitor_updates.lock().unwrap());
 			if is_pending_monitor_update &&
@@ -724,8 +731,10 @@ where C::Target: chain::Filter,
 					log_error!(self.logger, "   This may cause duplicate payment events to be generated.");
 				}
 				let monitor_events = monitor_state.monitor.get_and_clear_pending_monitor_events();
+				let monitor_outpoint = monitor_state.monitor.get_funding_txo().0;
+				log_trace!(self.logger, "Got {} monitor events from ChannelMonitor {:?}",
+					monitor_events.len(), monitor_outpoint);
 				if monitor_events.len() > 0 {
-					let monitor_outpoint = monitor_state.monitor.get_funding_txo().0;
 					let counterparty_node_id = monitor_state.monitor.get_counterparty_node_id();
 					pending_monitor_events.push((monitor_outpoint, monitor_events, counterparty_node_id));
 				}

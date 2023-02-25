@@ -4173,23 +4173,38 @@ where
 				let id_to_peer = self.id_to_peer.lock().unwrap();
 				match id_to_peer.get(&funding_txo.to_channel_id()) {
 					Some(cp_id) => cp_id.clone(),
-					None => return,
+					None => {
+						log_debug!(self.logger,
+							"Got a monitor update completion for a since-closed channel: {:?}",
+							funding_txo);
+						return
+					},
 				}
 			}
 		};
 		let per_peer_state = self.per_peer_state.read().unwrap();
 		let mut peer_state_lock;
 		let peer_state_mutex_opt = per_peer_state.get(&counterparty_node_id);
-		if peer_state_mutex_opt.is_none() { return }
+		if peer_state_mutex_opt.is_none() {
+			log_debug!(self.logger,
+				"Got a monitor update completion for a peer we have no channels with anymore: {}",
+				counterparty_node_id);
+			return;
+		}
 		peer_state_lock = peer_state_mutex_opt.unwrap().lock().unwrap();
 		let peer_state = &mut *peer_state_lock;
 		let mut channel = {
 			match peer_state.channel_by_id.entry(funding_txo.to_channel_id()){
 				hash_map::Entry::Occupied(chan) => chan,
-				hash_map::Entry::Vacant(_) => return,
+				hash_map::Entry::Vacant(_) => {
+					log_debug!(self.logger,
+						"Got a monitor update completion for a channel we have since closed: {:?}",
+						funding_txo);
+					return;
+				},
 			}
 		};
-		log_trace!(self.logger, "ChannelMonitor updated to {}. Current highest is {}",
+		log_debug!(self.logger, "ChannelMonitor updated to {}. Current highest is {}",
 			highest_applied_update_id, channel.get().get_latest_monitor_update_id());
 		if !channel.get().is_awaiting_monitor_update() || channel.get().get_latest_monitor_update_id() != highest_applied_update_id {
 			return;
@@ -5105,6 +5120,8 @@ where
 	fn process_pending_monitor_events(&self) -> bool {
 		let mut failed_channels = Vec::new();
 		let mut pending_monitor_events = self.chain_monitor.release_pending_monitor_events();
+		log_trace!(self.logger, "Got {} monitor events from ChainMonitor",
+			pending_monitor_events.len());
 		let has_pending_monitor_events = !pending_monitor_events.is_empty();
 		for (funding_outpoint, mut monitor_events, counterparty_node_id) in pending_monitor_events.drain(..) {
 			for monitor_event in monitor_events.drain(..) {
