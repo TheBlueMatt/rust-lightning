@@ -11,6 +11,7 @@ HOST_PLATFORM="$(rustc --version --verbose | grep "host:" | awk '{ print $2 }')"
 export RUST_BACKTRACE=1
 
 echo -e "\n\nBuilding and testing all workspace crates..."
+cargo tree
 cargo build --verbose --color always
 cargo test --verbose --color always
 
