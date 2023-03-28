@@ -4,6 +4,8 @@ set -eox pipefail
 RUSTC_MINOR_VERSION=$(rustc --version | awk '{ split($2,a,"."); print a[2] }')
 HOST_PLATFORM="$(rustc --version --verbose | grep "host:" | awk '{ print $2 }')"
 
+# Tokio MSRV on versions newer than 1.26 is rustc 1.56
+[ "$RUSTC_MINOR_VERSION" -lt 56 ] && cargo update -p tokio --precise "1.26.0" --verbose
 # Tokio MSRV on versions newer than 1.14 is rustc 1.49
 [ "$RUSTC_MINOR_VERSION" -lt 49 ] && cargo update -p tokio --precise "1.14.0" --verbose
 [ "$LDK_COVERAGE_BUILD" != "" ] && export RUSTFLAGS="-C link-dead-code"
