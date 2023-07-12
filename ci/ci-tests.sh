@@ -14,6 +14,9 @@ HOST_PLATFORM="$(rustc --version --verbose | grep "host:" | awk '{ print $2 }')"
 # The addr2line v0.20 crate (a dependency of `backtrace` starting with 0.3.68) relies on 1.55+
 [ "$RUSTC_MINOR_VERSION" -lt 55 ] && cargo update -p backtrace --precise "0.3.67" --verbose
 
+# serde_json 1.0.101 switched to edition 2021, which requires 1.56+
+[ "$RUSTC_MINOR_VERSION" -lt 56 ] && cargo update -p serde_json --precise "1.0.100" --verbose
+
 [ "$LDK_COVERAGE_BUILD" != "" ] && export RUSTFLAGS="-C link-dead-code"
 
 export RUST_BACKTRACE=1
