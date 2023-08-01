@@ -11,6 +11,7 @@
 use core::ops::Deref;
 use bitcoin::hashes::hex::ToHex;
 use crate::io;
+use crate::prelude::{Vec, String};
 use crate::routing::scoring::WriteableScore;
 
 use crate::chain;
@@ -22,7 +23,58 @@ use crate::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
 use crate::ln::channelmanager::ChannelManager;
 use crate::routing::router::Router;
 use crate::routing::gossip::NetworkGraph;
-use super::{logger::Logger, ser::Writeable};
+use crate::util::logger::Logger;
+use crate::util::ser::Writeable;
+
+/// The namespace under which the [`ChannelManager`] will be persisted.
+pub const CHANNEL_MANAGER_PERSISTENCE_NAMESPACE: &str = "";
+/// The key under which the [`ChannelManager`] will be persisted.
+pub const CHANNEL_MANAGER_PERSISTENCE_KEY: &str = "manager";
+
+/// The namespace under which [`ChannelMonitor`]s will be persisted.
+pub const CHANNEL_MONITOR_PERSISTENCE_NAMESPACE: &str = "monitors";
+
+/// The namespace under which the [`NetworkGraph`] will be persisted.
+pub const NETWORK_GRAPH_PERSISTENCE_NAMESPACE: &str = "";
+/// The key under which the [`NetworkGraph`] will be persisted.
+pub const NETWORK_GRAPH_PERSISTENCE_KEY: &str = "network_graph";
+
+/// The namespace under which the [`WriteableScore`] will be persisted.
+pub const SCORER_PERSISTENCE_NAMESPACE: &str = "";
+/// The key under which the [`WriteableScore`] will be persisted.
+pub const SCORER_PERSISTENCE_KEY: &str = "scorer";
+
+/// Provides an interface that allows to store and retrieve persisted values that are associated
+/// with given keys.
+///
+/// In order to avoid collisions the key space is segmented based on the given `namespace`s.
+/// Implementations of this trait are free to handle them in different ways, as long as
+/// per-namespace key uniqueness is asserted.
+///
+/// Keys and namespaces are required to be valid ASCII strings and the empty namespace (`""`) is
+/// assumed to be valid namespace.
+pub trait KVStore {
+	/// A reader as returned by [`Self::read`].
+	type Reader: io::Read;
+	/// Returns an [`io::Read`] for the given `namespace` and `key` from which [`Readable`]s may be
+	/// read.
+	///
+	/// Returns an [`ErrorKind::NotFound`] if the given `key` could not be found in the given `namespace`.
+	///
+	/// [`Readable`]: crate::util::ser::Readable
+	/// [`ErrorKind::NotFound`]: io::ErrorKind::NotFound
+	fn read(&self, namespace: &str, key: &str) -> io::Result<Self::Reader>;
+	/// Persists the given data under the given `key`.
+	///
+	/// Will create the given `namespace` if not already present in the store.
+	fn write(&self, namespace: &str, key: &str, buf: &[u8]) -> io::Result<()>;
+	/// Removes any data that had previously been persisted under the given `key`.
+	fn remove(&self, namespace: &str, key: &str) -> io::Result<()>;
+	/// Returns a list of keys that are stored under the given `namespace`.
+	///
+	/// Will return an empty list if the `namespace` is unknown.
+	fn list(&self, namespace: &str) -> io::Result<Vec<String>>;
+}
 
 /// Trait for a key-value store for persisting some writeable object at some key
 /// Implementing `KVStorePersister` provides auto-implementations for [`Persister`]
