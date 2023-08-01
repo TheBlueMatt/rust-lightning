@@ -10,6 +10,8 @@
 
 #[cfg(ldk_bench)] extern crate criterion;
 
+pub mod fs_store;
+
 #[cfg(test)]
 mod test_utils;
 
