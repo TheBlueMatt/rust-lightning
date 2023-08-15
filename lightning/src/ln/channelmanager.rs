@@ -8203,10 +8203,19 @@ where
 			}
 		}
 
+let mut a = HashMap::new();
+for (k, payment) in pending_outbound_payments.iter() {
+	if let PendingOutboundPayment::Retryable { pending_amt_msat: 0, .. } = payment {
+		a.insert(k, payment);
+	}
+	if let PendingOutboundPayment::Fulfilled { .. } = payment {
+		a.insert(k, payment);
+	}
+}
 		write_tlv_fields!(writer, {
-			(1, pending_outbound_payments_no_retry, required),
-			(2, pending_intercepted_htlcs, option),
-			(3, pending_outbound_payments, required),
+			(1, pending_outbound_payments_no_retry, required), // backwards compat
+			(2, pending_intercepted_htlcs, option), // list - can it be per-channel?
+			(3, a, required), // can we regenerate only?
 			(4, pending_claiming_payments, option),
 			(5, self.our_network_pubkey, required),
 			(6, monitor_update_blocked_actions_per_peer, option),
@@ -8821,7 +8830,7 @@ where
 			// 0.0.102+
 			for (_, monitor) in args.channel_monitors.iter() {
 				let counterparty_opt = id_to_peer.get(&monitor.get_funding_txo().0.to_channel_id());
-				if counterparty_opt.is_none() {
+				//if counterparty_opt.is_none() {
 					for (htlc_source, (htlc, _)) in monitor.get_pending_or_resolved_outbound_htlcs() {
 						if let HTLCSource::OutboundRoute { payment_id, session_priv, path, .. } = htlc_source {
 							if path.hops.is_empty() {
@@ -8915,7 +8924,7 @@ where
 							},
 						}
 					}
-				}
+				//}
 
 				// Whether the downstream channel was closed or not, try to re-apply any payment
 				// preimages from it which may be needed in upstream channels for forwarded

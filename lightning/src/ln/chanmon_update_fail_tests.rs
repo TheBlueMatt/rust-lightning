@@ -2483,6 +2483,9 @@ fn do_channel_holding_cell_serialize(disconnect: bool, reload_a: bool) {
 	expect_payment_claimable!(nodes[1], payment_hash_2, payment_secret_2, 100000);
 
 	claim_payment(&nodes[0], &[&nodes[1]], payment_preimage_1);
+	// We fail here if we reloaded - the HTLC for this payment was in the holding cell at the time
+	// of the reload, so it wasn't visible in the channelmonitor and thus the outbound payment
+	// wasn't rehypothecated.
 	claim_payment(&nodes[0], &[&nodes[1]], payment_preimage_2);
 }
 #[test]
