@@ -1,5 +1,6 @@
 //! Objects related to [`FilesystemStore`] live here.
 use lightning::util::persist::KVStore;
+use lightning::util::string::PrintableString;
 
 use std::collections::HashMap;
 use std::fs;
@@ -53,7 +54,17 @@ impl KVStore for FilesystemStore {
 
 	fn read(&self, namespace: &str, key: &str) -> std::io::Result<Self::Reader> {
 		if key.is_empty() {
-			let msg = format!("Failed to read {}/{}: key may not be empty.", namespace, key);
+			let msg = format!("Failed to read {}/{}: key may not be empty.",
+				PrintableString(namespace), PrintableString(key));
+			return Err(std::io::Error::new(std::io::ErrorKind::Other, msg));
+		}
+
+		if namespace.chars().any(|c| !c.is_ascii() || c.is_control()) ||
+			key.chars().any(|c| !c.is_ascii() || c.is_control()) {
+			debug_assert!(false, "Failed to read {}/{}: namespace and key must be valid ASCII
+				strings.", PrintableString(namespace), PrintableString(key));
+			let msg = format!("Failed to read {}/{}: namespace and key must be valid ASCII strings.",
+				PrintableString(namespace), PrintableString(key));
 			return Err(std::io::Error::new(std::io::ErrorKind::Other, msg));
 		}
 
@@ -69,7 +80,17 @@ impl KVStore for FilesystemStore {
 
 	fn write(&self, namespace: &str, key: &str, buf: &[u8]) -> std::io::Result<()> {
 		if key.is_empty() {
-			let msg = format!("Failed to write {}/{}: key may not be empty.", namespace, key);
+			let msg = format!("Failed to write {}/{}: key may not be empty.",
+				PrintableString(namespace), PrintableString(key));
+			return Err(std::io::Error::new(std::io::ErrorKind::Other, msg));
+		}
+
+		if namespace.chars().any(|c| !c.is_ascii() || c.is_control()) ||
+			key.chars().any(|c| !c.is_ascii() || c.is_control()) {
+			debug_assert!(false, "Failed to write {}/{}: namespace and key must be valid ASCII
+				strings.", PrintableString(namespace), PrintableString(key));
+			let msg = format!("Failed to write {}/{}: namespace and key must be valid ASCII strings.",
+				PrintableString(namespace), PrintableString(key));
 			return Err(std::io::Error::new(std::io::ErrorKind::Other, msg));
 		}
 
@@ -144,7 +165,17 @@ impl KVStore for FilesystemStore {
 
 	fn remove(&self, namespace: &str, key: &str) -> std::io::Result<()> {
 		if key.is_empty() {
-			let msg = format!("Failed to remove {}/{}: key may not be empty.", namespace, key);
+			let msg = format!("Failed to remove {}/{}: key may not be empty.",
+				PrintableString(namespace), PrintableString(key));
+			return Err(std::io::Error::new(std::io::ErrorKind::Other, msg));
+		}
+
+		if namespace.chars().any(|c| !c.is_ascii() || c.is_control()) ||
+			key.chars().any(|c| !c.is_ascii() || c.is_control()) {
+			debug_assert!(false, "Failed to remove {}/{}: namespace and key must be valid ASCII
+				strings.", PrintableString(namespace), PrintableString(key));
+			let msg = format!("Failed to remove {}/{}: namespace and key must be valid ASCII strings.",
+				PrintableString(namespace), PrintableString(key));
 			return Err(std::io::Error::new(std::io::ErrorKind::Other, msg));
 		}
 
