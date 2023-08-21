@@ -259,8 +259,11 @@ impl KVStore for FilesystemStore {
 				}
 			}
 
-			if let Ok(relative_path) = p.strip_prefix(&prefixed_dest) {
-				keys.push(relative_path.display().to_string())
+			if let Some(relative_path) = p.strip_prefix(&prefixed_dest).ok()
+				.and_then(|p| p.to_str()) {
+					if relative_path.chars().all(|c| c.is_ascii() && !c.is_control()) {
+						keys.push(relative_path.to_string())
+					}
 			}
 		}
 
