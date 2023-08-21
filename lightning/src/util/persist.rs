@@ -51,8 +51,8 @@ pub const SCORER_PERSISTENCE_KEY: &str = "scorer";
 /// Implementations of this trait are free to handle them in different ways, as long as
 /// per-namespace key uniqueness is asserted.
 ///
-/// Keys and namespaces are required to be valid ASCII strings and the empty namespace (`""`) is
-/// assumed to be valid namespace.
+/// Keys and namespaces are required to be valid ASCII strings that do not contain control
+/// characters, and the empty namespace (`""`) is assumed to be a valid namespace.
 pub trait KVStore {
 	/// A reader as returned by [`Self::read`].
 	type Reader: io::Read;
