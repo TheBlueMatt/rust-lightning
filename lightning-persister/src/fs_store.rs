@@ -35,7 +35,7 @@ fn path_to_windows_str<T: AsRef<OsStr>>(path: T) -> Vec<u16> {
 pub struct FilesystemStore {
 	data_dir: PathBuf,
 	tmp_file_counter: AtomicUsize,
-	locks: Mutex<HashMap<(String, String), Arc<RwLock<()>>>>,
+	locks: Mutex<HashMap<PathBuf, Arc<RwLock<()>>>>,
 }
 
 impl FilesystemStore {
@@ -71,13 +71,13 @@ impl KVStore for FilesystemStore {
 			return Err(std::io::Error::new(std::io::ErrorKind::Other, msg));
 		}
 
-		let mut outer_lock = self.locks.lock().unwrap();
-		let lock_key = (namespace.to_string(), key.to_string());
-		let inner_lock_ref = Arc::clone(&outer_lock.entry(lock_key).or_default());
-
 		let mut dest_file_path = self.data_dir.clone();
 		dest_file_path.push(namespace);
 		dest_file_path.push(key);
+
+		let mut outer_lock = self.locks.lock().unwrap();
+		let inner_lock_ref = Arc::clone(&outer_lock.entry(dest_file_path.clone()).or_default());
+
 		FilesystemReader::new(dest_file_path, inner_lock_ref)
 	}
 
@@ -97,14 +97,13 @@ impl KVStore for FilesystemStore {
 			return Err(std::io::Error::new(std::io::ErrorKind::Other, msg));
 		}
 
-		let mut outer_lock = self.locks.lock().unwrap();
-		let lock_key = (namespace.to_string(), key.to_string());
-		let inner_lock_ref = Arc::clone(&outer_lock.entry(lock_key).or_default());
-		let _guard = inner_lock_ref.write().unwrap();
-
 		let mut dest_file_path = self.data_dir.clone();
 		dest_file_path.push(namespace);
 		dest_file_path.push(key);
+
+		let mut outer_lock = self.locks.lock().unwrap();
+		let inner_lock_ref = Arc::clone(&outer_lock.entry(dest_file_path.clone()).or_default());
+		let _guard = inner_lock_ref.write().unwrap();
 
 		let parent_directory = dest_file_path
 			.parent()
@@ -183,15 +182,14 @@ impl KVStore for FilesystemStore {
 			return Err(std::io::Error::new(std::io::ErrorKind::Other, msg));
 		}
 
-		let mut outer_lock = self.locks.lock().unwrap();
-		let lock_key = (namespace.to_string(), key.to_string());
-		let inner_lock_ref = Arc::clone(&outer_lock.entry(lock_key.clone()).or_default());
-
-		let _guard = inner_lock_ref.write().unwrap();
-
 		let mut dest_file_path = self.data_dir.clone();
 		dest_file_path.push(namespace);
 		dest_file_path.push(key);
+
+		let mut outer_lock = self.locks.lock().unwrap();
+		let inner_lock_ref = Arc::clone(&outer_lock.entry(dest_file_path.clone()).or_default());
+
+		let _guard = inner_lock_ref.write().unwrap();
 
 		if !dest_file_path.is_file() {
 			return Ok(());
@@ -230,7 +228,7 @@ impl KVStore for FilesystemStore {
 			// Note that this by itself is still leaky as lock entries will remain when more Readers/Writers are
 			// around, but is preferable to doing nothing *or* something overly complex such as
 			// implementing yet another RAII structure just for this pupose.
-			outer_lock.remove(&lock_key);
+			outer_lock.remove(&dest_file_path);
 		}
 
 		// Garbage collect all lock entries that are not referenced anymore.
