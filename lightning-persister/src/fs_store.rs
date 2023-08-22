@@ -301,7 +301,8 @@ mod tests {
 
 	#[test]
 	fn read_write_remove_list_persist() {
-		let temp_path = std::env::temp_dir();
+		let mut temp_path = std::env::temp_dir();
+		temp_path.push("test_read_write_remove_list_persist");
 		let fs_store = FilesystemStore::new(temp_path);
 		do_read_write_remove_list_persist(&fs_store);
 	}
