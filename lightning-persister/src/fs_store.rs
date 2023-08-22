@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 #[cfg(not(target_os = "windows"))]
@@ -33,6 +34,7 @@ fn path_to_windows_str<T: AsRef<OsStr>>(path: T) -> Vec<u16> {
 /// A [`KVStore`] implementation that writes to and reads from the file system.
 pub struct FilesystemStore {
 	data_dir: PathBuf,
+	tmp_file_counter: AtomicUsize,
 	locks: Mutex<HashMap<(String, String), Arc<RwLock<()>>>>,
 }
 
@@ -40,7 +42,8 @@ impl FilesystemStore {
 	/// Constructs a new [`FilesystemStore`].
 	pub fn new(data_dir: PathBuf) -> Self {
 		let locks = Mutex::new(HashMap::new());
-		Self { data_dir, locks }
+		let tmp_file_counter = AtomicUsize::new(0);
+		Self { data_dir, tmp_file_counter, locks }
 	}
 
 	/// Returns the data directory.
@@ -119,7 +122,8 @@ impl KVStore for FilesystemStore {
 		// The way to atomically write a file on Unix platforms is:
 		// open(tmpname), write(tmpfile), fsync(tmpfile), close(tmpfile), rename(), fsync(dir)
 		let mut tmp_file_path = dest_file_path.clone();
-		tmp_file_path.set_extension("tmp");
+		let tmp_file_ext = format!("{}.tmp", self.tmp_file_counter.fetch_add(1, Ordering::AcqRel));
+		tmp_file_path.set_extension(tmp_file_ext);
 
 		{
 			let mut tmp_file = fs::File::create(&tmp_file_path)?;
