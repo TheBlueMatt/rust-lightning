@@ -341,14 +341,12 @@ impl TestStore {
 }
 
 impl KVStore for TestStore {
-	type Reader = io::Cursor<Vec<u8>>;
-
-	fn read(&self, namespace: &str, key: &str) -> io::Result<Self::Reader> {
+	fn read(&self, namespace: &str, key: &str) -> io::Result<Vec<u8>> {
 		let persisted_lock = self.persisted_bytes.lock().unwrap();
 		if let Some(outer_ref) = persisted_lock.get(namespace) {
 			if let Some(inner_ref) = outer_ref.get(key) {
 				let bytes = inner_ref.clone();
-				Ok(io::Cursor::new(bytes))
+				Ok(bytes)
 			} else {
 				Err(io::Error::new(io::ErrorKind::NotFound, "Key not found"))
 			}
