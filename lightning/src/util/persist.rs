@@ -54,16 +54,12 @@ pub const SCORER_PERSISTENCE_KEY: &str = "scorer";
 /// Keys and namespaces are required to be valid ASCII strings that do not contain control
 /// characters, and the empty namespace (`""`) is assumed to be a valid namespace.
 pub trait KVStore {
-	/// A reader as returned by [`Self::read`].
-	type Reader: io::Read;
-	/// Returns an [`io::Read`] for the given `namespace` and `key` from which [`Readable`]s may be
-	/// read.
+	/// Returns the data stored for the given `namespace` and `key`.
 	///
 	/// Returns an [`ErrorKind::NotFound`] if the given `key` could not be found in the given `namespace`.
 	///
-	/// [`Readable`]: crate::util::ser::Readable
 	/// [`ErrorKind::NotFound`]: io::ErrorKind::NotFound
-	fn read(&self, namespace: &str, key: &str) -> io::Result<Self::Reader>;
+	fn read(&self, namespace: &str, key: &str) -> io::Result<Vec<u8>>;
 	/// Persists the given data under the given `key`.
 	///
 	/// Will create the given `namespace` if not already present in the store.
