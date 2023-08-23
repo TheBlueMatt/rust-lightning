@@ -502,8 +502,7 @@ use core::task;
 /// # use lightning_background_processor::{process_events_async, GossipSync};
 /// # struct MyStore {}
 /// # impl lightning::util::persist::KVStore for MyStore {
-/// #     type Reader = io::Cursor<Vec<u8>>;
-/// #     fn read(&self, namespace: &str, key: &str) -> io::Result<Self::Reader> { Ok(io::Cursor::new(Vec::new())) }
+/// #     fn read(&self, namespace: &str, key: &str) -> io::Result<Vec<u8>> { Ok(Vec::new()) }
 /// #     fn write(&self, namespace: &str, key: &str, buf: &[u8]) -> io::Result<()> { Ok(()) }
 /// #     fn remove(&self, namespace: &str, key: &str) -> io::Result<()> { Ok(()) }
 /// #     fn list(&self, namespace: &str) -> io::Result<Vec<String>> { Ok(Vec::new()) }
