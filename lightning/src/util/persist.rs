@@ -23,6 +23,7 @@ use crate::sign::{EntropySource, NodeSigner, WriteableEcdsaChannelSigner, Signer
 use crate::chain::transaction::OutPoint;
 use crate::chain::channelmonitor::{ChannelMonitor, ChannelMonitorUpdate};
 use crate::ln::channelmanager::ChannelManager;
+use crate::ln::msgs::DecodeError;
 use crate::routing::router::Router;
 use crate::routing::gossip::NetworkGraph;
 use crate::util::logger::Logger;
@@ -61,7 +62,7 @@ pub trait KVStore {
 	/// Returns an [`ErrorKind::NotFound`] if the given `key` could not be found in the given `namespace`.
 	///
 	/// [`ErrorKind::NotFound`]: io::ErrorKind::NotFound
-	fn read(&self, namespace: &str, key: &str) -> io::Result<Vec<u8>>;
+	fn read<A, R: ReadableArgs<A>>(&self, namespace: &str, key: &str, args: A) -> Result<R, DecodeError>;
 	/// Persists the given data under the given `key`.
 	///
 	/// Will create the given `namespace` if not already present in the store.
@@ -148,7 +149,7 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner, K: KVStore> Persist<ChannelSign
 /// Read previously persisted [`ChannelMonitor`]s from the store.
 pub fn read_channel_monitors<K: Deref, ES: Deref, SP: Deref>(
 	kv_store: K, entropy_source: ES, signer_provider: SP,
-) -> io::Result<Vec<(BlockHash, ChannelMonitor<<SP::Target as SignerProvider>::Signer>)>>
+) -> Result<Vec<(BlockHash, ChannelMonitor<<SP::Target as SignerProvider>::Signer>)>, DecodeError>
 where
 	K::Target: KVStore,
 	ES::Target: EntropySource + Sized,
@@ -158,35 +159,22 @@ where
 
 	for stored_key in kv_store.list(CHANNEL_MONITOR_PERSISTENCE_NAMESPACE)? {
 		let txid = Txid::from_hex(stored_key.split_at(64).0).map_err(|_| {
-			io::Error::new(io::ErrorKind::InvalidData, "Invalid tx ID in stored key")
+			DecodeError::InvalidValue
 		})?;
 
 		let index: u16 = stored_key.split_at(65).1.parse().map_err(|_| {
-			io::Error::new(io::ErrorKind::InvalidData, "Invalid tx index in stored key")
+			DecodeError::InvalidValue
 		})?;
 
-		match <(BlockHash, ChannelMonitor<<SP::Target as SignerProvider>::Signer>)>::read(
-			&mut io::Cursor::new(kv_store.read(CHANNEL_MONITOR_PERSISTENCE_NAMESPACE, &stored_key)?),
-			(&*entropy_source, &*signer_provider),
-		) {
-			Ok((block_hash, channel_monitor)) => {
-				if channel_monitor.get_funding_txo().0.txid != txid
-					|| channel_monitor.get_funding_txo().0.index != index
-				{
-					return Err(io::Error::new(
-						io::ErrorKind::InvalidData,
-						"ChannelMonitor was stored under the wrong key",
-					));
-				}
-				res.push((block_hash, channel_monitor));
-			}
-			Err(_) => {
-				return Err(io::Error::new(
-					io::ErrorKind::InvalidData,
-					"Failed to deserialize ChannelMonitor"
-				))
-			}
+		let (block_hash, channel_monitor): (BlockHash, ChannelMonitor<<SP::Target as SignerProvider>::Signer>) =
+			kv_store.read(CHANNEL_MONITOR_PERSISTENCE_NAMESPACE, &stored_key, (&*entropy_source, &*signer_provider))?;
+
+		if channel_monitor.get_funding_txo().0.txid != txid
+			|| channel_monitor.get_funding_txo().0.index != index
+		{
+			return Err(DecodeError::InvalidValue);
 		}
+		res.push((block_hash, channel_monitor));
 	}
 	Ok(res)
 }

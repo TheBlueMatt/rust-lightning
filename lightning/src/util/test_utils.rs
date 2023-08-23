@@ -341,17 +341,16 @@ impl TestStore {
 }
 
 impl KVStore for TestStore {
-	fn read(&self, namespace: &str, key: &str) -> io::Result<Vec<u8>> {
+	fn read<A, R: ReadableArgs<A>>(&self, namespace: &str, key: &str, args: A) -> Result<R, msgs::DecodeError> {
 		let persisted_lock = self.persisted_bytes.lock().unwrap();
 		if let Some(outer_ref) = persisted_lock.get(namespace) {
 			if let Some(inner_ref) = outer_ref.get(key) {
-				let bytes = inner_ref.clone();
-				Ok(bytes)
+				R::read(&mut std::io::Cursor::new(inner_ref), args)
 			} else {
-				Err(io::Error::new(io::ErrorKind::NotFound, "Key not found"))
+				Err(msgs::DecodeError::Io(io::ErrorKind::NotFound))
 			}
 		} else {
-			Err(io::Error::new(io::ErrorKind::NotFound, "Namespace not found"))
+			Err(msgs::DecodeError::Io(io::ErrorKind::NotFound))
 		}
 	}
 
