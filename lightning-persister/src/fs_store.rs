@@ -70,8 +70,10 @@ impl KVStore for FilesystemStore {
 		dest_file_path.push(namespace);
 		dest_file_path.push(key);
 
-		let mut outer_lock = self.locks.lock().unwrap();
-		let inner_lock_ref = Arc::clone(&outer_lock.entry(dest_file_path.clone()).or_default());
+		let inner_lock_ref = {
+			let mut outer_lock = self.locks.lock().unwrap();
+			Arc::clone(&outer_lock.entry(dest_file_path.clone()).or_default())
+		};
 		let _guard = inner_lock_ref.read().unwrap();
 
 		let mut buf = Vec::new();
@@ -103,10 +105,6 @@ impl KVStore for FilesystemStore {
 		dest_file_path.push(namespace);
 		dest_file_path.push(key);
 
-		let mut outer_lock = self.locks.lock().unwrap();
-		let inner_lock_ref = Arc::clone(&outer_lock.entry(dest_file_path.clone()).or_default());
-		let _guard = inner_lock_ref.write().unwrap();
-
 		let parent_directory = dest_file_path
 			.parent()
 			.ok_or_else(|| {
@@ -131,6 +129,12 @@ impl KVStore for FilesystemStore {
 			tmp_file.write_all(&buf)?;
 			tmp_file.sync_all()?;
 		}
+
+		let inner_lock_ref = {
+			let mut outer_lock = self.locks.lock().unwrap();
+			Arc::clone(&outer_lock.entry(dest_file_path.clone()).or_default())
+		};
+		let _guard = inner_lock_ref.write().unwrap();
 
 		#[cfg(not(target_os = "windows"))]
 		{
@@ -186,51 +190,47 @@ impl KVStore for FilesystemStore {
 		dest_file_path.push(namespace);
 		dest_file_path.push(key);
 
-		let mut outer_lock = self.locks.lock().unwrap();
-		let inner_lock_ref = Arc::clone(&outer_lock.entry(dest_file_path.clone()).or_default());
-
-		let _guard = inner_lock_ref.write().unwrap();
-
 		if !dest_file_path.is_file() {
 			return Ok(());
 		}
 
-		fs::remove_file(&dest_file_path)?;
-		#[cfg(not(target_os = "windows"))]
 		{
-			let parent_directory = dest_file_path.parent().ok_or_else(|| {
-				let msg =
-					format!("Could not retrieve parent directory of {}.", dest_file_path.display());
-				std::io::Error::new(std::io::ErrorKind::InvalidInput, msg)
-			})?;
-			let dir_file = fs::OpenOptions::new().read(true).open(parent_directory)?;
-			// The above call to `fs::remove_file` corresponds to POSIX `unlink`, whose changes
-			// to the inode might get cached (and hence possibly lost on crash), depending on
-			// the target platform and file system.
-			//
-			// In order to assert we permanently removed the file in question we therefore
-			// call `fsync` on the parent directory on platforms that support it,
-			dir_file.sync_all()?;
+			let inner_lock_ref = {
+				let mut outer_lock = self.locks.lock().unwrap();
+				Arc::clone(&outer_lock.entry(dest_file_path.clone()).or_default())
+			};
+			let _guard = inner_lock_ref.write().unwrap();
+
+			fs::remove_file(&dest_file_path)?;
+			#[cfg(not(target_os = "windows"))]
+			{
+				let parent_directory = dest_file_path.parent().ok_or_else(|| {
+					let msg =
+						format!("Could not retrieve parent directory of {}.", dest_file_path.display());
+					std::io::Error::new(std::io::ErrorKind::InvalidInput, msg)
+				})?;
+				let dir_file = fs::OpenOptions::new().read(true).open(parent_directory)?;
+				// The above call to `fs::remove_file` corresponds to POSIX `unlink`, whose changes
+				// to the inode might get cached (and hence possibly lost on crash), depending on
+				// the target platform and file system.
+				//
+				// In order to assert we permanently removed the file in question we therefore
+				// call `fsync` on the parent directory on platforms that support it,
+				dir_file.sync_all()?;
+			}
+
+			if dest_file_path.is_file() {
+				return Err(std::io::Error::new(std::io::ErrorKind::Other, "Removing key failed"));
+			}
 		}
 
-		if dest_file_path.is_file() {
-			return Err(std::io::Error::new(std::io::ErrorKind::Other, "Removing key failed"));
-		}
+		{
+			// Retake outer lock for the cleanup.
+			let mut outer_lock = self.locks.lock().unwrap();
 
-		if Arc::strong_count(&inner_lock_ref) == 2 {
-			// It's safe to remove the lock entry if we're the only one left holding a strong
-			// reference. Checking this is necessary to ensure we continue to distribute references to the
-			// same lock as long as some Readers are around. However, we still want to
-			// clean up the table when possible.
-			//
-			// Note that this by itself is still leaky as lock entries will remain when more Readers/Writers are
-			// around, but is preferable to doing nothing *or* something overly complex such as
-			// implementing yet another RAII structure just for this pupose.
-			outer_lock.remove(&dest_file_path);
+			// Garbage collect all lock entries that are not referenced anymore.
+			outer_lock.retain(|_, v| Arc::strong_count(&v) > 1);
 		}
-
-		// Garbage collect all lock entries that are not referenced anymore.
-		outer_lock.retain(|_, v| Arc::strong_count(&v) > 1);
 
 		Ok(())
 	}
