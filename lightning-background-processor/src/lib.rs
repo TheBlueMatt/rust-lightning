@@ -868,7 +868,7 @@ mod tests {
 	use lightning::util::ser::Writeable;
 	use lightning::util::test_utils;
 	use lightning::util::persist::{KVStore, CHANNEL_MANAGER_PERSISTENCE_NAMESPACE, CHANNEL_MANAGER_PERSISTENCE_KEY, NETWORK_GRAPH_PERSISTENCE_NAMESPACE, NETWORK_GRAPH_PERSISTENCE_KEY, SCORER_PERSISTENCE_NAMESPACE, SCORER_PERSISTENCE_KEY};
-	use lightning_persister::fs_store::{FilesystemStore, FilesystemReader};
+	use lightning_persister::fs_store::FilesystemStore;
 	use std::collections::VecDeque;
 	use std::{fs, env};
 	use std::path::PathBuf;
@@ -982,9 +982,7 @@ mod tests {
 	}
 
 	impl KVStore for Persister {
-		type Reader = FilesystemReader;
-
-		fn read(&self, namespace: &str, key: &str) -> lightning::io::Result<Self::Reader> {
+		fn read(&self, namespace: &str, key: &str) -> lightning::io::Result<Vec<u8>> {
 			self.kv_store.read(namespace, key)
 		}
 
