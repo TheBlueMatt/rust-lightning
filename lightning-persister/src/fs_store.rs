@@ -50,9 +50,7 @@ impl FilesystemStore {
 }
 
 impl KVStore for FilesystemStore {
-	type Reader = FilesystemReader;
-
-	fn read(&self, namespace: &str, key: &str) -> std::io::Result<Self::Reader> {
+	fn read(&self, namespace: &str, key: &str) -> std::io::Result<Vec<u8>> {
 		if key.is_empty() {
 			let msg = format!("Failed to read {}/{}: key may not be empty.",
 				PrintableString(namespace), PrintableString(key));
@@ -74,8 +72,15 @@ impl KVStore for FilesystemStore {
 
 		let mut outer_lock = self.locks.lock().unwrap();
 		let inner_lock_ref = Arc::clone(&outer_lock.entry(dest_file_path.clone()).or_default());
+		let _guard = inner_lock_ref.read().unwrap();
 
-		FilesystemReader::new(dest_file_path, inner_lock_ref)
+		let mut buf = Vec::new();
+		let f = fs::File::open(dest_file_path.clone())?;
+		let mut reader = BufReader::new(f);
+		let nread = reader.read_to_end(&mut buf)?;
+		debug_assert_ne!(nread, 0);
+
+		Ok(buf)
 	}
 
 	fn write(&self, namespace: &str, key: &str, buf: &[u8]) -> std::io::Result<()> {
@@ -263,27 +268,6 @@ impl KVStore for FilesystemStore {
 		}
 
 		Ok(keys)
-	}
-}
-
-/// A buffered [`Read`] implementation as returned from [`FilesystemStore::read`].
-pub struct FilesystemReader {
-	inner: BufReader<fs::File>,
-	lock_ref: Arc<RwLock<()>>,
-}
-
-impl FilesystemReader {
-	fn new(dest_file_path: PathBuf, lock_ref: Arc<RwLock<()>>) -> std::io::Result<Self> {
-		let f = fs::File::open(dest_file_path.clone())?;
-		let inner = BufReader::new(f);
-		Ok(Self { inner, lock_ref })
-	}
-}
-
-impl Read for FilesystemReader {
-	fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-		let _guard = self.lock_ref.read().unwrap();
-		self.inner.read(buf)
 	}
 }
 
