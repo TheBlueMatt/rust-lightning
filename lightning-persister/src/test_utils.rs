@@ -1,5 +1,7 @@
 use lightning::util::persist::KVStore;
 
+use std::io::Cursor;
+
 pub(crate) fn do_read_write_remove_list_persist<K: KVStore>(kv_store: &K) {
 	use lightning::util::ser::Readable;
 
@@ -19,7 +21,7 @@ pub(crate) fn do_read_write_remove_list_persist<K: KVStore>(kv_store: &K) {
 	assert_eq!(listed_keys.len(), 1);
 	assert_eq!(listed_keys[0], key);
 
-	let mut reader = kv_store.read(namespace, key).unwrap();
+	let mut reader = Cursor::new(kv_store.read(namespace, key).unwrap());
 	let read_data: [u8; 32] = Readable::read(&mut reader).unwrap();
 	assert_eq!(data, read_data);
 
