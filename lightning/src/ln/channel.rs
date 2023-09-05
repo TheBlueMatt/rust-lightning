@@ -750,6 +750,14 @@ pub(super) struct ChannelContext<SP: Deref> where SP::Target: SignerProvider {
 	monitor_pending_failures: Vec<(HTLCSource, PaymentHash, HTLCFailReason)>,
 	monitor_pending_finalized_fulfills: Vec<HTLCSource>,
 
+	/// If we went to send a commitment update (ie some messages then [`msgs::CommitmentSigned`])
+	/// but our signer (initially) refused to give us a signature, we should retry at some point in
+	/// the future when the signer indicates it may have a signature for us.
+	///
+	/// This flag is set in such a case. Note that we don't need to persist this as we'll end up
+	/// setting it again as a side-effect of [`Channel::channel_reestablish`].
+	signer_pending_commitment_update: bool,
+
 	// pending_update_fee is filled when sending and receiving update_fee.
 	//
 	// Because it follows the same commitment flow as HTLCs, `FeeUpdateState` is either `Outbound`
@@ -3163,8 +3171,8 @@ impl<SP: Deref> Channel<SP> where
 			self.context.monitor_pending_revoke_and_ack = true;
 			if need_commitment && (self.context.channel_state & (ChannelState::AwaitingRemoteRevoke as u32)) == 0 {
 				// If we were going to send a commitment_signed after the RAA, go ahead and do all
-				// the corresponding HTLC status updates so that get_last_commitment_update
-				// includes the right HTLCs.
+				// the corresponding HTLC status updates so that
+				// get_last_commitment_update_for_send includes the right HTLCs.
 				self.context.monitor_pending_commitment_signed = true;
 				let mut additional_update = self.build_commitment_no_status_check(logger);
 				// build_commitment_no_status_check may bump latest_monitor_id but we want them to be
@@ -3538,9 +3546,10 @@ impl<SP: Deref> Channel<SP> where
 			// cells) while we can't update the monitor, so we just return what we have.
 			if require_commitment {
 				self.context.monitor_pending_commitment_signed = true;
-				// When the monitor updating is restored we'll call get_last_commitment_update(),
-				// which does not update state, but we're definitely now awaiting a remote revoke
-				// before we can step forward any more, so set it here.
+				// When the monitor updating is restored we'll call
+				// get_last_commitment_update_for_send(), which does not update state, but we're
+				// definitely now awaiting a remote revoke before we can step forward any more, so
+				// set it here.
 				let mut additional_update = self.build_commitment_no_status_check(logger);
 				// build_commitment_no_status_check may bump latest_monitor_id but we want them to be
 				// strictly increasing by one, so decrement it here.
@@ -3843,9 +3852,11 @@ impl<SP: Deref> Channel<SP> where
 			Some(self.get_last_revoke_and_ack())
 		} else { None };
 		let commitment_update = if self.context.monitor_pending_commitment_signed {
-			self.mark_awaiting_response();
-			Some(self.get_last_commitment_update(logger))
+			self.get_last_commitment_update_for_send(logger).ok()
 		} else { None };
+		if commitment_update.is_some() {
+			self.mark_awaiting_response();
+		}
 
 		self.context.monitor_pending_revoke_and_ack = false;
 		self.context.monitor_pending_commitment_signed = false;
@@ -3906,7 +3917,8 @@ impl<SP: Deref> Channel<SP> where
 		}
 	}
 
-	fn get_last_commitment_update<L: Deref>(&self, logger: &L) -> msgs::CommitmentUpdate where L::Target: Logger {
+	/// Gets the last commitment update for immediate sending to our peer.
+	fn get_last_commitment_update_for_send<L: Deref>(&mut self, logger: &L) -> Result<msgs::CommitmentUpdate, ()> where L::Target: Logger {
 		let mut update_add_htlcs = Vec::new();
 		let mut update_fulfill_htlcs = Vec::new();
 		let mut update_fail_htlcs = Vec::new();
@@ -3965,10 +3977,17 @@ impl<SP: Deref> Channel<SP> where
 		log_trace!(logger, "Regenerated latest commitment update in channel {} with{} {} update_adds, {} update_fulfills, {} update_fails, and {} update_fail_malformeds",
 				&self.context.channel_id(), if update_fee.is_some() { " update_fee," } else { "" },
 				update_add_htlcs.len(), update_fulfill_htlcs.len(), update_fail_htlcs.len(), update_fail_malformed_htlcs.len());
-		msgs::CommitmentUpdate {
+		let commitment_signed = if let Ok(update) = self.send_commitment_no_state_update(logger).map(|(cu, _)| cu) {
+			self.context.signer_pending_commitment_update = false;
+			update
+		} else {
+			self.context.signer_pending_commitment_update = true;
+			return Err(());
+		};
+		Ok(msgs::CommitmentUpdate {
 			update_add_htlcs, update_fulfill_htlcs, update_fail_htlcs, update_fail_malformed_htlcs, update_fee,
-			commitment_signed: self.send_commitment_no_state_update(logger).expect("It looks like we failed to re-generate a commitment_signed we had previously sent?").0,
-		}
+			commitment_signed,
+		})
 	}
 
 	/// Gets the `Shutdown` message we should send our peer on reconnect, if any.
@@ -4148,7 +4167,7 @@ impl<SP: Deref> Channel<SP> where
 				Ok(ReestablishResponses {
 					channel_ready, shutdown_msg, announcement_sigs,
 					raa: required_revoke,
-					commitment_update: Some(self.get_last_commitment_update(logger)),
+					commitment_update: self.get_last_commitment_update_for_send(logger).ok(),
 					order: self.context.resend_order.clone(),
 				})
 			}
@@ -5511,7 +5530,7 @@ impl<SP: Deref> Channel<SP> where
 					}
 
 					let res = ecdsa.sign_counterparty_commitment(&commitment_stats.tx, commitment_stats.preimages, &self.context.secp_ctx)
-						.map_err(|_| ChannelError::Close("Failed to get signatures for new commitment_signed".to_owned()))?;
+						.map_err(|_| ChannelError::Ignore("Failed to get signatures for new commitment_signed".to_owned()))?;
 					signature = res.0;
 					htlc_signatures = res.1;
 
@@ -5826,6 +5845,8 @@ impl<SP: Deref> OutboundV1Channel<SP> where SP::Target: SignerProvider {
 				monitor_pending_forwards: Vec::new(),
 				monitor_pending_failures: Vec::new(),
 				monitor_pending_finalized_fulfills: Vec::new(),
+
+				signer_pending_commitment_update: false,
 
 				#[cfg(debug_assertions)]
 				holder_max_commitment_tx_output: Mutex::new((channel_value_satoshis * 1000 - push_msat, push_msat)),
@@ -6480,6 +6501,8 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 				monitor_pending_forwards: Vec::new(),
 				monitor_pending_failures: Vec::new(),
 				monitor_pending_finalized_fulfills: Vec::new(),
+
+				signer_pending_commitment_update: false,
 
 				#[cfg(debug_assertions)]
 				holder_max_commitment_tx_output: Mutex::new((msg.push_msat, msg.funding_satoshis * 1000 - msg.push_msat)),
@@ -7571,6 +7594,8 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 				monitor_pending_forwards,
 				monitor_pending_failures,
 				monitor_pending_finalized_fulfills: monitor_pending_finalized_fulfills.unwrap(),
+
+				signer_pending_commitment_update: false,
 
 				pending_update_fee,
 				holding_cell_update_fee,
