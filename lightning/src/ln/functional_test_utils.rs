@@ -30,6 +30,8 @@ use crate::util::test_utils::{panicking, TestChainMonitor, TestScorer, TestKeysI
 use crate::util::errors::APIError;
 use crate::util::config::{UserConfig, MaxDustHTLCExposure};
 use crate::util::ser::{ReadableArgs, Writeable};
+#[cfg(test)]
+use crate::util::logger::Logger;
 
 use bitcoin::blockdata::block::{Block, BlockHeader};
 use bitcoin::blockdata::transaction::{Transaction, TxOut};
@@ -435,6 +437,25 @@ impl<'a, 'b, 'c> Node<'a, 'b, 'c> {
 	}
 	pub fn get_block_header(&self, height: u32) -> BlockHeader {
 		self.blocks.lock().unwrap()[height as usize].0.header
+	}
+	/// Changes the channel signer's availability for the specified peer and channel.
+	///
+	/// When `available` is set to `true`, the channel signer will behave normally. When set to
+	/// `false`, the channel signer will act like an off-line remote signer and will return `Err` for
+	/// several of the signing methods. Currently, only `get_per_commitment_point` and
+	/// `release_commitment_secret` are affected by this setting.
+	#[cfg(test)]
+	pub fn set_channel_signer_available(&self, peer_id: &PublicKey, chan_id: &ChannelId, available: bool) {
+		let per_peer_state = self.node.per_peer_state.read().unwrap();
+		let chan_lock = per_peer_state.get(peer_id).unwrap().lock().unwrap();
+		let signer = (|| {
+			match chan_lock.channel_by_id.get(chan_id) {
+				Some(phase) => phase.context().get_signer(),
+				None => panic!("Couldn't find a channel with id {}", chan_id),
+			}
+		})();
+		log_debug!(self.logger, "Setting channel signer for {} as available={}", chan_id, available);
+		signer.as_ecdsa().unwrap().set_available(available);
 	}
 }
 
