@@ -945,7 +945,8 @@ macro_rules! unwrap_send_err {
 pub fn check_added_monitors<CM: AChannelManager, H: NodeHolder<CM=CM>>(node: &H, count: usize) {
 	if let Some(chain_monitor) = node.chain_monitor() {
 		let mut added_monitors = chain_monitor.added_monitors.lock().unwrap();
-		assert_eq!(added_monitors.len(), count);
+		let n = added_monitors.len();
+		assert_eq!(n, count, "expected {} monitors to be added, not {}", count, n);
 		added_monitors.clear();
 	}
 }
