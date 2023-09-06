@@ -2156,7 +2156,6 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider  {
 			}
 		}
 	}
-
 }
 
 // Internal utility functions for channels
