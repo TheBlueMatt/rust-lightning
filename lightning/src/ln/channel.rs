@@ -6040,8 +6040,6 @@ impl<SP: Deref> OutboundV1Channel<SP> where SP::Target: SignerProvider {
 		self.context.channel_transaction_parameters.funding_outpoint = Some(funding_txo);
 		self.context.holder_signer.as_mut().provide_channel_parameters(&self.context.channel_transaction_parameters);
 
-		let temporary_channel_id = self.context.channel_id;
-
 		// Now that we're past error-generating stuff, update our local state:
 
 		self.context.channel_state = ChannelState::FundingCreated as u32;
@@ -6821,7 +6819,7 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 		let mut channel = Channel {
 			context: self.context,
 		};
-		let channel_id = channel.context.channel_id.clone();
+
 		let need_channel_ready = channel.check_get_channel_ready(0).is_some();
 		channel.monitor_updating_paused(false, false, need_channel_ready, Vec::new(), Vec::new(), Vec::new());
 
