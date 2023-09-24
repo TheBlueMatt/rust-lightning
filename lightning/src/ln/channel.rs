@@ -539,6 +539,7 @@ pub(super) struct SignerResumeUpdates {
 	pub commitment_update: Option<msgs::CommitmentUpdate>,
 	pub funding_signed: Option<msgs::FundingSigned>,
 	pub funding_created: Option<msgs::FundingCreated>,
+	pub channel_ready: Option<msgs::ChannelReady>,
 }
 
 /// The return value of `channel_reestablish`
@@ -3987,6 +3988,9 @@ impl<SP: Deref> Channel<SP> where
 		let funding_signed = if self.context.signer_pending_funding && !self.context.is_outbound() {
 			self.context.get_funding_signed_msg(logger).1
 		} else { None };
+		let channel_ready = if funding_signed.is_some() {
+			self.check_get_channel_ready(0)
+		} else { None };
 		let funding_created = if self.context.signer_pending_funding && self.context.is_outbound() {
 			self.context.get_funding_created_msg(logger)
 		} else { None };
@@ -3994,6 +3998,7 @@ impl<SP: Deref> Channel<SP> where
 			commitment_update,
 			funding_signed,
 			funding_created,
+			channel_ready,
 		}
 	}
 
@@ -6817,7 +6822,8 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 			counterparty_initial_commitment_tx.to_broadcaster_value_sat(),
 			counterparty_initial_commitment_tx.to_countersignatory_value_sat(), logger);
 
-		log_info!(logger, "Generated funding_signed for peer for channel {}", &self.context.channel_id());
+		log_info!(logger, "{} funding_signed for peer for channel {}",
+			if funding_signed.is_some() { "Generated" } else { "Waiting for signature on" }, &self.context.channel_id());
 
 		// Promote the channel to a full-fledged one now that we have updated the state and have a
 		// `ChannelMonitor`.
@@ -6825,7 +6831,7 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 			context: self.context,
 		};
 
-		let need_channel_ready = channel.check_get_channel_ready(0).is_some();
+		let need_channel_ready = funding_signed.is_some() && channel.check_get_channel_ready(0).is_some();
 		channel.monitor_updating_paused(false, false, need_channel_ready, Vec::new(), Vec::new(), Vec::new());
 
 		Ok((channel, funding_signed, channel_monitor))

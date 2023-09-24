@@ -7244,9 +7244,9 @@ where
 		let _persistence_guard = PersistenceNotifierGuard::notify_on_drop(self);
 
 		let unblock_chan = |phase: &mut ChannelPhase<SP>, pending_msg_events: &mut Vec<MessageSendEvent>| {
+			let node_id = phase.context().get_counterparty_node_id();
 			if let ChannelPhase::Funded(chan) = phase {
 				let msgs = chan.signer_maybe_unblocked(&self.logger);
-				let node_id = phase.context().get_counterparty_node_id();
 				if let Some(updates) = msgs.commitment_update {
 					pending_msg_events.push(events::MessageSendEvent::UpdateHTLCs {
 						node_id,
@@ -7264,6 +7264,9 @@ where
 						node_id,
 						msg,
 					});
+				}
+				if let Some(msg) = msgs.channel_ready {
+					send_channel_ready!(self, pending_msg_events, chan, msg);
 				}
 			}
 		};
