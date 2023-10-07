@@ -56,9 +56,55 @@ pub struct TestChannelSigner {
 	/// Channel state used for policy enforcement
 	pub state: Arc<Mutex<EnforcementState>>,
 	pub disable_revocation_policy_check: bool,
-	/// When `true` (the default), the signer will respond immediately with signatures. When `false`,
-	/// the signer will return an error indicating that it is unavailable.
-	pub available: Arc<Mutex<bool>>,
+	/// A flag array that indicates which signing features are currently *not* available in the
+	/// channel. When a method's bit is set, then the signer will act as if the signature is
+	/// unavailable and return an error result.
+	pub unavailable: Arc<Mutex<u32>>,
+}
+
+/// Channel signer operations that can be individually enabled and disabled. If a particular value
+/// is set in the `TestChannelSigner::unavailable` bitmask, then that operation will return an
+/// error.
+pub mod ops {
+	pub const GET_PER_COMMITMENT_POINT: u32                  = 1 << 0;
+	pub const RELEASE_COMMITMENT_SECRET: u32                 = 1 << 1;
+	pub const VALIDATE_HOLDER_COMMITMENT: u32                = 1 << 2;
+	pub const SIGN_COUNTERPARTY_COMMITMENT: u32              = 1 << 3;
+	pub const VALIDATE_COUNTERPARTY_REVOCATION: u32          = 1 << 4;
+	pub const SIGN_HOLDER_COMMITMENT_AND_HTLCS: u32          = 1 << 5;
+	pub const SIGN_JUSTICE_REVOKED_OUTPUT: u32               = 1 << 6;
+	pub const SIGN_JUSTICE_REVOKED_HTLC: u32                 = 1 << 7;
+	pub const SIGN_HOLDER_HTLC_TRANSACTION: u32              = 1 << 8;
+	pub const SIGN_COUNTERPARTY_HTLC_TRANSATION: u32         = 1 << 9;
+	pub const SIGN_CLOSING_TRANSACTION: u32                  = 1 << 10;
+	pub const SIGN_HOLDER_ANCHOR_INPUT: u32                  = 1 << 11;
+	pub const SIGN_CHANNEL_ANNOUNCMENT_WITH_FUNDING_KEY: u32 = 1 << 12;
+
+	#[cfg(test)]
+	pub fn string_from(mask: u32) -> String {
+		if mask == 0 {
+			return "nothing".to_owned();
+		}
+		if mask == !(0 as u32) {
+			return "everything".to_owned();
+		}
+
+		vec![
+			if (mask & GET_PER_COMMITMENT_POINT) != 0 { Some("get_per_commitment_point") } else { None },
+			if (mask & RELEASE_COMMITMENT_SECRET) != 0 { Some("release_commitment_secret") } else { None },
+			if (mask & VALIDATE_HOLDER_COMMITMENT) != 0 { Some("validate_holder_commitment") } else { None },
+			if (mask & SIGN_COUNTERPARTY_COMMITMENT) != 0 { Some("sign_counterparty_commitment") } else { None },
+			if (mask & VALIDATE_COUNTERPARTY_REVOCATION) != 0 { Some("validate_counterparty_revocation") } else { None },
+			if (mask & SIGN_HOLDER_COMMITMENT_AND_HTLCS) != 0 { Some("sign_holder_commitment_and_htlcs") } else { None },
+			if (mask & SIGN_JUSTICE_REVOKED_OUTPUT) != 0 { Some("sign_justice_revoked_output") } else { None },
+			if (mask & SIGN_JUSTICE_REVOKED_HTLC) != 0 { Some("sign_justice_revoked_htlc") } else { None },
+			if (mask & SIGN_HOLDER_HTLC_TRANSACTION) != 0 { Some("sign_holder_htlc_transaction") } else { None },
+			if (mask & SIGN_COUNTERPARTY_HTLC_TRANSATION) != 0 { Some("sign_counterparty_htlc_transation") } else { None },
+			if (mask & SIGN_CLOSING_TRANSACTION) != 0 { Some("sign_closing_transaction") } else { None },
+			if (mask & SIGN_HOLDER_ANCHOR_INPUT) != 0 { Some("sign_holder_anchor_input") } else { None },
+			if (mask & SIGN_CHANNEL_ANNOUNCMENT_WITH_FUNDING_KEY) != 0 { Some("sign_channel_announcment_with_funding_key") } else { None },
+		].iter().flatten().map(|s| s.to_string()).collect::<Vec<_>>().join(", ")
+	}
 }
 
 impl PartialEq for TestChannelSigner {
@@ -75,7 +121,7 @@ impl TestChannelSigner {
 			inner,
 			state,
 			disable_revocation_policy_check: false,
-			available: Arc::new(Mutex::new(true)),
+			unavailable: Arc::new(Mutex::new(0)),
 		}
 	}
 
@@ -89,7 +135,7 @@ impl TestChannelSigner {
 			inner,
 			state,
 			disable_revocation_policy_check,
-			available: Arc::new(Mutex::new(true)),
+			unavailable: Arc::new(Mutex::new(0)),
 		}
 	}
 
@@ -101,22 +147,28 @@ impl TestChannelSigner {
 	}
 
 	/// Marks the signer's availability.
-	///
-	/// When `true`, methods are forwarded to the underlying signer as normal. When `false`, some
-	/// methods will return `Err` indicating that the signer is unavailable. Intended to be used for
-	/// testing asynchronous signing.
 	#[cfg(test)]
-	pub fn set_available(&self, available: bool) {
-		*self.available.lock().unwrap() = available;
+	pub fn set_ops_available(&self, mask: u32, available: bool) {
+		if available {
+			*self.unavailable.lock().unwrap() &= !mask;  // clear the bits that are now available
+		} else {
+			*self.unavailable.lock().unwrap() |= mask;   // set the bits that are now unavailable
+		}
 	}
 }
 
 impl ChannelSigner for TestChannelSigner {
-	fn get_per_commitment_point(&self, idx: u64, secp_ctx: &Secp256k1<secp256k1::All>) -> PublicKey {
+	fn get_per_commitment_point(&self, idx: u64, secp_ctx: &Secp256k1<secp256k1::All>) -> Result<PublicKey, ()> {
+		if (*self.unavailable.lock().unwrap() & ops::GET_PER_COMMITMENT_POINT) != 0 {
+			return Err(());
+		}
 		self.inner.get_per_commitment_point(idx, secp_ctx)
 	}
 
-	fn release_commitment_secret(&self, idx: u64) -> [u8; 32] {
+	fn release_commitment_secret(&self, idx: u64) -> Result<[u8; 32], ()> {
+		if (*self.unavailable.lock().unwrap() & ops::RELEASE_COMMITMENT_SECRET) != 0 {
+			return Err(());
+		}
 		{
 			let mut state = self.state.lock().unwrap();
 			assert!(idx == state.last_holder_revoked_commitment || idx == state.last_holder_revoked_commitment - 1, "can only revoke the current or next unrevoked commitment - trying {}, last revoked {}", idx, state.last_holder_revoked_commitment);
@@ -127,6 +179,9 @@ impl ChannelSigner for TestChannelSigner {
 	}
 
 	fn validate_holder_commitment(&self, holder_tx: &HolderCommitmentTransaction, _preimages: Vec<PaymentPreimage>) -> Result<(), ()> {
+		if (*self.unavailable.lock().unwrap() & ops::VALIDATE_HOLDER_COMMITMENT) != 0 {
+			return Err(());
+		}
 		let mut state = self.state.lock().unwrap();
 		let idx = holder_tx.commitment_number();
 		assert!(idx == state.last_holder_commitment || idx == state.last_holder_commitment - 1, "expecting to validate the current or next holder commitment - trying {}, current {}", idx, state.last_holder_commitment);
@@ -148,7 +203,7 @@ impl EcdsaChannelSigner for TestChannelSigner {
 		self.verify_counterparty_commitment_tx(commitment_tx, secp_ctx);
 
 		{
-			if !*self.available.lock().unwrap() {
+			if (*self.unavailable.lock().unwrap() & ops::SIGN_COUNTERPARTY_COMMITMENT) != 0 {
 				return Err(());
 			}
 			let mut state = self.state.lock().unwrap();
@@ -167,7 +222,7 @@ impl EcdsaChannelSigner for TestChannelSigner {
 	}
 
 	fn validate_counterparty_revocation(&self, idx: u64, _secret: &SecretKey) -> Result<(), ()> {
-		if !*self.available.lock().unwrap() {
+		if (*self.unavailable.lock().unwrap() & ops::VALIDATE_COUNTERPARTY_REVOCATION) != 0 {
 			return Err(());
 		}
 		let mut state = self.state.lock().unwrap();
@@ -177,13 +232,13 @@ impl EcdsaChannelSigner for TestChannelSigner {
 	}
 
 	fn sign_holder_commitment(&self, commitment_tx: &HolderCommitmentTransaction, secp_ctx: &Secp256k1<secp256k1::All>) -> Result<Signature, ()> {
-		if !*self.available.lock().unwrap() {
+		if (*self.unavailable.lock().unwrap() & ops::SIGN_HOLDER_COMMITMENT_AND_HTLCS) != 0 {
 			return Err(());
 		}
 		let trusted_tx = self.verify_holder_commitment_tx(commitment_tx, secp_ctx);
 		let state = self.state.lock().unwrap();
 		let commitment_number = trusted_tx.commitment_number();
-		if state.last_holder_revoked_commitment - 1 != commitment_number && state.last_holder_revoked_commitment - 2 != commitment_number {
+		if state.last_holder_revoked_commitment != commitment_number && state.last_holder_revoked_commitment - 1 != commitment_number {
 			if !self.disable_revocation_policy_check {
 				panic!("can only sign the next two unrevoked commitment numbers, revoked={} vs requested={} for {}",
 				       state.last_holder_revoked_commitment, commitment_number, self.inner.commitment_seed[0])

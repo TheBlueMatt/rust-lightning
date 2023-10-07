@@ -10,13 +10,18 @@
 //! Tests for asynchronous signing. These tests verify that the channel state machine behaves
 //! properly with a signer implementation that asynchronously derives signatures.
 
+use bitcoin::secp256k1::PublicKey;
 use crate::events::{Event, MessageSendEvent, MessageSendEventsProvider};
+use crate::ln::ChannelId;
 use crate::ln::functional_test_utils::*;
 use crate::ln::msgs::ChannelMessageHandler;
 use crate::ln::channelmanager::{PaymentId, RecipientOnionFields};
+use crate::util::test_channel_signer::ops;
+
+const OPS: u32 = ops::GET_PER_COMMITMENT_POINT | ops::RELEASE_COMMITMENT_SECRET | ops::SIGN_COUNTERPARTY_COMMITMENT;
 
 #[test]
-fn test_async_commitment_signature_for_funding_created() {
+fn test_funding_created() {
 	// Simulate acquiring the signature for `funding_created` asynchronously.
 	let chanmon_cfgs = create_chanmon_cfgs(2);
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
@@ -37,7 +42,7 @@ fn test_async_commitment_signature_for_funding_created() {
 	// But! Let's make node[0]'s signer be unavailable: we should *not* broadcast a funding_created
 	// message...
 	let (temporary_channel_id, tx, _) = create_funding_transaction(&nodes[0], &nodes[1].node.get_our_node_id(), 100000, 42);
-	nodes[0].set_channel_signer_available(&nodes[1].node.get_our_node_id(), &temporary_channel_id, false);
+	nodes[0].set_channel_signer_ops_available(&nodes[1].node.get_our_node_id(), &temporary_channel_id, OPS, false);
 	nodes[0].node.funding_transaction_generated(&temporary_channel_id, &nodes[1].node.get_our_node_id(), tx.clone()).unwrap();
 	check_added_monitors(&nodes[0], 0);
 
@@ -51,7 +56,7 @@ fn test_async_commitment_signature_for_funding_created() {
 		channels[0].channel_id
 	};
 
-	nodes[0].set_channel_signer_available(&nodes[1].node.get_our_node_id(), &chan_id, true);
+	nodes[0].set_channel_signer_ops_available(&nodes[1].node.get_our_node_id(), &chan_id, OPS, true);
 	nodes[0].node.signer_unblocked(Some((nodes[1].node.get_our_node_id(), chan_id)));
 
 	let mut funding_created_msg = get_event_msg!(nodes[0], MessageSendEvent::SendFundingCreated, nodes[1].node.get_our_node_id());
@@ -67,7 +72,7 @@ fn test_async_commitment_signature_for_funding_created() {
 }
 
 #[test]
-fn test_async_commitment_signature_for_funding_signed() {
+fn test_for_funding_signed() {
 	// Simulate acquiring the signature for `funding_signed` asynchronously.
 	let chanmon_cfgs = create_chanmon_cfgs(2);
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
@@ -92,7 +97,7 @@ fn test_async_commitment_signature_for_funding_signed() {
 
 	// Now let's make node[1]'s signer be unavailable while handling the `funding_created`. It should
 	// *not* broadcast a `funding_signed`...
-	nodes[1].set_channel_signer_available(&nodes[0].node.get_our_node_id(), &temporary_channel_id, false);
+	nodes[1].set_channel_signer_ops_available(&nodes[0].node.get_our_node_id(), &temporary_channel_id, OPS, false);
 	nodes[1].node.handle_funding_created(&nodes[0].node.get_our_node_id(), &funding_created_msg);
 	check_added_monitors(&nodes[1], 1);
 
@@ -105,7 +110,7 @@ fn test_async_commitment_signature_for_funding_signed() {
 		assert_eq!(channels.len(), 1, "expected one channel, not {}", channels.len());
 		channels[0].channel_id
 	};
-	nodes[1].set_channel_signer_available(&nodes[0].node.get_our_node_id(), &chan_id, true);
+	nodes[1].set_channel_signer_ops_available(&nodes[0].node.get_our_node_id(), &chan_id, OPS, true);
 	nodes[1].node.signer_unblocked(Some((nodes[0].node.get_our_node_id(), chan_id)));
 
 	expect_channel_pending_event(&nodes[1], &nodes[0].node.get_our_node_id());
@@ -118,7 +123,7 @@ fn test_async_commitment_signature_for_funding_signed() {
 }
 
 #[test]
-fn test_async_commitment_signature_for_commitment_signed() {
+fn test_commitment_signed() {
 	let chanmon_cfgs = create_chanmon_cfgs(2);
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
 	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
@@ -144,29 +149,26 @@ fn test_async_commitment_signature_for_commitment_signed() {
 
 	dst.node.handle_update_add_htlc(&src.node.get_our_node_id(), &payment_event.msgs[0]);
 
-	// Mark dst's signer as unavailable and handle src's commitment_signed: while dst won't yet have a
-	// `commitment_signed` of its own to offer, it should publish a `revoke_and_ack`.
-	dst.set_channel_signer_available(&src.node.get_our_node_id(), &chan_id, false);
+	// Mark dst's signer as unavailable and handle src's commitment_signed. If dst's signer is
+	// offline, it oughtn't yet respond with any updates.
+	dst.set_channel_signer_ops_available(&src.node.get_our_node_id(), &chan_id, OPS, false);
 	dst.node.handle_commitment_signed(&src.node.get_our_node_id(), &payment_event.commitment_msg);
 	check_added_monitors(dst, 1);
 
-	get_event_msg!(dst, MessageSendEvent::SendRevokeAndACK, src.node.get_our_node_id());
+	{
+		let events = dst.node.get_and_clear_pending_msg_events();
+		assert_eq!(events.len(), 0, "expected 0 events to be generated, got {}", events.len());
+	}
 
 	// Mark dst's signer as available and retry: we now expect to see dst's `commitment_signed`.
-	dst.set_channel_signer_available(&src.node.get_our_node_id(), &chan_id, true);
+	dst.set_channel_signer_ops_available(&src.node.get_our_node_id(), &chan_id, OPS, true);
 	dst.node.signer_unblocked(Some((src.node.get_our_node_id(), chan_id)));
 
-	let events = dst.node.get_and_clear_pending_msg_events();
-	assert_eq!(events.len(), 1, "expected one message, got {}", events.len());
-	if let MessageSendEvent::UpdateHTLCs { ref node_id, .. } = events[0] {
-		assert_eq!(node_id, &src.node.get_our_node_id());
-	} else {
-		panic!("expected UpdateHTLCs message, not {:?}", events[0]);
-	};
+	get_revoke_commit_msgs(&dst, &src.node.get_our_node_id());
 }
 
 #[test]
-fn test_async_commitment_signature_for_funding_signed_0conf() {
+fn test_funding_signed_0conf() {
 	// Simulate acquiring the signature for `funding_signed` asynchronously for a zero-conf channel.
 	let mut manually_accept_config = test_default_channel_config();
 	manually_accept_config.manually_accept_inbound_channels = true;
@@ -209,7 +211,7 @@ fn test_async_commitment_signature_for_funding_signed_0conf() {
 
 	// Now let's make node[1]'s signer be unavailable while handling the `funding_created`. It should
 	// *not* broadcast a `funding_signed`...
-	nodes[1].set_channel_signer_available(&nodes[0].node.get_our_node_id(), &temporary_channel_id, false);
+	nodes[1].set_channel_signer_ops_available(&nodes[0].node.get_our_node_id(), &temporary_channel_id, OPS, false);
 	nodes[1].node.handle_funding_created(&nodes[0].node.get_our_node_id(), &funding_created_msg);
 	check_added_monitors(&nodes[1], 1);
 
@@ -224,7 +226,7 @@ fn test_async_commitment_signature_for_funding_signed_0conf() {
 	};
 
 	// At this point, we basically expect the channel to open like a normal zero-conf channel.
-	nodes[1].set_channel_signer_available(&nodes[0].node.get_our_node_id(), &chan_id, true);
+	nodes[1].set_channel_signer_ops_available(&nodes[0].node.get_our_node_id(), &chan_id, OPS, true);
 	nodes[1].node.signer_unblocked(Some((nodes[0].node.get_our_node_id(), chan_id)));
 
 	let (funding_signed, channel_ready_1) = {
@@ -264,8 +266,214 @@ fn test_async_commitment_signature_for_funding_signed_0conf() {
 	assert_eq!(nodes[1].node.list_usable_channels().len(), 1);
 }
 
+/// Helper to run operations with a simulated asynchronous signer.
+///
+/// Disables the signer for the specified channel and then runs `do_fn`, then re-enables the signer
+/// and calls `signer_unblocked`.
+#[cfg(test)]
+pub fn with_async_signer<'a, DoFn>(node: &Node, peer_id: &PublicKey, channel_id: &ChannelId, masks: &Vec<u32>, do_fn: &'a DoFn) where DoFn: Fn() {
+	let mask = masks.iter().fold(0, |acc, m| (acc | m));
+	node.set_channel_signer_ops_available(peer_id, channel_id, mask, false);
+	do_fn();
+	for mask in masks {
+		node.set_channel_signer_ops_available(peer_id, channel_id, *mask, true);
+		node.node.signer_unblocked(Some((*peer_id, *channel_id)));
+	}
+}
+
+#[cfg(test)]
+fn do_test_payment(masks: &Vec<u32>) {
+	// This runs through a one-hop payment from start to finish, simulating an asynchronous signer at
+	// each step.
+	let chanmon_cfgs = create_chanmon_cfgs(2);
+	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
+	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
+	let nodes = create_network(2, &node_cfgs, &node_chanmgrs);
+	let (_up1, _up2, channel_id, _tx) = create_announced_chan_between_nodes(&nodes, 0, 1);
+
+	let alice = &nodes[0];
+	let bob = &nodes[1];
+
+	let (route, payment_hash, payment_preimage, payment_secret) = get_route_and_payment_hash!(alice, bob, 8_000_000);
+
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+		alice.node.send_payment_with_route(&route, payment_hash,
+			RecipientOnionFields::secret_only(payment_secret), PaymentId(payment_hash.0)).unwrap();
+		check_added_monitors!(alice, 1);
+		let events = alice.node.get_and_clear_pending_msg_events();
+		assert_eq!(events.len(), 0, "expected 0 events, got {}", events.len());
+	});
+
+	let payment_event = {
+		let mut events = alice.node.get_and_clear_pending_msg_events();
+		assert_eq!(events.len(), 1);
+		SendEvent::from_event(events.remove(0))
+	};
+	assert_eq!(payment_event.node_id, bob.node.get_our_node_id());
+	assert_eq!(payment_event.msgs.len(), 1);
+
+	// alice --[update_add_htlc]--> bob
+	// alice --[commitment_signed]--> bob
+	with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
+		bob.node.handle_update_add_htlc(&alice.node.get_our_node_id(), &payment_event.msgs[0]);
+		bob.node.handle_commitment_signed(&alice.node.get_our_node_id(), &payment_event.commitment_msg);
+		check_added_monitors(bob, 1);
+	});
+
+	// alice <--[revoke_and_ack]-- bob
+	// alice <--[commitment_signed]-- bob
+	{
+		let (raa, cu) = {
+			let events = bob.node.get_and_clear_pending_msg_events();
+			assert_eq!(events.len(), 2, "expected 2 messages, got {}", events.len());
+			match (&events[0], &events[1]) {
+				(MessageSendEvent::SendRevokeAndACK { msg: raa, .. }, MessageSendEvent::UpdateHTLCs { updates: cu, .. }) => {
+					assert_eq!(cu.update_add_htlcs.len(), 0, "expected 0 update_add_htlcs, got {}", cu.update_add_htlcs.len());
+					(raa.clone(), cu.clone())
+				}
+				(a, b) => panic!("expected SendRevokeAndAck and UpdateHTLCs, not {:?} and {:?}", a, b)
+			}
+		};
+
+		// TODO: run this with_async_signer once validate_counterparty_revocation supports it.
+		alice.node.handle_revoke_and_ack(&bob.node.get_our_node_id(), &raa);
+		check_added_monitors(alice, 1);
+		
+		with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+			alice.node.handle_commitment_signed(&bob.node.get_our_node_id(), &cu.commitment_signed);
+			check_added_monitors(alice, 1);
+		});
+	}
+
+	// alice --[revoke_and_ack]--> bob
+	// TODO: run this with_async_signer once validate_counterparty_revocation supports it.
+	let raa = get_event_msg!(alice, MessageSendEvent::SendRevokeAndACK, bob.node.get_our_node_id());
+	bob.node.handle_revoke_and_ack(&alice.node.get_our_node_id(), &raa);
+	check_added_monitors(bob, 1);
+
+	expect_pending_htlcs_forwardable!(bob);
+
+	// Bob generates a PaymentClaimable to user code.
+	{
+		let events = bob.node.get_and_clear_pending_events();
+		assert_eq!(events.len(), 1, "expected 1 event, got {}", events.len());
+		match &events[0] {
+			Event::PaymentClaimable { .. } => {
+				bob.node.claim_funds(payment_preimage);
+			}
+			ev => panic!("Expected PaymentClaimable, got {:?}", ev)
+		}
+		check_added_monitors(bob, 1);
+	}
+
+	// Bob generates a PaymentClaimed event to user code.
+	{
+		let events = bob.node.get_and_clear_pending_events();
+		assert_eq!(events.len(), 1, "expected 1 event, got {}", events.len());
+		match &events[0] {
+			Event::PaymentClaimed { .. } => (),
+			ev => panic!("Expected PaymentClaimed, got {:?}", ev),
+		}
+	}
+	
+	// alice <--[update_fulfill_htlcs]-- bob
+	// alice <--[commitment_signed]-- bob
+	{
+		let cu = {
+			let events = bob.node.get_and_clear_pending_msg_events();
+			assert_eq!(events.len(), 1, "expected 1 events, got {}", events.len());
+			match &events[0] {
+				MessageSendEvent::UpdateHTLCs { updates, .. } => {
+					assert_eq!(updates.update_fulfill_htlcs.len(), 1, "expected 1 update_fulfill_htlcs, got {}", updates.update_fulfill_htlcs.len());
+					updates.clone()
+				}
+				ev => panic!("Expected UpdateHTLCs, got {:?}", ev)
+			}
+		};
+
+		with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+			alice.node.handle_update_fulfill_htlc(&bob.node.get_our_node_id(), &cu.update_fulfill_htlcs[0]);
+			alice.node.handle_commitment_signed(&bob.node.get_our_node_id(), &cu.commitment_signed);
+			check_added_monitors(alice, 1);
+		});
+	}
+
+	// alice --[revoke_and_ack]--> bob
+	// alice --[commitment_signed]--> bob
+	{
+		let (raa, cu) = {
+			let events = alice.node.get_and_clear_pending_msg_events();
+			assert_eq!(events.len(), 2, "expected 2 messages, got {}", events.len());
+			match (&events[0], &events[1]) {
+				(MessageSendEvent::SendRevokeAndACK { msg: raa, .. }, MessageSendEvent::UpdateHTLCs { updates: cu, .. }) => {
+					assert_eq!(cu.update_fulfill_htlcs.len(), 0, "expected 0 update_fulfill_htlcs, got {}", cu.update_fulfill_htlcs.len());
+					(raa.clone(), cu.clone())
+				}
+				(a, b) => panic!("expected SendRevokeAndAck and UpdateHTLCs, not {:?} and {:?}", a, b)
+			}
+		};
+
+		// TODO: run with async once validate_counterparty_revocation supports it.
+		bob.node.handle_revoke_and_ack(&alice.node.get_our_node_id(), &raa);
+		check_added_monitors(bob, 1);
+		
+		with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
+			bob.node.handle_commitment_signed(&alice.node.get_our_node_id(), &cu.commitment_signed);
+			check_added_monitors(bob, 1);
+		});
+	}
+
+	// alice <--[revoke_and_ack]-- bob
+	// TODO: run with async once validate_counterparty_revocation supports it.
+	let raa = get_event_msg!(bob, MessageSendEvent::SendRevokeAndACK, alice.node.get_our_node_id());
+	alice.node.handle_revoke_and_ack(&bob.node.get_our_node_id(), &raa);
+	check_added_monitors(alice, 0);
+
+	// Alice generates PaymentSent and PaymentPathSuccessful events to user code.
+	{
+		let events = alice.node.get_and_clear_pending_events();
+		assert_eq!(events.len(), 2, "expected 2 event, got {}", events.len());
+		match (&events[0], &events[1]) {
+			(Event::PaymentSent { .. }, Event::PaymentPathSuccessful { .. }) => (),
+			(a, b) => panic!("Expected PaymentSent and PaymentPathSuccessful, got {:?} and {:?}", a, b)
+		}
+
+		check_added_monitors(alice, 1);  // why? would have expected this after handling RAA...
+	}
+}
+
 #[test]
-fn test_async_commitment_signature_for_peer_disconnect() {
+fn test_payment_grs() {
+	do_test_payment(&vec![ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_payment_gsr() {
+	do_test_payment(&vec![ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
+#[test]
+fn test_payment_rsg() {
+	do_test_payment(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_payment_rgs() {
+	do_test_payment(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_payment_srg() {
+	do_test_payment(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_payment_sgr() {
+	do_test_payment(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
+#[test]
+fn test_peer_disconnect() {
 	let chanmon_cfgs = create_chanmon_cfgs(2);
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
 	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
@@ -291,33 +499,22 @@ fn test_async_commitment_signature_for_peer_disconnect() {
 
 	dst.node.handle_update_add_htlc(&src.node.get_our_node_id(), &payment_event.msgs[0]);
 
-	// Mark dst's signer as unavailable and handle src's commitment_signed: while dst won't yet have a
-	// `commitment_signed` of its own to offer, it should publish a `revoke_and_ack`.
-	dst.set_channel_signer_available(&src.node.get_our_node_id(), &chan_id, false);
+	// Mark dst's signer as unavailable and handle src's commitment_signed. If dst's signer is
+	// offline, it oughtn't respond with any updates.
+	dst.set_channel_signer_ops_available(&src.node.get_our_node_id(), &chan_id, OPS, false);
 	dst.node.handle_commitment_signed(&src.node.get_our_node_id(), &payment_event.commitment_msg);
 	check_added_monitors(dst, 1);
-
-	get_event_msg!(dst, MessageSendEvent::SendRevokeAndACK, src.node.get_our_node_id());
 
 	// Now disconnect and reconnect the peers.
 	src.node.peer_disconnected(&dst.node.get_our_node_id());
 	dst.node.peer_disconnected(&src.node.get_our_node_id());
 	let mut reconnect_args = ReconnectArgs::new(&nodes[0], &nodes[1]);
 	reconnect_args.send_channel_ready = (false, false);
-	reconnect_args.pending_raa = (true, false);
+	reconnect_args.pending_raa = (false, false);
 	reconnect_nodes(reconnect_args);
 
-	// Mark dst's signer as available and retry: we now expect to see dst's `commitment_signed`.
-	dst.set_channel_signer_available(&src.node.get_our_node_id(), &chan_id, true);
+	// Mark dst's signer as available and retry: we now expect to see dst's commitment signed and RAA.
+	dst.set_channel_signer_ops_available(&src.node.get_our_node_id(), &chan_id, OPS, true);
 	dst.node.signer_unblocked(Some((src.node.get_our_node_id(), chan_id)));
-
-	{
-		let events = dst.node.get_and_clear_pending_msg_events();
-		assert_eq!(events.len(), 1, "expected one message, got {}", events.len());
-		if let MessageSendEvent::UpdateHTLCs { ref node_id, .. } = events[0] {
-			assert_eq!(node_id, &src.node.get_our_node_id());
-		} else {
-			panic!("expected UpdateHTLCs message, not {:?}", events[0]);
-		};
-	}
+	get_revoke_commit_msgs(dst, &src.node.get_our_node_id());
 }

@@ -32,6 +32,8 @@ use crate::util::config::{UserConfig, MaxDustHTLCExposure};
 use crate::util::ser::{ReadableArgs, Writeable};
 #[cfg(test)]
 use crate::util::logger::Logger;
+#[cfg(test)]
+use crate::util::test_channel_signer::ops;
 
 use bitcoin::blockdata::block::{Block, BlockHeader};
 use bitcoin::blockdata::transaction::{Transaction, TxOut};
@@ -438,14 +440,14 @@ impl<'a, 'b, 'c> Node<'a, 'b, 'c> {
 	pub fn get_block_header(&self, height: u32) -> BlockHeader {
 		self.blocks.lock().unwrap()[height as usize].0.header
 	}
+
 	/// Changes the channel signer's availability for the specified peer and channel.
 	///
 	/// When `available` is set to `true`, the channel signer will behave normally. When set to
 	/// `false`, the channel signer will act like an off-line remote signer and will return `Err` for
-	/// several of the signing methods. Currently, only `get_per_commitment_point` and
-	/// `release_commitment_secret` are affected by this setting.
+	/// several of the signing methods.
 	#[cfg(test)]
-	pub fn set_channel_signer_available(&self, peer_id: &PublicKey, chan_id: &ChannelId, available: bool) {
+	pub fn set_channel_signer_ops_available(&self, peer_id: &PublicKey, chan_id: &ChannelId, mask: u32, available: bool) {
 		let per_peer_state = self.node.per_peer_state.read().unwrap();
 		let chan_lock = per_peer_state.get(peer_id).unwrap().lock().unwrap();
 		let signer = (|| {
@@ -454,8 +456,9 @@ impl<'a, 'b, 'c> Node<'a, 'b, 'c> {
 				None => panic!("Couldn't find a channel with id {}", chan_id),
 			}
 		})();
-		log_debug!(self.logger, "Setting channel signer for {} as available={}", chan_id, available);
-		signer.as_ecdsa().unwrap().set_available(available);
+		log_debug!(self.logger, "Setting channel signer for {} as {}available for {} (mask={})",
+			chan_id, if available { "" } else { "un" }, ops::string_from(mask), mask);
+		signer.as_ecdsa().unwrap().set_ops_available(mask, available);
 	}
 }
 
@@ -3228,7 +3231,7 @@ pub fn reconnect_nodes<'a, 'b, 'c, 'd>(args: ReconnectArgs<'a, 'b, 'c, 'd>) {
 				} else { panic!("Unexpected event! {:?}", announcement_event[0]); }
 			}
 		} else {
-			assert!(chan_msgs.0.is_none());
+			assert!(chan_msgs.0.is_none(), "did not expect to have a ChannelReady for node 1");
 		}
 		if pending_raa.0 {
 			assert!(chan_msgs.3 == RAACommitmentOrder::RevokeAndACKFirst);
@@ -3236,7 +3239,7 @@ pub fn reconnect_nodes<'a, 'b, 'c, 'd>(args: ReconnectArgs<'a, 'b, 'c, 'd>) {
 			assert!(node_a.node.get_and_clear_pending_msg_events().is_empty());
 			check_added_monitors!(node_a, 1);
 		} else {
-			assert!(chan_msgs.1.is_none());
+			assert!(chan_msgs.1.is_none(), "did not expect to have a RevokeAndACK for node 1");
 		}
 		if pending_htlc_adds.0 != 0 || pending_htlc_claims.0 != 0 || pending_htlc_fails.0 != 0 ||
 			pending_cell_htlc_claims.0 != 0 || pending_cell_htlc_fails.0 != 0 ||
@@ -3269,7 +3272,7 @@ pub fn reconnect_nodes<'a, 'b, 'c, 'd>(args: ReconnectArgs<'a, 'b, 'c, 'd>) {
 				check_added_monitors!(node_b, if pending_responding_commitment_signed_dup_monitor.0 { 0 } else { 1 });
 			}
 		} else {
-			assert!(chan_msgs.2.is_none());
+			assert!(chan_msgs.2.is_none(), "did not expect to have commitment updates for node 1");
 		}
 	}
 
@@ -3286,7 +3289,7 @@ pub fn reconnect_nodes<'a, 'b, 'c, 'd>(args: ReconnectArgs<'a, 'b, 'c, 'd>) {
 				}
 			}
 		} else {
-			assert!(chan_msgs.0.is_none());
+			assert!(chan_msgs.0.is_none(), "did not expect to have a ChannelReady for node 2");
 		}
 		if pending_raa.1 {
 			assert!(chan_msgs.3 == RAACommitmentOrder::RevokeAndACKFirst);
@@ -3294,7 +3297,7 @@ pub fn reconnect_nodes<'a, 'b, 'c, 'd>(args: ReconnectArgs<'a, 'b, 'c, 'd>) {
 			assert!(node_b.node.get_and_clear_pending_msg_events().is_empty());
 			check_added_monitors!(node_b, 1);
 		} else {
-			assert!(chan_msgs.1.is_none());
+			assert!(chan_msgs.1.is_none(), "did not expect to have a RevokeAndACK for node 2");
 		}
 		if pending_htlc_adds.1 != 0 || pending_htlc_claims.1 != 0 || pending_htlc_fails.1 != 0 ||
 			pending_cell_htlc_claims.1 != 0 || pending_cell_htlc_fails.1 != 0 ||
@@ -3327,7 +3330,7 @@ pub fn reconnect_nodes<'a, 'b, 'c, 'd>(args: ReconnectArgs<'a, 'b, 'c, 'd>) {
 				check_added_monitors!(node_a, if pending_responding_commitment_signed_dup_monitor.1 { 0 } else { 1 });
 			}
 		} else {
-			assert!(chan_msgs.2.is_none());
+			assert!(chan_msgs.2.is_none(), "did not expect to have commitment updates for node 2");
 		}
 	}
 }
