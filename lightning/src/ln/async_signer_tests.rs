@@ -14,8 +14,9 @@ use bitcoin::secp256k1::PublicKey;
 use crate::events::{Event, MessageSendEvent, MessageSendEventsProvider};
 use crate::ln::ChannelId;
 use crate::ln::functional_test_utils::*;
+use crate::ln::msgs;
 use crate::ln::msgs::ChannelMessageHandler;
-use crate::ln::channelmanager::{PaymentId, RecipientOnionFields};
+use crate::ln::channelmanager::{PaymentId, RAACommitmentOrder, RecipientOnionFields};
 use crate::util::test_channel_signer::ops;
 
 const OPS: u32 = ops::GET_PER_COMMITMENT_POINT | ops::RELEASE_COMMITMENT_SECRET | ops::SIGN_COUNTERPARTY_COMMITMENT;
@@ -271,14 +272,19 @@ fn test_funding_signed_0conf() {
 /// Disables the signer for the specified channel and then runs `do_fn`, then re-enables the signer
 /// and calls `signer_unblocked`.
 #[cfg(test)]
-pub fn with_async_signer<'a, DoFn>(node: &Node, peer_id: &PublicKey, channel_id: &ChannelId, masks: &Vec<u32>, do_fn: &'a DoFn) where DoFn: Fn() {
+pub fn with_async_signer<'a, DoFn, T>(node: &Node, peer_id: &PublicKey, channel_id: &ChannelId, masks: &Vec<u32>, do_fn: &'a DoFn) -> T
+	where DoFn: Fn() -> T
+{
 	let mask = masks.iter().fold(0, |acc, m| (acc | m));
+	eprintln!("disabling {}", ops::string_from(mask));
 	node.set_channel_signer_ops_available(peer_id, channel_id, mask, false);
-	do_fn();
+	let res = do_fn();
 	for mask in masks {
+		eprintln!("enabling {} and calling signer_unblocked", ops::string_from(*mask));
 		node.set_channel_signer_ops_available(peer_id, channel_id, *mask, true);
 		node.node.signer_unblocked(Some((*peer_id, *channel_id)));
 	}
+	res
 }
 
 #[cfg(test)]
@@ -472,8 +478,8 @@ fn test_payment_sgr() {
 	do_test_payment(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET]);
 }
 
-#[test]
-fn test_peer_disconnect() {
+#[cfg(test)]
+fn do_test_peer_reconnect(masks: &Vec<u32>) {
 	let chanmon_cfgs = create_chanmon_cfgs(2);
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
 	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
@@ -481,40 +487,166 @@ fn test_peer_disconnect() {
 	let (_, _, chan_id, _) = create_announced_chan_between_nodes(&nodes, 0, 1);
 
 	// Send a payment.
-	let src = &nodes[0];
-	let dst = &nodes[1];
-	let (route, our_payment_hash, _our_payment_preimage, our_payment_secret) = get_route_and_payment_hash!(src, dst, 8000000);
-	src.node.send_payment_with_route(&route, our_payment_hash,
-		RecipientOnionFields::secret_only(our_payment_secret), PaymentId(our_payment_hash.0)).unwrap();
-	check_added_monitors!(src, 1);
+	let alice = &nodes[0];
+	let bob = &nodes[1];
+	let (route, payment_hash, payment_preimage, payment_secret) = get_route_and_payment_hash!(alice, bob, 8_000_000);
 
-	// Pass the payment along the route.
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+		alice.node.send_payment_with_route(&route, payment_hash,
+			RecipientOnionFields::secret_only(payment_secret), PaymentId(payment_hash.0)).unwrap();
+		check_added_monitors!(alice, 1);
+		let events = alice.node.get_and_clear_pending_msg_events();
+		assert_eq!(events.len(), 0, "expected 0 events, got {}", events.len());
+
+		alice.node.peer_disconnected(&bob.node.get_our_node_id());
+		bob.node.peer_disconnected(&alice.node.get_our_node_id());
+	});
+
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+		let mut reconnect_args = ReconnectArgs::new(alice, bob);
+		reconnect_args.send_channel_ready = (true, true);  // ...since this will be state 1.
+		reconnect_nodes(reconnect_args);
+	});
+
 	let payment_event = {
-		let mut events = src.node.get_and_clear_pending_msg_events();
+		let mut events = alice.node.get_and_clear_pending_msg_events();
 		assert_eq!(events.len(), 1);
 		SendEvent::from_event(events.remove(0))
 	};
-	assert_eq!(payment_event.node_id, dst.node.get_our_node_id());
+	assert_eq!(payment_event.node_id, bob.node.get_our_node_id());
 	assert_eq!(payment_event.msgs.len(), 1);
 
-	dst.node.handle_update_add_htlc(&src.node.get_our_node_id(), &payment_event.msgs[0]);
+	// alice --[update_add_htlc]--> bob
+	// alice --[commitment_signed]--> bob
+	with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
+		bob.node.handle_update_add_htlc(&alice.node.get_our_node_id(), &payment_event.msgs[0]);
+		bob.node.handle_commitment_signed(&alice.node.get_our_node_id(), &payment_event.commitment_msg);
+		check_added_monitors(bob, 1);
 
-	// Mark dst's signer as unavailable and handle src's commitment_signed. If dst's signer is
-	// offline, it oughtn't respond with any updates.
-	dst.set_channel_signer_ops_available(&src.node.get_our_node_id(), &chan_id, OPS, false);
-	dst.node.handle_commitment_signed(&src.node.get_our_node_id(), &payment_event.commitment_msg);
-	check_added_monitors(dst, 1);
+		alice.node.peer_disconnected(&bob.node.get_our_node_id());
+		bob.node.peer_disconnected(&alice.node.get_our_node_id());
+	});
 
-	// Now disconnect and reconnect the peers.
-	src.node.peer_disconnected(&dst.node.get_our_node_id());
-	dst.node.peer_disconnected(&src.node.get_our_node_id());
-	let mut reconnect_args = ReconnectArgs::new(&nodes[0], &nodes[1]);
-	reconnect_args.send_channel_ready = (false, false);
-	reconnect_args.pending_raa = (false, false);
-	reconnect_nodes(reconnect_args);
+	let (alice_reestablish, bob_reestablish) = with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+		alice.node.peer_connected(&bob.node.get_our_node_id(), &msgs::Init {
+			features: bob.node.init_features(), networks: None, remote_network_address: None
+		}, true).expect("peer_connected failed for alice");
+		let alice_msgs = get_chan_reestablish_msgs!(alice, bob);
+		assert_eq!(alice_msgs.len(), 1, "expected 1 message, got {}", alice_msgs.len());
+		bob.node.peer_connected(&alice.node.get_our_node_id(), &msgs::Init {
+			features: alice.node.init_features(), networks: None, remote_network_address: None
+		}, false).expect("peer_connected failed for bob");
+		let bob_msgs = get_chan_reestablish_msgs!(bob, alice);
+		assert_eq!(bob_msgs.len(), 1, "expected 1 message, got {}", bob_msgs.len());
+		(alice_msgs[0].clone(), bob_msgs[0].clone())
+	});
 
-	// Mark dst's signer as available and retry: we now expect to see dst's commitment signed and RAA.
-	dst.set_channel_signer_ops_available(&src.node.get_our_node_id(), &chan_id, OPS, true);
-	dst.node.signer_unblocked(Some((src.node.get_our_node_id(), chan_id)));
-	get_revoke_commit_msgs(dst, &src.node.get_our_node_id());
+	with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
+		bob.node.handle_channel_reestablish(&alice.node.get_our_node_id(), &alice_reestablish);
+	});
+
+	let (raa, cu) = match handle_chan_reestablish_msgs!(bob, alice) {
+		(None, Some(raa), Some(cu), RAACommitmentOrder::RevokeAndACKFirst) => (raa, cu),
+		(channel_ready, raa, cu, order) => {
+			panic!("bob: channel_ready={:?} raa={:?} cu={:?} order={:?}", channel_ready, raa, cu, order);
+		}
+	};
+
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+		alice.node.handle_channel_reestablish(&bob.node.get_our_node_id(), &bob_reestablish);
+	});
+
+	match handle_chan_reestablish_msgs!(alice, bob) {
+		(None, None, None, _) => (),
+		(channel_ready, raa, cu, order) => {
+			panic!("alice: channel_ready={:?} raa={:?} cu={:?} order={:?}", channel_ready, raa, cu, order);
+		}
+	};
+
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+		alice.node.handle_revoke_and_ack(&bob.node.get_our_node_id(), &raa);
+		check_added_monitors(alice, 1);
+	});
+
+	// Disconnect?
+
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+		alice.node.handle_commitment_signed(&bob.node.get_our_node_id(), &cu.commitment_signed);
+		check_added_monitors(alice, 1);
+	});
+
+	// Disconnect?
+
+	let raa = get_event_msg!(alice, MessageSendEvent::SendRevokeAndACK, bob.node.get_our_node_id());
+	with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
+		bob.node.handle_revoke_and_ack(&alice.node.get_our_node_id(), &raa);
+		check_added_monitors(bob, 1);
+	});
+
+	expect_pending_htlcs_forwardable!(bob);
+
+	{
+		let events = bob.node.get_and_clear_pending_events();
+		assert_eq!(events.len(), 1, "expected 1 event, got {}", events.len());
+		match &events[0] {
+			Event::PaymentClaimable { .. } => (),
+			ev => panic!("Expected PaymentClaimable, got {:?}", ev),
+		}
+	}
+
+	with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
+		bob.node.claim_funds(payment_preimage);
+		check_added_monitors(bob, 1);
+	});
+
+	let _cu = {
+		let events = bob.node.get_and_clear_pending_msg_events();
+		assert_eq!(events.len(), 1, "expected 1 message, got {}", events.len());
+		match &events[0] {
+			MessageSendEvent::UpdateHTLCs { ref updates, .. } => updates.clone(),
+			ev => panic!("expected UpdateHTLCs, got {:?}", ev),
+		}
+	};
+
+	{
+		let events = bob.node.get_and_clear_pending_events();
+		assert_eq!(events.len(), 1, "expected 1 event, got {}", events.len());
+		match &events[0] {
+			Event::PaymentClaimed { .. } => (),
+			ev => panic!("Expected PaymentClaimed, got {:?}", ev),
+		}
+	}
+
+	// Blah blah blah... send cu to alice, probably sprinkle some reconnects above.
 }
+
+#[test]
+fn test_peer_reconnect_grs() {
+	do_test_peer_reconnect(&vec![ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_peer_reconnect_gsr() {
+	do_test_peer_reconnect(&vec![ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
+#[test]
+fn test_peer_reconnect_rsg() {
+	do_test_peer_reconnect(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_peer_reconnect_rgs() {
+	do_test_peer_reconnect(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_peer_reconnect_srg() {
+	do_test_peer_reconnect(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_peer_reconnect_sgr() {
+	do_test_payment(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+

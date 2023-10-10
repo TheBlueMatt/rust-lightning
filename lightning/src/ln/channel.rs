@@ -538,6 +538,7 @@ pub(super) struct MonitorRestoreUpdates {
 /// When the signer becomes unblocked, any non-`None` event accumulated here should be sent to the
 /// peer by the caller.
 #[allow(unused)]
+#[derive(Default)]
 pub(super) struct SignerResumeUpdates {
 	/// A `commitment_signed` message, possibly with additional HTLC-related messages (e.g.,
 	/// `update_add_htlc`) that should be placed in the commitment.
@@ -4127,6 +4128,11 @@ impl<SP: Deref> Channel<SP> where
 			self.context.update_holder_per_commitment(logger);
 		}
 
+		if self.context.channel_state & (ChannelState::PeerDisconnected as u32) != 0 {
+			log_trace!(logger, "Peer is disconnected; no unblocked messages to send.");
+			return SignerResumeUpdates::default()
+		}
+
 		// Make sure that we honor any ordering requirements between the commitment update and revoke-and-ack.
 		let (commitment_update, raa) = match &self.context.resend_order {
 			RAACommitmentOrder::CommitmentFirst => {
@@ -4491,6 +4497,7 @@ impl<SP: Deref> Channel<SP> where
 
 		let channel_ready = if msg.next_local_commitment_number == 1 && INITIAL_COMMITMENT_NUMBER - self.context.cur_holder_commitment_transaction_number == 1 {
 			// We should never have to worry about MonitorUpdateInProgress resending ChannelReady
+			log_debug!(logger, "Reconnecting channel at state 1, (re?)sending channel_ready");
 			self.get_channel_ready().or_else(|| {
 				self.context.signer_pending_channel_ready = true;
 				None

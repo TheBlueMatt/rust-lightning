@@ -3025,7 +3025,7 @@ macro_rules! get_chan_reestablish_msgs {
 					assert_eq!(*node_id, $dst_node.node.get_our_node_id());
 					announcements.insert(msg.contents.short_channel_id);
 				} else {
-					panic!("Unexpected event")
+					panic!("Unexpected event re-establishing channel, {:?}", msg)
 				}
 			}
 			assert!(announcements.is_empty());
@@ -3080,6 +3080,13 @@ macro_rules! handle_chan_reestablish_msgs {
 			} else {
 				RAACommitmentOrder::CommitmentFirst
 			};
+
+			if let Some(&MessageSendEvent::SendChannelUpdate { ref node_id, .. }) = msg_events.get(idx) {
+				assert_eq!(*node_id, $dst_node.node.get_our_node_id());
+				idx += 1;
+				assert!(!had_channel_update);
+				had_channel_update = true;
+			}
 
 			if let Some(ev) = msg_events.get(idx) {
 				match ev {
