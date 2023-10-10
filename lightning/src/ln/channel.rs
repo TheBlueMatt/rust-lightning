@@ -4894,6 +4894,12 @@ impl<SP: Deref> Channel<SP> where
 			return None;
 		}
 
+		// If we're still pending the signature on a funding transaction, then we're not ready to send a
+		// channel_ready yet.
+		if self.context.signer_pending_funding {
+			return None;
+		}
+
 		// Note that we don't include ChannelState::WaitingForBatch as we don't want to send
 		// channel_ready until the entire batch is ready.
 		let non_shutdown_state = self.context.channel_state & (!MULTI_STATE_FLAGS);
@@ -6831,7 +6837,7 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 			context: self.context,
 		};
 
-		let need_channel_ready = funding_signed.is_some() && channel.check_get_channel_ready(0).is_some();
+		let need_channel_ready = channel.check_get_channel_ready(0).is_some();
 		channel.monitor_updating_paused(false, false, need_channel_ready, Vec::new(), Vec::new(), Vec::new());
 
 		Ok((channel, funding_signed, channel_monitor))
