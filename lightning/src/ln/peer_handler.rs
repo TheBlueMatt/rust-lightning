@@ -68,6 +68,16 @@ pub trait CustomMessageHandler: wire::CustomMessageReader {
 	/// connection to the node exists, then the message is simply not sent.
 	fn get_and_clear_pending_msg(&self) -> Vec<(PublicKey, Self::CustomMessage)>;
 
+	/// Indicates a connection to the peer failed/an existing connection was lost.
+	fn peer_disconnected(&self, their_node_id: &PublicKey);
+
+	/// Handle a peer reconnecting, possibly generating `channel_reestablish` message(s).
+	///
+	/// May return an `Err(())` if the features the peer supports are not sufficient to communicate
+	/// with us. Implementors should be somewhat conservative about doing so, however, as other
+	/// message handlers may still wish to communicate with this peer.
+	fn peer_connected(&self, their_node_id: &PublicKey, msg: &msgs::Init, inbound: bool) -> Result<(), ()>;
+
 	/// Gets the node feature flags which this handler itself supports. All available handlers are
 	/// queried similarly and their feature flags are OR'd together to form the [`NodeFeatures`]
 	/// which are broadcasted in our [`NodeAnnouncement`] message.
@@ -169,6 +179,10 @@ impl CustomMessageHandler for IgnoringMessageHandler {
 	}
 
 	fn get_and_clear_pending_msg(&self) -> Vec<(PublicKey, Self::CustomMessage)> { Vec::new() }
+
+	fn peer_disconnected(&self, _: &PublicKey) {}
+
+	fn peer_connected(&self, _: &PublicKey, _: &msgs::Init, _: bool) -> Result<(), ()> { Ok(()) }
 
 	fn provided_node_features(&self) -> NodeFeatures { NodeFeatures::empty() }
 
@@ -1549,6 +1563,10 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, OM: Deref, L: Deref, CM
 				log_debug!(self.logger, "Onion Message Handler decided we couldn't communicate with peer {}", log_pubkey!(their_node_id));
 				return Err(PeerHandleError { }.into());
 			}
+			if let Err(()) = self.message_handler.custom_message_handler.peer_connected(&their_node_id, &msg, peer_lock.inbound_connection) {
+				log_debug!(self.logger, "Custom Message Handler decided we couldn't communicate with peer {}", log_pubkey!(their_node_id));
+				return Err(PeerHandleError { }.into());
+			}
 
 			peer_lock.their_features = Some(msg.features);
 			return Ok(None);
@@ -2235,6 +2253,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, OM: Deref, L: Deref, CM
 			log_trace!(self.logger, "Disconnecting peer with id {} due to {}", node_id, reason);
 			self.message_handler.chan_handler.peer_disconnected(&node_id);
 			self.message_handler.onion_message_handler.peer_disconnected(&node_id);
+			self.message_handler.custom_message_handler.peer_disconnected(&node_id);
 		}
 		descriptor.disconnect_socket();
 	}
@@ -2257,6 +2276,7 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, OM: Deref, L: Deref, CM
 					if !peer.handshake_complete() { return; }
 					self.message_handler.chan_handler.peer_disconnected(&node_id);
 					self.message_handler.onion_message_handler.peer_disconnected(&node_id);
+					self.message_handler.custom_message_handler.peer_disconnected(&node_id);
 				}
 			}
 		};
@@ -2550,6 +2570,9 @@ mod tests {
 		}
 
 		fn get_and_clear_pending_msg(&self) -> Vec<(PublicKey, Self::CustomMessage)> { Vec::new() }
+
+		fn peer_disconnected(&self, _: &PublicKey) {}
+		fn peer_connected(&self, _: &PublicKey, _: &msgs::Init, _: bool) -> Result<(), ()> { Ok(()) }
 
 		fn provided_node_features(&self) -> NodeFeatures { NodeFeatures::empty() }
 

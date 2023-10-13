@@ -19,7 +19,7 @@
 //!
 //! # use bitcoin::secp256k1::PublicKey;
 //! # use lightning::io;
-//! # use lightning::ln::msgs::{DecodeError, LightningError};
+//! # use lightning::ln::msgs::{DecodeError, LightningError, Init};
 //! # use lightning::ln::features::{InitFeatures, NodeFeatures};
 //! use lightning::ln::peer_handler::CustomMessageHandler;
 //! use lightning::ln::wire::{CustomMessageReader, self};
@@ -67,6 +67,8 @@
 //! #     fn get_and_clear_pending_msg(&self) -> Vec<(PublicKey, Self::CustomMessage)> {
 //! #         unimplemented!()
 //! #     }
+//! #     fn peer_connected(&self, _: &PublicKey, _: &Init, _: bool) -> Result<(), ()> { Ok(()) }
+//! #     fn peer_disconnected(&self, _: &PublicKey) { }
 //! #     fn provided_node_features(&self) -> NodeFeatures {
 //! #         unimplemented!()
 //! #     }
@@ -113,6 +115,8 @@
 //! #     fn get_and_clear_pending_msg(&self) -> Vec<(PublicKey, Self::CustomMessage)> {
 //! #         unimplemented!()
 //! #     }
+//! #     fn peer_connected(&self, _: &PublicKey, _: &Init, _: bool) -> Result<(), ()> { Ok(()) }
+//! #     fn peer_disconnected(&self, _: &PublicKey) { }
 //! #     fn provided_node_features(&self) -> NodeFeatures {
 //! #         unimplemented!()
 //! #     }
@@ -159,6 +163,8 @@
 //! #     fn get_and_clear_pending_msg(&self) -> Vec<(PublicKey, Self::CustomMessage)> {
 //! #         unimplemented!()
 //! #     }
+//! #     fn peer_connected(&self, _: &PublicKey, _: &Init, _: bool) -> Result<(), ()> { Ok(()) }
+//! #     fn peer_disconnected(&self, _: &PublicKey) { }
 //! #     fn provided_node_features(&self) -> NodeFeatures {
 //! #         unimplemented!()
 //! #     }
@@ -286,6 +292,40 @@ macro_rules! composite_custom_message_handler {
 						)
 					)*
 					.collect()
+			}
+
+			fn peer_connected(
+				&self, their_node_id: &$crate::bitcoin::secp256k1::PublicKey,
+				init_msg: &$crate::lightning::ln::msgs::Init, inbound: bool
+			) -> Result<(), ()> {
+				let mut should_disconnect = false;
+				let mut handlers_connected = 0;
+				$(
+					if !should_disconnect {
+						if self.$field.peer_connected(their_node_id, init_msg, inbound).is_err() {
+							should_disconnect = true;
+						} else {
+							handlers_connected += 1;
+						}
+					}
+				)*
+				if should_disconnect {
+					let mut i = 0;
+					$(
+						if i < handlers_connected {
+							self.$field.peer_disconnected(their_node_id);
+						}
+						#[allow(unused_assignments)]
+						i += 1;
+					)*
+					Err(())
+				} else { Ok(()) }
+			}
+
+			fn peer_disconnected(&self, their_node_id: &$crate::bitcoin::secp256k1::PublicKey) {
+				$(
+					self.$field.peer_disconnected(their_node_id);
+				)*
 			}
 
 			fn provided_node_features(&self) -> $crate::lightning::ln::features::NodeFeatures {
