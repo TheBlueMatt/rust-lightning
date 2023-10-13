@@ -1561,10 +1561,13 @@ impl<Descriptor: SocketDescriptor, CM: Deref, RM: Deref, OM: Deref, L: Deref, CM
 			}
 			if let Err(()) = self.message_handler.onion_message_handler.peer_connected(&their_node_id, &msg, peer_lock.inbound_connection) {
 				log_debug!(self.logger, "Onion Message Handler decided we couldn't communicate with peer {}", log_pubkey!(their_node_id));
+				self.message_handler.chan_handler.peer_disconnected(&their_node_id);
 				return Err(PeerHandleError { }.into());
 			}
 			if let Err(()) = self.message_handler.custom_message_handler.peer_connected(&their_node_id, &msg, peer_lock.inbound_connection) {
 				log_debug!(self.logger, "Custom Message Handler decided we couldn't communicate with peer {}", log_pubkey!(their_node_id));
+				self.message_handler.onion_message_handler.peer_disconnected(&their_node_id);
+				self.message_handler.chan_handler.peer_disconnected(&their_node_id);
 				return Err(PeerHandleError { }.into());
 			}
 
