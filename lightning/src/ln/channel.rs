@@ -6798,14 +6798,14 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 			return Err((self, ChannelError::Close("Failed to validate our commitment".to_owned())));
 		}
 
+		// Now that we're past error-generating stuff, update our local state:
+
 		self.context.channel_state = ChannelState::FundingSent as u32;
 		self.context.channel_id = funding_txo.to_channel_id();
 		self.context.cur_counterparty_commitment_transaction_number -= 1;
 		self.context.cur_holder_commitment_transaction_number -= 1;
 
 		let (counterparty_initial_commitment_tx, funding_signed) = self.context.get_funding_signed_msg(logger);
-
-		// Now that we're past error-generating stuff, update our local state:
 
 		let funding_redeemscript = self.context.get_funding_redeemscript();
 		let funding_txo_script = funding_redeemscript.to_v0_p2wsh();
