@@ -123,15 +123,7 @@ fn test_async_commitment_signature_for_commitment_signed() {
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
 	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
 	let nodes = create_network(2, &node_cfgs, &node_chanmgrs);
-	create_announced_chan_between_nodes(&nodes, 0, 1);
-
-	let chan_id = {
-		let per_peer_state = nodes[0].node.per_peer_state.read().unwrap();
-		let chan_lock = per_peer_state.get(&nodes[1].node.get_our_node_id()).unwrap().lock().unwrap();
-		let chan_ids = chan_lock.channel_by_id.keys().collect::<Vec<_>>();
-		assert_eq!(chan_ids.len(), 1, "expected one channel, not {}", chan_ids.len());
-		*chan_ids[0]
-	};
+	let (_, _, chan_id, _) = create_announced_chan_between_nodes(&nodes, 0, 1);
 
 	// Send a payment.
 	let src = &nodes[0];
@@ -278,15 +270,7 @@ fn test_async_commitment_signature_for_peer_disconnect() {
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
 	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
 	let nodes = create_network(2, &node_cfgs, &node_chanmgrs);
-	create_announced_chan_between_nodes(&nodes, 0, 1);
-
-	let chan_id = {
-		let per_peer_state = nodes[0].node.per_peer_state.read().unwrap();
-		let chan_lock = per_peer_state.get(&nodes[1].node.get_our_node_id()).unwrap().lock().unwrap();
-		let chan_ids = chan_lock.channel_by_id.keys().collect::<Vec<_>>();
-		assert_eq!(chan_ids.len(), 1, "expected one channel, not {}", chan_ids.len());
-		*chan_ids[0]
-	};
+	let (_, _, chan_id, _) = create_announced_chan_between_nodes(&nodes, 0, 1);
 
 	// Send a payment.
 	let src = &nodes[0];
