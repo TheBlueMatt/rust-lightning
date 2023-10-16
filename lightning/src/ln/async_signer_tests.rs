@@ -41,11 +41,7 @@ fn test_async_commitment_signature_for_funding_created() {
 	nodes[0].node.funding_transaction_generated(&temporary_channel_id, &nodes[1].node.get_our_node_id(), tx.clone()).unwrap();
 	check_added_monitors(&nodes[0], 0);
 
-	{
-		let events = nodes[0].node.get_and_clear_pending_msg_events();
-		let n = events.len();
-		assert_eq!(n, 0, "expected no events generated from nodes[0], found {}", n);
-	}
+	assert!(nodes[0].node.get_and_clear_pending_msg_events().is_empty());
 
 	// Now re-enable the signer and simulate a retry. The temporary_channel_id won't work anymore so
 	// we have to dig out the real channel ID.
@@ -100,11 +96,7 @@ fn test_async_commitment_signature_for_funding_signed() {
 	nodes[1].node.handle_funding_created(&nodes[0].node.get_our_node_id(), &funding_created_msg);
 	check_added_monitors(&nodes[1], 1);
 
-	{
-		let events = nodes[1].node.get_and_clear_pending_msg_events();
-		let n = events.len();
-		assert_eq!(n, 0, "expected no events generated from nodes[1], found {}", n);
-	}
+	assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
 
 	// Now re-enable the signer and simulate a retry. The temporary_channel_id won't work anymore so
 	// we have to dig out the real channel ID.
@@ -137,8 +129,7 @@ fn test_async_commitment_signature_for_commitment_signed() {
 		let per_peer_state = nodes[0].node.per_peer_state.read().unwrap();
 		let chan_lock = per_peer_state.get(&nodes[1].node.get_our_node_id()).unwrap().lock().unwrap();
 		let chan_ids = chan_lock.channel_by_id.keys().collect::<Vec<_>>();
-		let n = chan_ids.len();
-		assert_eq!(n, 1, "expected one channel, not {}", n);
+		assert_eq!(chan_ids.len(), 1, "expected one channel, not {}", chan_ids.len());
 		*chan_ids[0]
 	};
 
@@ -174,8 +165,7 @@ fn test_async_commitment_signature_for_commitment_signed() {
 	dst.node.signer_unblocked(Some((src.node.get_our_node_id(), chan_id)));
 
 	let events = dst.node.get_and_clear_pending_msg_events();
-	let n = events.len();
-	assert_eq!(n, 1, "expected one message, got {}", n);
+	assert_eq!(events.len(), 1, "expected one message, got {}", events.len());
 	if let MessageSendEvent::UpdateHTLCs { ref node_id, .. } = events[0] {
 		assert_eq!(node_id, &src.node.get_our_node_id());
 	} else {
@@ -231,11 +221,7 @@ fn test_async_commitment_signature_for_funding_signed_0conf() {
 	nodes[1].node.handle_funding_created(&nodes[0].node.get_our_node_id(), &funding_created_msg);
 	check_added_monitors(&nodes[1], 1);
 
-	{
-		let events = nodes[1].node.get_and_clear_pending_msg_events();
-		let n = events.len();
-		assert_eq!(n, 0, "expected no events generated from nodes[1], found {}", n);
-	}
+	assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
 
 	// Now re-enable the signer and simulate a retry. The temporary_channel_id won't work anymore so
 	// we have to dig out the real channel ID.
@@ -298,8 +284,7 @@ fn test_async_commitment_signature_for_peer_disconnect() {
 		let per_peer_state = nodes[0].node.per_peer_state.read().unwrap();
 		let chan_lock = per_peer_state.get(&nodes[1].node.get_our_node_id()).unwrap().lock().unwrap();
 		let chan_ids = chan_lock.channel_by_id.keys().collect::<Vec<_>>();
-		let n = chan_ids.len();
-		assert_eq!(n, 1, "expected one channel, not {}", n);
+		assert_eq!(chan_ids.len(), 1, "expected one channel, not {}", chan_ids.len());
 		*chan_ids[0]
 	};
 
@@ -344,8 +329,7 @@ fn test_async_commitment_signature_for_peer_disconnect() {
 
 	{
 		let events = dst.node.get_and_clear_pending_msg_events();
-		let n = events.len();
-		assert_eq!(n, 1, "expected one message, got {}", n);
+		assert_eq!(events.len(), 1, "expected one message, got {}", events.len());
 		if let MessageSendEvent::UpdateHTLCs { ref node_id, .. } = events[0] {
 			assert_eq!(node_id, &src.node.get_our_node_id());
 		} else {
