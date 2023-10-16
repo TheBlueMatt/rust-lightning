@@ -2116,7 +2116,11 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider  {
 			}
 		};
 
-		self.signer_pending_funding = false;
+		if self.signer_pending_funding {
+			log_trace!(logger, "Counterparty commitment signature ready for funding_created message: clearing signer_pending_funding");
+			self.signer_pending_funding = false;
+		}
+		
 		Some(msgs::FundingCreated {
 			temporary_channel_id: self.temporary_channel_id.unwrap(),
 			funding_txid: self.channel_transaction_parameters.funding_outpoint.as_ref().unwrap().txid,
@@ -2150,7 +2154,14 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider  {
 						partial_signature_with_nonce: None,
 					})
 					.ok();
-				self.signer_pending_funding = funding_signed.is_none();
+
+				if funding_signed.is_none() {
+					log_trace!(logger, "Counterparty commitment signature not available for funding_signed message; setting signer_pending_funding");
+					self.signer_pending_funding = true;
+				} else if self.signer_pending_funding {
+					log_trace!(logger, "Counterparty commitment signature available for funding_signed message; clearing signer_pending_funding");
+					self.signer_pending_funding = false;
+				}
 
 				// We sign "counterparty" commitment transaction, allowing them to broadcast the tx if they wish.
 				(counterparty_initial_commitment_tx, funding_signed)
@@ -3994,6 +4005,13 @@ impl<SP: Deref> Channel<SP> where
 		let funding_created = if self.context.signer_pending_funding && self.context.is_outbound() {
 			self.context.get_funding_created_msg(logger)
 		} else { None };
+
+		log_trace!(logger, "Signer unblocked with {} commitment_update, {} funding_signed, {} funding_created, and {} channel_ready",
+							 if commitment_update.is_some() { "a" } else { "no" },
+							 if funding_signed.is_some() { "a" } else { "no" },
+							 if funding_created.is_some() { "a" } else { "no" },
+							 if channel_ready.is_some() { "a" } else { "no" });
+		
 		SignerResumeUpdates {
 			commitment_update,
 			funding_signed,
@@ -4071,14 +4089,21 @@ impl<SP: Deref> Channel<SP> where
 			})
 		} else { None };
 
-		log_trace!(logger, "Regenerated latest commitment update in channel {} with{} {} update_adds, {} update_fulfills, {} update_fails, and {} update_fail_malformeds",
+		log_trace!(logger, "Regenerating latest commitment update in channel {} with{} {} update_adds, {} update_fulfills, {} update_fails, and {} update_fail_malformeds",
 				&self.context.channel_id(), if update_fee.is_some() { " update_fee," } else { "" },
 				update_add_htlcs.len(), update_fulfill_htlcs.len(), update_fail_htlcs.len(), update_fail_malformed_htlcs.len());
+
 		let commitment_signed = if let Ok(update) = self.send_commitment_no_state_update(logger).map(|(cu, _)| cu) {
-			self.context.signer_pending_commitment_update = false;
+			if self.context.signer_pending_commitment_update {
+				log_trace!(logger, "Commitment update generated: clearing signer_pending_commitment_update");
+				self.context.signer_pending_commitment_update = false;
+			}
 			update
 		} else {
-			self.context.signer_pending_commitment_update = true;
+			if !self.context.signer_pending_commitment_update {
+				log_trace!(logger, "Commitment update awaiting signer: setting signer_pending_commitment_update");
+				self.context.signer_pending_commitment_update = true;
+			}
 			return Err(());
 		};
 		Ok(msgs::CommitmentUpdate {
@@ -6074,7 +6099,10 @@ impl<SP: Deref> OutboundV1Channel<SP> where SP::Target: SignerProvider {
 
 		let funding_created = self.context.get_funding_created_msg(logger);
 		if funding_created.is_none() {
-			self.context.signer_pending_funding = true;
+			if !self.context.signer_pending_funding {
+				log_trace!(logger, "funding_created awaiting signer; setting signer_pending_funding");
+				self.context.signer_pending_funding = true;
+			}
 		}
 
 		let channel = Channel {
