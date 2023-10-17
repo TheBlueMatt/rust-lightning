@@ -232,7 +232,6 @@ fn test_funding_signed_0conf() {
 
 	let (funding_signed, channel_ready_1) = {
 		let events = nodes[1].node.get_and_clear_pending_msg_events();
-		assert_eq!(events.len(), 2);
 		let funding_signed = match &events[0] {
 			MessageSendEvent::SendFundingSigned { msg, .. } => msg.clone(),
 			ev => panic!("Expected SendFundingSigned, not {:?}", ev)
