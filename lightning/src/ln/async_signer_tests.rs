@@ -491,7 +491,7 @@ fn do_test_peer_reconnect(masks: &Vec<u32>) {
 	let bob = &nodes[1];
 	let (route, payment_hash, payment_preimage, payment_secret) = get_route_and_payment_hash!(alice, bob, 8_000_000);
 
-	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &chan_id, masks, &|| {
 		alice.node.send_payment_with_route(&route, payment_hash,
 			RecipientOnionFields::secret_only(payment_secret), PaymentId(payment_hash.0)).unwrap();
 		check_added_monitors!(alice, 1);
@@ -502,7 +502,7 @@ fn do_test_peer_reconnect(masks: &Vec<u32>) {
 		bob.node.peer_disconnected(&alice.node.get_our_node_id());
 	});
 
-	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &chan_id, masks, &|| {
 		let mut reconnect_args = ReconnectArgs::new(alice, bob);
 		reconnect_args.send_channel_ready = (true, true);  // ...since this will be state 1.
 		reconnect_nodes(reconnect_args);
@@ -518,7 +518,7 @@ fn do_test_peer_reconnect(masks: &Vec<u32>) {
 
 	// alice --[update_add_htlc]--> bob
 	// alice --[commitment_signed]--> bob
-	with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
+	with_async_signer(&bob, &alice.node.get_our_node_id(), &chan_id, masks, &|| {
 		bob.node.handle_update_add_htlc(&alice.node.get_our_node_id(), &payment_event.msgs[0]);
 		bob.node.handle_commitment_signed(&alice.node.get_our_node_id(), &payment_event.commitment_msg);
 		check_added_monitors(bob, 1);
@@ -527,7 +527,7 @@ fn do_test_peer_reconnect(masks: &Vec<u32>) {
 		bob.node.peer_disconnected(&alice.node.get_our_node_id());
 	});
 
-	let (alice_reestablish, bob_reestablish) = with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+	let (alice_reestablish, bob_reestablish) = with_async_signer(&alice, &bob.node.get_our_node_id(), &chan_id, masks, &|| {
 		alice.node.peer_connected(&bob.node.get_our_node_id(), &msgs::Init {
 			features: bob.node.init_features(), networks: None, remote_network_address: None
 		}, true).expect("peer_connected failed for alice");
@@ -541,7 +541,7 @@ fn do_test_peer_reconnect(masks: &Vec<u32>) {
 		(alice_msgs[0].clone(), bob_msgs[0].clone())
 	});
 
-	with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
+	with_async_signer(&bob, &alice.node.get_our_node_id(), &chan_id, masks, &|| {
 		bob.node.handle_channel_reestablish(&alice.node.get_our_node_id(), &alice_reestablish);
 	});
 
@@ -552,7 +552,7 @@ fn do_test_peer_reconnect(masks: &Vec<u32>) {
 		}
 	};
 
-	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &chan_id, masks, &|| {
 		alice.node.handle_channel_reestablish(&bob.node.get_our_node_id(), &bob_reestablish);
 	});
 
@@ -563,14 +563,14 @@ fn do_test_peer_reconnect(masks: &Vec<u32>) {
 		}
 	};
 
-	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &chan_id, masks, &|| {
 		alice.node.handle_revoke_and_ack(&bob.node.get_our_node_id(), &raa);
 		check_added_monitors(alice, 1);
 	});
 
 	// Disconnect?
 
-	with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
+	with_async_signer(&alice, &bob.node.get_our_node_id(), &chan_id, masks, &|| {
 		alice.node.handle_commitment_signed(&bob.node.get_our_node_id(), &cu.commitment_signed);
 		check_added_monitors(alice, 1);
 	});
@@ -578,7 +578,7 @@ fn do_test_peer_reconnect(masks: &Vec<u32>) {
 	// Disconnect?
 
 	let raa = get_event_msg!(alice, MessageSendEvent::SendRevokeAndACK, bob.node.get_our_node_id());
-	with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
+	with_async_signer(&bob, &alice.node.get_our_node_id(), &chan_id, masks, &|| {
 		bob.node.handle_revoke_and_ack(&alice.node.get_our_node_id(), &raa);
 		check_added_monitors(bob, 1);
 	});
@@ -594,7 +594,7 @@ fn do_test_peer_reconnect(masks: &Vec<u32>) {
 		}
 	}
 
-	with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
+	with_async_signer(&bob, &alice.node.get_our_node_id(), &chan_id, masks, &|| {
 		bob.node.claim_funds(payment_preimage);
 		check_added_monitors(bob, 1);
 	});
