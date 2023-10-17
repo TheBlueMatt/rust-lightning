@@ -19,10 +19,36 @@ use crate::ln::msgs::ChannelMessageHandler;
 use crate::ln::channelmanager::{PaymentId, RAACommitmentOrder, RecipientOnionFields};
 use crate::util::test_channel_signer::ops;
 
-const OPS: u32 = ops::GET_PER_COMMITMENT_POINT | ops::RELEASE_COMMITMENT_SECRET | ops::SIGN_COUNTERPARTY_COMMITMENT;
+/// Helper to run operations with a simulated asynchronous signer.
+///
+/// Disables the signer for the specified channel and then runs `do_fn`, then re-enables the signer
+/// and calls `signer_unblocked`.
+#[cfg(test)]
+pub fn with_async_signer<'a, DoFn, T>(node: &Node, peer_id: &PublicKey, channel_id: &ChannelId, masks: &Vec<u32>, do_fn: &'a DoFn) -> T
+	where DoFn: Fn() -> T
+{
+	let mask = masks.iter().fold(0, |acc, m| (acc | m));
+	eprintln!("disabling {}", ops::string_from(mask));
+	node.set_channel_signer_ops_available(peer_id, channel_id, mask, false);
+	let res = do_fn();
 
-#[test]
-fn test_funding_created() {
+	// Recompute the channel ID just in case the original ID was temporary.
+	let new_channel_id = {
+		let channels = node.node.list_channels();
+		assert_eq!(channels.len(), 1, "expected one channel, not {}", channels.len());
+		channels[0].channel_id
+	};
+
+	for mask in masks {
+		eprintln!("enabling {} and calling signer_unblocked", ops::string_from(*mask));
+		node.set_channel_signer_ops_available(peer_id, &new_channel_id, *mask, true);
+		node.node.signer_unblocked(Some((*peer_id, new_channel_id)));
+	}
+	res
+}
+
+#[cfg(test)]
+fn do_test_funding_created(masks: &Vec<u32>) {
 	// Simulate acquiring the signature for `funding_created` asynchronously.
 	let chanmon_cfgs = create_chanmon_cfgs(2);
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
@@ -43,22 +69,11 @@ fn test_funding_created() {
 	// But! Let's make node[0]'s signer be unavailable: we should *not* broadcast a funding_created
 	// message...
 	let (temporary_channel_id, tx, _) = create_funding_transaction(&nodes[0], &nodes[1].node.get_our_node_id(), 100000, 42);
-	nodes[0].set_channel_signer_ops_available(&nodes[1].node.get_our_node_id(), &temporary_channel_id, OPS, false);
-	nodes[0].node.funding_transaction_generated(&temporary_channel_id, &nodes[1].node.get_our_node_id(), tx.clone()).unwrap();
-	check_added_monitors(&nodes[0], 0);
-
-	assert!(nodes[0].node.get_and_clear_pending_msg_events().is_empty());
-
-	// Now re-enable the signer and simulate a retry. The temporary_channel_id won't work anymore so
-	// we have to dig out the real channel ID.
-	let chan_id = {
-		let channels = nodes[0].node.list_channels();
-		assert_eq!(channels.len(), 1, "expected one channel, not {}", channels.len());
-		channels[0].channel_id
-	};
-
-	nodes[0].set_channel_signer_ops_available(&nodes[1].node.get_our_node_id(), &chan_id, OPS, true);
-	nodes[0].node.signer_unblocked(Some((nodes[1].node.get_our_node_id(), chan_id)));
+	with_async_signer(&nodes[0], &nodes[1].node.get_our_node_id(), &temporary_channel_id, masks, &|| {
+		nodes[0].node.funding_transaction_generated(&temporary_channel_id, &nodes[1].node.get_our_node_id(), tx.clone()).unwrap();
+		check_added_monitors(&nodes[0], 0);
+		assert!(nodes[0].node.get_and_clear_pending_msg_events().is_empty());
+	});
 
 	let mut funding_created_msg = get_event_msg!(nodes[0], MessageSendEvent::SendFundingCreated, nodes[1].node.get_our_node_id());
 	nodes[1].node.handle_funding_created(&nodes[0].node.get_our_node_id(), &funding_created_msg);
@@ -73,7 +88,38 @@ fn test_funding_created() {
 }
 
 #[test]
-fn test_for_funding_signed() {
+fn test_funding_created_grs() {
+	do_test_funding_created(&vec![ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_funding_created_gsr() {
+	do_test_funding_created(&vec![ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
+#[test]
+fn test_funding_created_rsg() {
+	do_test_funding_created(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_funding_created_rgs() {
+	do_test_funding_created(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_funding_created_srg() {
+	do_test_funding_created(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_funding_created_sgr() {
+	do_test_funding_created(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
+
+#[cfg(test)]
+fn do_test_funding_signed(masks: &Vec<u32>) {
 	// Simulate acquiring the signature for `funding_signed` asynchronously.
 	let chanmon_cfgs = create_chanmon_cfgs(2);
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
@@ -98,21 +144,11 @@ fn test_for_funding_signed() {
 
 	// Now let's make node[1]'s signer be unavailable while handling the `funding_created`. It should
 	// *not* broadcast a `funding_signed`...
-	nodes[1].set_channel_signer_ops_available(&nodes[0].node.get_our_node_id(), &temporary_channel_id, OPS, false);
-	nodes[1].node.handle_funding_created(&nodes[0].node.get_our_node_id(), &funding_created_msg);
-	check_added_monitors(&nodes[1], 1);
-
-	assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
-
-	// Now re-enable the signer and simulate a retry. The temporary_channel_id won't work anymore so
-	// we have to dig out the real channel ID.
-	let chan_id = {
-		let channels = nodes[0].node.list_channels();
-		assert_eq!(channels.len(), 1, "expected one channel, not {}", channels.len());
-		channels[0].channel_id
-	};
-	nodes[1].set_channel_signer_ops_available(&nodes[0].node.get_our_node_id(), &chan_id, OPS, true);
-	nodes[1].node.signer_unblocked(Some((nodes[0].node.get_our_node_id(), chan_id)));
+	with_async_signer(&nodes[1], &nodes[0].node.get_our_node_id(), &temporary_channel_id, masks, &|| {
+		nodes[1].node.handle_funding_created(&nodes[0].node.get_our_node_id(), &funding_created_msg);
+		check_added_monitors(&nodes[1], 1);
+		assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
+	});
 
 	expect_channel_pending_event(&nodes[1], &nodes[0].node.get_our_node_id());
 
@@ -124,7 +160,38 @@ fn test_for_funding_signed() {
 }
 
 #[test]
-fn test_commitment_signed() {
+fn test_funding_signed_grs() {
+	do_test_funding_signed(&vec![ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_funding_signed_gsr() {
+	do_test_funding_signed(&vec![ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
+#[test]
+fn test_funding_signed_rsg() {
+	do_test_funding_signed(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_funding_signed_rgs() {
+	do_test_funding_signed(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_funding_signed_srg() {
+	do_test_funding_signed(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_funding_signed_sgr() {
+	do_test_funding_signed(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
+
+#[cfg(test)]
+fn do_test_commitment_signed(masks: &Vec<u32>) {
 	let chanmon_cfgs = create_chanmon_cfgs(2);
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
 	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
@@ -152,24 +219,48 @@ fn test_commitment_signed() {
 
 	// Mark dst's signer as unavailable and handle src's commitment_signed. If dst's signer is
 	// offline, it oughtn't yet respond with any updates.
-	dst.set_channel_signer_ops_available(&src.node.get_our_node_id(), &chan_id, OPS, false);
-	dst.node.handle_commitment_signed(&src.node.get_our_node_id(), &payment_event.commitment_msg);
-	check_added_monitors(dst, 1);
-
-	{
-		let events = dst.node.get_and_clear_pending_msg_events();
-		assert_eq!(events.len(), 0, "expected 0 events to be generated, got {}", events.len());
-	}
-
-	// Mark dst's signer as available and retry: we now expect to see dst's `commitment_signed`.
-	dst.set_channel_signer_ops_available(&src.node.get_our_node_id(), &chan_id, OPS, true);
-	dst.node.signer_unblocked(Some((src.node.get_our_node_id(), chan_id)));
+	with_async_signer(dst, &src.node.get_our_node_id(), &chan_id, masks, &|| {
+		dst.node.handle_commitment_signed(&src.node.get_our_node_id(), &payment_event.commitment_msg);
+		check_added_monitors(dst, 1);
+		assert!(dst.node.get_and_clear_pending_msg_events().is_empty());
+	});
 
 	get_revoke_commit_msgs(&dst, &src.node.get_our_node_id());
 }
 
 #[test]
-fn test_funding_signed_0conf() {
+fn test_commitment_signed_grs() {
+	do_test_commitment_signed(&vec![ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_commitment_signed_gsr() {
+	do_test_commitment_signed(&vec![ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
+#[test]
+fn test_commitment_signed_rsg() {
+	do_test_commitment_signed(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_commitment_signed_rgs() {
+	do_test_commitment_signed(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_commitment_signed_srg() {
+	do_test_commitment_signed(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_commitment_signed_sgr() {
+	do_test_commitment_signed(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
+
+#[cfg(test)]
+fn do_test_funding_signed_0conf(masks: &Vec<u32>) {
 	// Simulate acquiring the signature for `funding_signed` asynchronously for a zero-conf channel.
 	let mut manually_accept_config = test_default_channel_config();
 	manually_accept_config.manually_accept_inbound_channels = true;
@@ -187,7 +278,6 @@ fn test_funding_signed_0conf() {
 
 	{
 		let events = nodes[1].node.get_and_clear_pending_events();
-		assert_eq!(events.len(), 1, "Expected one event, got {}", events.len());
 		match &events[0] {
 			Event::OpenChannelRequest { temporary_channel_id, .. } => {
 				nodes[1].node.accept_inbound_channel_from_trusted_peer_0conf(
@@ -196,6 +286,7 @@ fn test_funding_signed_0conf() {
 			},
 			ev => panic!("Expected OpenChannelRequest, not {:?}", ev)
 		}
+		assert_eq!(events.len(), 1, "Expected one event, got {}", events.len());
 	}
 
 	// nodes[0] <-- accept_channel --- nodes[1]
@@ -212,24 +303,13 @@ fn test_funding_signed_0conf() {
 
 	// Now let's make node[1]'s signer be unavailable while handling the `funding_created`. It should
 	// *not* broadcast a `funding_signed`...
-	nodes[1].set_channel_signer_ops_available(&nodes[0].node.get_our_node_id(), &temporary_channel_id, OPS, false);
-	nodes[1].node.handle_funding_created(&nodes[0].node.get_our_node_id(), &funding_created_msg);
-	check_added_monitors(&nodes[1], 1);
-
-	assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
-
-	// Now re-enable the signer and simulate a retry. The temporary_channel_id won't work anymore so
-	// we have to dig out the real channel ID.
-	let chan_id = {
-		let channels = nodes[0].node.list_channels();
-		assert_eq!(channels.len(), 1, "expected one channel, not {}", channels.len());
-		channels[0].channel_id
-	};
+	with_async_signer(&nodes[1], &nodes[0].node.get_our_node_id(), &temporary_channel_id, masks, &|| {
+		nodes[1].node.handle_funding_created(&nodes[0].node.get_our_node_id(), &funding_created_msg);
+		check_added_monitors(&nodes[1], 1);
+		assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
+	});
 
 	// At this point, we basically expect the channel to open like a normal zero-conf channel.
-	nodes[1].set_channel_signer_ops_available(&nodes[0].node.get_our_node_id(), &chan_id, OPS, true);
-	nodes[1].node.signer_unblocked(Some((nodes[0].node.get_our_node_id(), chan_id)));
-
 	let (funding_signed, channel_ready_1) = {
 		let events = nodes[1].node.get_and_clear_pending_msg_events();
 		let funding_signed = match &events[0] {
@@ -266,25 +346,36 @@ fn test_funding_signed_0conf() {
 	assert_eq!(nodes[1].node.list_usable_channels().len(), 1);
 }
 
-/// Helper to run operations with a simulated asynchronous signer.
-///
-/// Disables the signer for the specified channel and then runs `do_fn`, then re-enables the signer
-/// and calls `signer_unblocked`.
-#[cfg(test)]
-pub fn with_async_signer<'a, DoFn, T>(node: &Node, peer_id: &PublicKey, channel_id: &ChannelId, masks: &Vec<u32>, do_fn: &'a DoFn) -> T
-	where DoFn: Fn() -> T
-{
-	let mask = masks.iter().fold(0, |acc, m| (acc | m));
-	eprintln!("disabling {}", ops::string_from(mask));
-	node.set_channel_signer_ops_available(peer_id, channel_id, mask, false);
-	let res = do_fn();
-	for mask in masks {
-		eprintln!("enabling {} and calling signer_unblocked", ops::string_from(*mask));
-		node.set_channel_signer_ops_available(peer_id, channel_id, *mask, true);
-		node.node.signer_unblocked(Some((*peer_id, *channel_id)));
-	}
-	res
+#[test]
+fn test_funding_signed_0conf_grs() {
+	do_test_funding_signed_0conf(&vec![ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT]);
 }
+
+#[test]
+fn test_funding_signed_0conf_gsr() {
+	do_test_funding_signed_0conf(&vec![ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
+#[test]
+fn test_funding_signed_0conf_rsg() {
+	do_test_funding_signed_0conf(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_funding_signed_0conf_rgs() {
+	do_test_funding_signed_0conf(&vec![ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT, ops::SIGN_COUNTERPARTY_COMMITMENT]);
+}
+
+#[test]
+fn test_funding_signed_0conf_srg() {
+	do_test_funding_signed_0conf(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::RELEASE_COMMITMENT_SECRET, ops::GET_PER_COMMITMENT_POINT]);
+}
+
+#[test]
+fn test_funding_signed_0conf_sgr() {
+	do_test_funding_signed_0conf(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET]);
+}
+
 
 #[cfg(test)]
 fn do_test_payment(masks: &Vec<u32>) {

@@ -1292,14 +1292,20 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider  {
 		log_trace!(logger, "Retrieving commitment point for {} transaction number {}", self.channel_id(), transaction_number);
 		self.cur_holder_commitment_point = match signer.get_per_commitment_point(transaction_number, &self.secp_ctx) {
 			Ok(point) => {
-				log_trace!(logger, "Commitment point for {} transaction number {} retrieved", self.channel_id(), transaction_number);
-				self.signer_pending_commitment_point = false;
+				if self.signer_pending_commitment_point {
+					log_trace!(logger, "Commitment point for {} transaction number {} retrieved; clearing signer_pending_commitment_point",
+						self.channel_id(), transaction_number);
+					self.signer_pending_commitment_point = false;
+				}
 				Some(point)
 			}
 
 			Err(_) => {
-				log_trace!(logger, "Commitment point for {} transaction number {} is not available", self.channel_id(), transaction_number);
-				self.signer_pending_commitment_point = true;
+				if !self.signer_pending_commitment_point {
+					log_trace!(logger, "Commitment point for {} transaction number {} is not available; setting signer_pending_commitment_point",
+						self.channel_id(), transaction_number);
+					self.signer_pending_commitment_point = true;
+				}
 				None
 			}
 		};
@@ -1309,14 +1315,20 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider  {
 			log_trace!(logger, "Retrieving commitment secret for {} transaction number {}", self.channel_id(), releasing_transaction_number);
 			self.prev_holder_commitment_secret = match signer.release_commitment_secret(releasing_transaction_number) {
 				Ok(secret) => {
-					log_trace!(logger, "Commitment secret for {} transaction number {} retrieved", self.channel_id(), releasing_transaction_number);
-					self.signer_pending_released_secret = false;
+					if self.signer_pending_released_secret {
+						log_trace!(logger, "Commitment secret for {} transaction number {} retrieved; clearing signer_pending_released_secret",
+							self.channel_id(), releasing_transaction_number);
+						self.signer_pending_released_secret = false;
+					}
 					Some(secret)
 				}
 
 				Err(_) => {
-					log_trace!(logger, "Commitment secret for {} transaction number {} is not available", self.channel_id(), releasing_transaction_number);
-					self.signer_pending_released_secret = true;
+					if !self.signer_pending_released_secret {
+						log_trace!(logger, "Commitment secret for {} transaction number {} is not available; setting signer_pending_released_secret",
+							self.channel_id(), releasing_transaction_number);
+						self.signer_pending_released_secret = true;
+					}
 					None
 				}
 			}
@@ -2835,7 +2847,7 @@ impl<SP: Deref> Channel<SP> where
 
 		log_info!(logger, "Received funding_signed from peer for channel {}", &self.context.channel_id());
 
-		let need_channel_ready = self.check_get_channel_ready(0).is_some();
+		let need_channel_ready = self.check_get_channel_ready(0, logger).is_some();
 		log_trace!(logger, "funding_signed {} channel_ready", if need_channel_ready { "needs" } else { "does not need" });
 		self.monitor_updating_paused(false, false, need_channel_ready, Vec::new(), Vec::new(), Vec::new());
 		Ok(channel_monitor)
@@ -4008,7 +4020,7 @@ impl<SP: Deref> Channel<SP> where
 				"Funding transaction broadcast by the local client before it should have - LDK didn't do it!");
 			self.context.monitor_pending_channel_ready = false;
 			self.get_channel_ready().or_else(|| {
-				log_trace!(logger, "Monitor was pending channel_ready with no commitment point available; setting signer_pending_channel_ready = true");
+				log_trace!(logger, "Monitor was pending channel_ready with no commitment point available; setting signer_pending_channel_ready");
 				self.context.signer_pending_channel_ready = true;
 				None
 			})
@@ -4034,6 +4046,7 @@ impl<SP: Deref> Channel<SP> where
 
 		let raa = if self.context.monitor_pending_revoke_and_ack {
 			self.get_last_revoke_and_ack(logger).or_else(|| {
+				log_trace!(logger, "Monitor was pending RAA, but RAA is not available; setting signer_pending_revoke_and_ack");
 				self.context.signer_pending_revoke_and_ack = true;
 				None
 			})
@@ -4046,22 +4059,24 @@ impl<SP: Deref> Channel<SP> where
 		}
 
 		if self.context.monitor_pending_commitment_signed && commitment_update.is_none() {
-			log_debug!(logger, "Monitor was pending_commitment_signed with no commitment update available; setting signer_pending_commitment_update = true");
+			log_trace!(logger, "Monitor was pending_commitment_signed with no commitment update available; setting signer_pending_commitment_update");
 			self.context.signer_pending_commitment_update = true;
 		} else {
 			// If the signer was pending a commitment update, but we happened to get one just now because
 			// the monitor retrieved it, then we can mark the signer as "not pending anymore".
 			if self.context.signer_pending_commitment_update && commitment_update.is_some() {
+				log_trace!(logger, "Signer was pending commitment update, monitor retrieved it: clearing signer_pending_commitment_update");
 				self.context.signer_pending_commitment_update = false;
 			}
 		}
 		if self.context.monitor_pending_revoke_and_ack && raa.is_none() {
-			log_debug!(logger, "Monitor was pending_revoke_and_ack with no RAA available; setting signer_pending_revoke_and_ack = true");
+			log_trace!(logger, "Monitor was pending_revoke_and_ack with no RAA available; setting signer_pending_revoke_and_ack");
 			self.context.signer_pending_revoke_and_ack = true;
 		} else {
 			// If the signer was pending a RAA, but we happened to get one just now because the monitor
 			// retrieved it, then we can mark the signer as "not pending anymore".
 			if self.context.signer_pending_revoke_and_ack && raa.is_some() {
+				log_trace!(logger, "Signer was pending RAA, monitor retrived it: clearing signer_pending_revoke_and_ack");
 				self.context.signer_pending_revoke_and_ack = false;
 			}
 		}
@@ -4139,6 +4154,7 @@ impl<SP: Deref> Channel<SP> where
 				let cu = if self.context.signer_pending_commitment_update {
 					log_trace!(logger, "Attempting to generate pending commitment update...");
 					self.get_last_commitment_update_for_send(logger).map(|cu| {
+						log_trace!(logger, "Generated commitment update; clearing signer_pending_commitment_update");
 						self.context.signer_pending_commitment_update = false;
 						cu
 					}).ok()
@@ -4147,6 +4163,7 @@ impl<SP: Deref> Channel<SP> where
 				let raa = if self.context.signer_pending_revoke_and_ack && !self.context.signer_pending_commitment_update {
 					log_trace!(logger, "Attempting to generate pending RAA...");
 					self.get_last_revoke_and_ack(logger).map(|raa| {
+						log_trace!(logger, "Generated RAA; clearing signer_pending_revoke_and_ack");
 						self.context.signer_pending_revoke_and_ack = false;
 						raa
 					})
@@ -4159,6 +4176,7 @@ impl<SP: Deref> Channel<SP> where
 				let raa = if self.context.signer_pending_revoke_and_ack {
 					log_trace!(logger, "Attempting to generate pending RAA...");
 					self.get_last_revoke_and_ack(logger).map(|raa| {
+						log_trace!(logger, "Generated RAA; clearing signer_pending_revoke_and_ack");
 						self.context.signer_pending_revoke_and_ack = false;
 						raa
 					})
@@ -4167,6 +4185,7 @@ impl<SP: Deref> Channel<SP> where
 				let cu = if self.context.signer_pending_commitment_update && !self.context.signer_pending_revoke_and_ack {
 					log_trace!(logger, "Attempting to generate pending commitment update...");
 					self.get_last_commitment_update_for_send(logger).map(|cu| {
+						log_trace!(logger, "Generated commitment update; clearing signer_pending_commitment_update");
 						self.context.signer_pending_commitment_update = false;
 						cu
 					}).ok()
@@ -4189,6 +4208,7 @@ impl<SP: Deref> Channel<SP> where
 		let channel_ready = if self.context.signer_pending_channel_ready && !self.context.signer_pending_funding {
 			log_trace!(logger, "Attempting to generate pending channel ready...");
 			self.get_channel_ready().map(|msg| {
+				log_trace!(logger, "Generated channel_ready; clearing signer_pending_channel_ready");
 				self.context.signer_pending_channel_ready = false;
 				msg
 			})
@@ -4453,6 +4473,7 @@ impl<SP: Deref> Channel<SP> where
 			// We have OurChannelReady set!
 			let channel_ready = self.get_channel_ready();
 			if channel_ready.is_none() {
+				log_trace!(logger, "Could not generate channel_ready during channel_reestablish; setting signer_pending_channel_ready");
 				self.context.signer_pending_channel_ready = true;
 			}
 
@@ -4474,10 +4495,16 @@ impl<SP: Deref> Channel<SP> where
 				None
 			} else {
 				self.get_last_revoke_and_ack(logger).map(|raa| {
-					self.context.signer_pending_revoke_and_ack = false;
+					if self.context.signer_pending_revoke_and_ack {
+						log_trace!(logger, "Generated RAA for channel_reestablish; clearing signer_pending_revoke_and_ack");
+						self.context.signer_pending_revoke_and_ack = false;
+					}
 					raa
 				}).or_else(|| {
-					self.context.signer_pending_revoke_and_ack = true;
+					if !self.context.signer_pending_revoke_and_ack {
+						log_trace!(logger, "Unable to generate RAA for channel_reestablish; setting signer_pending_revoke_and_ack");
+						self.context.signer_pending_revoke_and_ack = true;
+					}
 					None
 				})
 			}
@@ -4499,7 +4526,10 @@ impl<SP: Deref> Channel<SP> where
 			// We should never have to worry about MonitorUpdateInProgress resending ChannelReady
 			log_debug!(logger, "Reconnecting channel at state 1, (re?)sending channel_ready");
 			self.get_channel_ready().or_else(|| {
-				self.context.signer_pending_channel_ready = true;
+				if !self.context.signer_pending_channel_ready {
+					log_trace!(logger, "Unable to generate channel_ready for channel_reestablish; setting signer_pending_channel_ready");
+					self.context.signer_pending_channel_ready = true;
+				}
 				None
 			})
 		} else { None };
@@ -5148,7 +5178,9 @@ impl<SP: Deref> Channel<SP> where
 		self.context.channel_update_status = status;
 	}
 
-	fn check_get_channel_ready(&mut self, height: u32) -> Option<msgs::ChannelReady> {
+	fn check_get_channel_ready<L: Deref>(&mut self, height: u32, logger: &L) -> Option<msgs::ChannelReady>
+		where L::Target: Logger
+	{
 		// Called:
 		//  * always when a new block/transactions are confirmed with the new height
 		//  * when funding is signed with a height of 0
@@ -5162,12 +5194,6 @@ impl<SP: Deref> Channel<SP> where
 		}
 
 		if funding_tx_confirmations < self.context.minimum_depth.unwrap_or(0) as i64 {
-			return None;
-		}
-
-		// If we're still pending the signature on a funding transaction, then we're not ready to send a
-		// channel_ready yet.
-		if self.context.signer_pending_funding {
 			return None;
 		}
 
@@ -5199,23 +5225,50 @@ impl<SP: Deref> Channel<SP> where
 			false
 		};
 
-		if need_commitment_update {
-			if self.context.channel_state & (ChannelState::MonitorUpdateInProgress as u32) == 0 {
-				if self.context.channel_state & (ChannelState::PeerDisconnected as u32) == 0 {
-					if let Ok(next_per_commitment_point) = self.context.holder_signer.as_ref().get_per_commitment_point(INITIAL_COMMITMENT_NUMBER - 1, &self.context.secp_ctx) {
-						return Some(msgs::ChannelReady {
-							channel_id: self.context.channel_id,
-							next_per_commitment_point,
-							short_channel_id_alias: Some(self.context.outbound_scid_alias),
-						});
-					}
-					self.context.signer_pending_channel_ready = true;
-				}
-			} else {
-				self.context.monitor_pending_channel_ready = true;
-			}
+		// If we don't need a commitment update, then we don't need a channel_ready.
+		if !need_commitment_update {
+			return None
 		}
-		None
+
+		// If a monitor update is in progress, flag that we're pending a channel ready from the monitor.
+		if self.context.channel_state & (ChannelState::MonitorUpdateInProgress as u32) != 0 {
+			log_trace!(logger, "Monitor update in progress; setting monitor_pending_channel_ready");
+			self.context.monitor_pending_channel_ready = true;
+			return None;
+		}
+
+		// If the peer is disconnected, then we'll worry about sending channel_ready as part of the
+		// reconnection process.
+		if self.context.channel_state & (ChannelState::PeerDisconnected as u32) != 0 {
+			log_trace!(logger, "Peer is disconnected; we'll deal with channel_ready on reconnect");
+			return None
+		}
+
+		// If we're still pending the signature on a funding transaction, then we're not ready to send a
+		// channel_ready yet.
+		if self.context.signer_pending_funding {
+			log_trace!(logger, "Awaiting signer funding; setting signer_pending_channel_ready");
+			self.context.signer_pending_channel_ready = true;
+			return None;
+		}
+
+		// If we're able to get the next per-commitment point from the signer, then return a
+		// channel_ready.
+		let res = self.context.holder_signer.as_ref().get_per_commitment_point(
+			INITIAL_COMMITMENT_NUMBER - 1, &self.context.secp_ctx);
+
+		if let Ok(next_per_commitment_point) = res {
+			Some(msgs::ChannelReady {
+				channel_id: self.context.channel_id,
+				next_per_commitment_point,
+				short_channel_id_alias: Some(self.context.outbound_scid_alias),
+			})
+		} else {
+			// Otherwise, mark us as awaiting the signer to send the channel ready.
+			log_trace!(logger, "Awaiting signer to generate next per_commitment_point; setting signer_pending_channel_ready");
+			self.context.signer_pending_channel_ready = true;
+			None
+		}
 	}
 
 	/// When a transaction is confirmed, we check whether it is or spends the funding transaction
@@ -5282,7 +5335,7 @@ impl<SP: Deref> Channel<SP> where
 					// If we allow 1-conf funding, we may need to check for channel_ready here and
 					// send it immediately instead of waiting for a best_block_updated call (which
 					// may have already happened for this block).
-					if let Some(channel_ready) = self.check_get_channel_ready(height) {
+					if let Some(channel_ready) = self.check_get_channel_ready(height, logger) {
 						log_info!(logger, "Sending a channel_ready to our peer for channel {}", &self.context.channel_id);
 						let announcement_sigs = self.get_announcement_sigs(node_signer, chain_hash, user_config, height, logger);
 						msgs = (Some(channel_ready), announcement_sigs);
@@ -5348,7 +5401,7 @@ impl<SP: Deref> Channel<SP> where
 
 		self.context.update_time_counter = cmp::max(self.context.update_time_counter, highest_header_time);
 
-		if let Some(channel_ready) = self.check_get_channel_ready(height) {
+		if let Some(channel_ready) = self.check_get_channel_ready(height, logger) {
 			let announcement_sigs = if let Some((chain_hash, node_signer, user_config)) = chain_node_signer {
 				self.get_announcement_sigs(node_signer, chain_hash, user_config, height, logger)
 			} else { None };
@@ -6616,6 +6669,7 @@ impl<SP: Deref> OutboundV1Channel<SP> where SP::Target: SignerProvider {
 		let open_channel = if self.signer_pending_open_channel {
 			self.context.update_holder_per_commitment(logger);
 			self.get_open_channel(chain_hash.clone()).map(|msg| {
+				log_trace!(logger, "Clearing signer_pending_open_channel");
 				self.signer_pending_open_channel = false;
 				msg
 			})
@@ -7149,7 +7203,6 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 
 		log_info!(logger, "{} funding_signed for peer for channel {}",
 			if funding_signed.is_some() { "Generated" } else { "Waiting for signature on" }, &self.context.channel_id());
-		let signer_pending_funding = self.context.signer_pending_funding;
 
 		// Promote the channel to a full-fledged one now that we have updated the state and have a
 		// `ChannelMonitor`.
@@ -7157,7 +7210,8 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 			context: self.context,
 		};
 
-		let need_channel_ready = channel.check_get_channel_ready(0).is_some();
+		let need_channel_ready = channel.check_get_channel_ready(0, logger).is_some();
+		log_trace!(logger, "funding_created {} channel_ready", if need_channel_ready { "needs" } else { "does not need" });
 		channel.monitor_updating_paused(false, false, need_channel_ready, Vec::new(), Vec::new(), Vec::new());
 
 		Ok((channel, funding_signed, channel_monitor))
@@ -7172,6 +7226,7 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 		let accept_channel = if self.signer_pending_accept_channel {
 			self.context.update_holder_per_commitment(logger);
 			self.generate_accept_channel_message().map(|msg| {
+				log_trace!(logger, "Clearing signer_pending_accept_channel");
 				self.signer_pending_accept_channel = false;
 				msg
 			})
@@ -9761,6 +9816,6 @@ mod tests {
 			ChannelState::FundingSent as u32 |
 			ChannelState::TheirChannelReady as u32,
 		);
-		assert!(node_a_chan.check_get_channel_ready(0).is_some());
+		assert!(node_a_chan.check_get_channel_ready(0, &&logger).is_some());
 	}
 }

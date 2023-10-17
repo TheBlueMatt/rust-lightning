@@ -2433,6 +2433,7 @@ where
 		};
 		let opt_msg = channel.get_open_channel(self.chain_hash);
 		if opt_msg.is_none() {
+			log_trace!(self.logger, "Awaiting signer for open_channel, setting signer_pending_open_channel");
 			channel.signer_pending_open_channel = true;
 		}
 
@@ -5877,7 +5878,7 @@ where
 		}
 
 
-		log_debug!(self.logger, "Outgoing message queue is:");
+		log_debug!(self.logger, "Outgoing message queue is{}", if pending_msg_events.is_empty() { " empty" } else { "..." });
 		for msg in pending_msg_events.iter() {
 			log_debug!(self.logger, "  {:?}", msg);
 		}
@@ -6038,7 +6039,10 @@ where
 					node_id: channel.context.get_counterparty_node_id(),
 					msg
 				}),
-			None => channel.signer_pending_accept_channel = true,
+			None => {
+				log_trace!(self.logger, "Awaiting signer for accept_channel; setting signing_pending_accept_channel");
+				channel.signer_pending_accept_channel = true;
+			},
 		};
 
 		peer_state.channel_by_id.insert(temporary_channel_id.clone(), ChannelPhase::UnfundedInboundV1(channel));
@@ -6197,7 +6201,10 @@ where
 					node_id: channel.context.get_counterparty_node_id(),
 					msg
 				}),
-			None => channel.signer_pending_accept_channel = true,
+			None => {
+				log_trace!(self.logger, "Awaiting signer for accept_channel; setting signer_pending_accept_channel");
+				channel.signer_pending_accept_channel = true;
+			},
 		};
 
 		peer_state.channel_by_id.insert(channel_id, ChannelPhase::UnfundedInboundV1(channel));
