@@ -434,7 +434,7 @@ fn do_test_payment(masks: &Vec<u32>) {
 		// TODO: run this with_async_signer once validate_counterparty_revocation supports it.
 		alice.node.handle_revoke_and_ack(&bob.node.get_our_node_id(), &raa);
 		check_added_monitors(alice, 1);
-		
+
 		with_async_signer(&alice, &bob.node.get_our_node_id(), &channel_id, masks, &|| {
 			alice.node.handle_commitment_signed(&bob.node.get_our_node_id(), &cu.commitment_signed);
 			check_added_monitors(alice, 1);
@@ -471,7 +471,7 @@ fn do_test_payment(masks: &Vec<u32>) {
 			ev => panic!("Expected PaymentClaimed, got {:?}", ev),
 		}
 	}
-	
+
 	// alice <--[update_fulfill_htlcs]-- bob
 	// alice <--[commitment_signed]-- bob
 	{
@@ -512,7 +512,7 @@ fn do_test_payment(masks: &Vec<u32>) {
 		// TODO: run with async once validate_counterparty_revocation supports it.
 		bob.node.handle_revoke_and_ack(&alice.node.get_our_node_id(), &raa);
 		check_added_monitors(bob, 1);
-		
+
 		with_async_signer(&bob, &alice.node.get_our_node_id(), &channel_id, masks, &|| {
 			bob.node.handle_commitment_signed(&alice.node.get_our_node_id(), &cu.commitment_signed);
 			check_added_monitors(bob, 1);
@@ -739,4 +739,3 @@ fn test_peer_reconnect_srg() {
 fn test_peer_reconnect_sgr() {
 	do_test_payment(&vec![ops::SIGN_COUNTERPARTY_COMMITMENT, ops::GET_PER_COMMITMENT_POINT, ops::RELEASE_COMMITMENT_SECRET]);
 }
-
