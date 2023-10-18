@@ -7615,12 +7615,6 @@ impl<SP: Deref> Writeable for Channel<SP> where SP::Target: SignerProvider {
 			(38, self.context.is_batch_funding, option),
 			(39, self.context.cur_holder_commitment_point, option),
 			(41, self.context.prev_holder_commitment_secret, option),
-			(43, self.context.signer_pending_commitment_point, required),
-			(45, self.context.signer_pending_revoke_and_ack, required),
-			(47, self.context.signer_pending_funding, required),
-			(49, self.context.signer_pending_channel_ready, required),
-			(51, self.context.signer_pending_commitment_point, required),
-			(53, self.context.signer_pending_released_secret, required),
 		});
 
 		Ok(())
@@ -7903,17 +7897,11 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 
 		let mut pending_outbound_skimmed_fees_opt: Option<Vec<Option<u64>>> = None;
 		let mut holding_cell_skimmed_fees_opt: Option<Vec<Option<u64>>> = None;
-		let mut cur_holder_commitment_point: Option<PublicKey> = None;
-		let mut prev_holder_commitment_secret: Option<[u8; 32]> = None;
 
 		let mut is_batch_funding: Option<()> = None;
 
-		let mut signer_pending_commitment_update: bool = false;
-		let mut signer_pending_revoke_and_ack: bool = false;
-		let mut signer_pending_funding: bool = false;
-		let mut signer_pending_channel_ready: bool = false;
-		let mut signer_pending_commitment_point: bool = false;
-		let mut signer_pending_released_secret: bool = false;
+		let mut cur_holder_commitment_point: Option<PublicKey> = None;
+		let mut prev_holder_commitment_secret: Option<[u8; 32]> = None;
 
 		read_tlv_fields!(reader, {
 			(0, announcement_sigs, option),
@@ -7943,12 +7931,6 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 			(38, is_batch_funding, option),
 			(39, cur_holder_commitment_point, option),
 			(41, prev_holder_commitment_secret, option),
-			(43, signer_pending_commitment_update, (default_value, false)),
-			(45, signer_pending_revoke_and_ack, (default_value, false)),
-			(47, signer_pending_funding, (default_value, false)),
-			(49, signer_pending_channel_ready, (default_value, false)),
-			(51, signer_pending_commitment_point, (default_value, false)),
-			(53, signer_pending_released_secret, (default_value, false)),
 		});
 
 		let (channel_keys_id, holder_signer) = if let Some(channel_keys_id) = channel_keys_id {
@@ -8002,6 +7984,7 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 
 		// If we weren't able to load the cur_holder_commitment_point or prev_holder_commitment_secret,
 		// ask the signer for it now.
+		let mut signer_pending_commitment_point = false;
 		if cur_holder_commitment_point.is_none() {
 			cur_holder_commitment_point = holder_signer.get_per_commitment_point(
 				cur_holder_commitment_transaction_number, &secp_ctx
@@ -8010,11 +7993,12 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 			signer_pending_commitment_point = cur_holder_commitment_point.is_none();
 		}
 
+		let mut signer_pending_released_secret = false;
 		if prev_holder_commitment_secret.is_none() {
 			let release_transaction_number = cur_holder_commitment_transaction_number + 2;
 			prev_holder_commitment_secret = if release_transaction_number <= INITIAL_COMMITMENT_NUMBER {
 				let secret = holder_signer.release_commitment_secret(release_transaction_number).ok();
-				signer_pending_commitment_point = secret.is_none();
+				signer_pending_released_secret = secret.is_none();
 				secret
 			} else { None };
 		}
@@ -8090,10 +8074,10 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 				monitor_pending_failures,
 				monitor_pending_finalized_fulfills: monitor_pending_finalized_fulfills.unwrap(),
 
-				signer_pending_commitment_update,
-				signer_pending_revoke_and_ack,
-				signer_pending_funding,
-				signer_pending_channel_ready,
+				signer_pending_commitment_update: false,
+				signer_pending_revoke_and_ack: false,
+				signer_pending_funding: false,
+				signer_pending_channel_ready: false,
 				signer_pending_commitment_point,
 				signer_pending_released_secret,
 
