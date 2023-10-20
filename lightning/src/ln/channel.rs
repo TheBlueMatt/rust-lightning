@@ -7613,8 +7613,6 @@ impl<SP: Deref> Writeable for Channel<SP> where SP::Target: SignerProvider {
 			(35, pending_outbound_skimmed_fees, optional_vec),
 			(37, holding_cell_skimmed_fees, optional_vec),
 			(38, self.context.is_batch_funding, option),
-			(39, self.context.cur_holder_commitment_point, option),
-			(41, self.context.prev_holder_commitment_secret, option),
 		});
 
 		Ok(())
@@ -7900,9 +7898,6 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 
 		let mut is_batch_funding: Option<()> = None;
 
-		let mut cur_holder_commitment_point: Option<PublicKey> = None;
-		let mut prev_holder_commitment_secret: Option<[u8; 32]> = None;
-
 		read_tlv_fields!(reader, {
 			(0, announcement_sigs, option),
 			(1, minimum_depth, option),
@@ -7929,8 +7924,6 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 			(35, pending_outbound_skimmed_fees_opt, optional_vec),
 			(37, holding_cell_skimmed_fees_opt, optional_vec),
 			(38, is_batch_funding, option),
-			(39, cur_holder_commitment_point, option),
-			(41, prev_holder_commitment_secret, option),
 		});
 
 		let (channel_keys_id, holder_signer) = if let Some(channel_keys_id) = channel_keys_id {
@@ -7981,27 +7974,6 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 
 		let mut secp_ctx = Secp256k1::new();
 		secp_ctx.seeded_randomize(&entropy_source.get_secure_random_bytes());
-
-		// If we weren't able to load the cur_holder_commitment_point or prev_holder_commitment_secret,
-		// ask the signer for it now.
-		let mut signer_pending_commitment_point = false;
-		if cur_holder_commitment_point.is_none() {
-			cur_holder_commitment_point = holder_signer.get_per_commitment_point(
-				cur_holder_commitment_transaction_number, &secp_ctx
-			).ok();
-
-			signer_pending_commitment_point = cur_holder_commitment_point.is_none();
-		}
-
-		let mut signer_pending_released_secret = false;
-		if prev_holder_commitment_secret.is_none() {
-			let release_transaction_number = cur_holder_commitment_transaction_number + 2;
-			prev_holder_commitment_secret = if release_transaction_number <= INITIAL_COMMITMENT_NUMBER {
-				let secret = holder_signer.release_commitment_secret(release_transaction_number).ok();
-				signer_pending_released_secret = secret.is_none();
-				secret
-			} else { None };
-		}
 
 		// `user_id` used to be a single u64 value. In order to remain backwards
 		// compatible with versions prior to 0.0.113, the u128 is serialized as two
@@ -8055,8 +8027,8 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 				destination_script,
 
 				cur_holder_commitment_transaction_number,
-				cur_holder_commitment_point,
-				prev_holder_commitment_secret,
+				cur_holder_commitment_point: None,
+				prev_holder_commitment_secret: None,
 				cur_counterparty_commitment_transaction_number,
 				value_to_self_msat,
 
@@ -8078,8 +8050,8 @@ impl<'a, 'b, 'c, ES: Deref, SP: Deref> ReadableArgs<(&'a ES, &'b SP, u32, &'c Ch
 				signer_pending_revoke_and_ack: false,
 				signer_pending_funding: false,
 				signer_pending_channel_ready: false,
-				signer_pending_commitment_point,
-				signer_pending_released_secret,
+				signer_pending_commitment_point: true,
+				signer_pending_released_secret: true,
 
 				pending_update_fee,
 				holding_cell_update_fee,

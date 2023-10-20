@@ -10142,6 +10142,7 @@ where
 					log_info!(args.logger, "Successfully loaded channel {} at update_id {} against monitor at update id {}",
 						&channel.context.channel_id(), channel.context.get_latest_monitor_update_id(),
 						monitor.get_latest_update_id());
+					channel.context.update_holder_per_commitment(&args.logger);
 					if let Some(short_channel_id) = channel.context.get_short_channel_id() {
 						short_to_chan_info.insert(short_channel_id, (channel.context.get_counterparty_node_id(), channel.context.channel_id()));
 					}
