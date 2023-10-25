@@ -1167,15 +1167,10 @@ impl<ChannelSigner: WriteableEcdsaChannelSigner> OnchainTxHandler<ChannelSigner>
 				.map(|(htlc_idx, htlc)| {
 					let counterparty_htlc_sig = holder_commitment.counterparty_htlc_sigs[htlc_idx];
 
-					// TODO(waterson) fallible: move this somewhere!
-					let per_commitment_point = self.signer.get_per_commitment_point(
-						trusted_tx.commitment_number(), &self.secp_ctx,
-					).unwrap();
-					
 					ExternalHTLCClaim {
 						commitment_txid: trusted_tx.txid(),
 						per_commitment_number: trusted_tx.commitment_number(),
-						per_commitment_point: per_commitment_point,
+						per_commitment_point: trusted_tx.per_commitment_point(),
 						htlc: htlc.clone(),
 						preimage: *preimage,
 						counterparty_sig: counterparty_htlc_sig,
