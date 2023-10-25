@@ -1284,7 +1284,7 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider  {
 	}
 
 	/// Retrieves the next commitment point and previous commitment secret from the signer.
-	pub fn update_holder_per_commitment<L: Deref>(&mut self, logger: &L) where L::Target: Logger
+	pub fn update_holder_per_commitment_point<L: Deref>(&mut self, logger: &L) where L::Target: Logger
 	{
 		let transaction_number = self.cur_holder_commitment_transaction_number;
 		let signer = self.holder_signer.as_ref();
@@ -1309,6 +1309,12 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider  {
 				None
 			}
 		};
+	}
+
+	pub fn update_holder_commitment_secret<L: Deref>(&mut self, logger: &L) where L::Target: Logger
+	{
+		let transaction_number = self.cur_holder_commitment_transaction_number;
+		let signer = self.holder_signer.as_ref();
 
 		let releasing_transaction_number = transaction_number + 2;
 		if releasing_transaction_number <= INITIAL_COMMITMENT_NUMBER {
@@ -2842,7 +2848,7 @@ impl<SP: Deref> Channel<SP> where
 			self.context.channel_state = ChannelState::FundingSent as u32;
 		}
 		self.context.cur_holder_commitment_transaction_number -= 1;
-		self.context.update_holder_per_commitment(logger);
+		self.context.update_holder_per_commitment_point(logger);
 		self.context.cur_counterparty_commitment_transaction_number -= 1;
 
 		log_info!(logger, "Received funding_signed from peer for channel {}", &self.context.channel_id());
@@ -3355,7 +3361,7 @@ impl<SP: Deref> Channel<SP> where
 		};
 
 		self.context.cur_holder_commitment_transaction_number -= 1;
-		self.context.update_holder_per_commitment(logger);
+		self.context.update_holder_per_commitment_point(logger);
 
 		// Note that if we need_commitment & !AwaitingRemoteRevoke we'll call
 		// build_commitment_no_status_check() next which will reset this to RAAFirst.
@@ -4045,6 +4051,7 @@ impl<SP: Deref> Channel<SP> where
 		}
 
 		let raa = if self.context.monitor_pending_revoke_and_ack {
+			self.context.update_holder_commitment_secret(logger);
 			self.get_last_revoke_and_ack(logger).or_else(|| {
 				log_trace!(logger, "Monitor was pending RAA, but RAA is not available; setting signer_pending_revoke_and_ack");
 				self.context.signer_pending_revoke_and_ack = true;
@@ -4138,9 +4145,14 @@ impl<SP: Deref> Channel<SP> where
 		log_trace!(logger, "Signing unblocked in channel {} at sequence {}",
 			&self.context.channel_id(), self.context.cur_holder_commitment_transaction_number);
 
-		if self.context.signer_pending_commitment_point || self.context.signer_pending_released_secret {
-			log_trace!(logger, "Attempting to update holder per-commitment for pending commitment point and secret...");
-			self.context.update_holder_per_commitment(logger);
+		if self.context.signer_pending_commitment_point {
+			log_trace!(logger, "Attempting to update holder per-commitment point...");
+			self.context.update_holder_per_commitment_point(logger);
+		}
+
+		if self.context.signer_pending_released_secret {
+			log_trace!(logger, "Attempting to update holder commitment secret...");
+			self.context.update_holder_commitment_secret(logger);
 		}
 
 		if self.context.channel_state & (ChannelState::PeerDisconnected as u32) != 0 {
@@ -4494,6 +4506,7 @@ impl<SP: Deref> Channel<SP> where
 				self.context.monitor_pending_revoke_and_ack = true;
 				None
 			} else {
+				self.context.update_holder_commitment_secret(logger);
 				self.get_last_revoke_and_ack(logger).map(|raa| {
 					if self.context.signer_pending_revoke_and_ack {
 						log_trace!(logger, "Generated RAA for channel_reestablish; clearing signer_pending_revoke_and_ack");
@@ -6667,7 +6680,7 @@ impl<SP: Deref> OutboundV1Channel<SP> where SP::Target: SignerProvider {
 	where L::Target: Logger
 	{
 		let open_channel = if self.signer_pending_open_channel {
-			self.context.update_holder_per_commitment(logger);
+			self.context.update_holder_per_commitment_point(logger);
 			self.get_open_channel(chain_hash.clone()).map(|msg| {
 				log_trace!(logger, "Clearing signer_pending_open_channel");
 				self.signer_pending_open_channel = false;
@@ -7176,7 +7189,7 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 		self.context.channel_id = funding_txo.to_channel_id();
 		self.context.cur_counterparty_commitment_transaction_number -= 1;
 		self.context.cur_holder_commitment_transaction_number -= 1;
-		self.context.update_holder_per_commitment(logger);
+		self.context.update_holder_per_commitment_point(logger);
 
 		let (counterparty_initial_commitment_tx, funding_signed) = self.context.get_funding_signed_msg(logger);
 
@@ -7224,7 +7237,7 @@ impl<SP: Deref> InboundV1Channel<SP> where SP::Target: SignerProvider {
 	where L::Target: Logger
 	{
 		let accept_channel = if self.signer_pending_accept_channel {
-			self.context.update_holder_per_commitment(logger);
+			self.context.update_holder_per_commitment_point(logger);
 			self.generate_accept_channel_message().map(|msg| {
 				log_trace!(logger, "Clearing signer_pending_accept_channel");
 				self.signer_pending_accept_channel = false;
