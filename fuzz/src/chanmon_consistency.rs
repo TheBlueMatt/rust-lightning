@@ -168,10 +168,15 @@ impl chain::Watch<TestChannelSigner> for TestChainMonitor {
 	}
 }
 
+struct SignerState {
+	enforcement: Arc<Mutex<EnforcementState>>,
+	unavailable: Arc<Mutex<u32>>,
+}
+
 struct KeyProvider {
 	node_secret: SecretKey,
 	rand_bytes_id: atomic::AtomicU32,
-	enforcement_states: Mutex<HashMap<[u8;32], Arc<Mutex<EnforcementState>>>>,
+	enforcement_states: Mutex<HashMap<[u8;32], SignerState>>,
 }
 
 impl EntropySource for KeyProvider {
@@ -253,22 +258,19 @@ impl SignerProvider for KeyProvider {
 			channel_keys_id,
 			channel_keys_id,
 		);
-		let revoked_commitment = self.make_enforcement_state_cell(keys.commitment_seed);
-		TestChannelSigner::new_with_revoked(keys, revoked_commitment, false)
+		let mut revoked_commitments = self.enforcement_states.lock().unwrap();
+		let new_state = revoked_commitments.entry(keys.commitment_seed)
+			.or_insert(SignerState {
+				enforcement: Arc::new(Mutex::new(EnforcementState::new())),
+				unavailable: Arc::new(Mutex::new(0)),
+			});
+		let mut ret = TestChannelSigner::new_with_revoked(keys, Arc::clone(&new_state.enforcement), false);
+		ret.unavailable = Arc::clone(&new_state.unavailable);
+		ret
 	}
 
-	fn read_chan_signer(&self, buffer: &[u8]) -> Result<Self::Signer, DecodeError> {
-		let mut reader = std::io::Cursor::new(buffer);
-
-		let inner: InMemorySigner = ReadableArgs::read(&mut reader, self)?;
-		let state = self.make_enforcement_state_cell(inner.commitment_seed);
-
-		Ok(TestChannelSigner {
-			inner,
-			state,
-			disable_revocation_policy_check: false,
-			unavailable: Arc::new(Mutex::new(0)),
-		})
+	fn read_chan_signer(&self, _buffer: &[u8]) -> Result<Self::Signer, DecodeError> {
+		unreachable!();
 	}
 
 	fn get_destination_script(&self) -> Result<Script, ()> {
@@ -283,17 +285,6 @@ impl SignerProvider for KeyProvider {
 		let secret_key = SecretKey::from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, self.node_secret[31]]).unwrap();
 		let pubkey_hash = WPubkeyHash::hash(&PublicKey::from_secret_key(&secp_ctx, &secret_key).serialize());
 		Ok(ShutdownScript::new_p2wpkh(&pubkey_hash))
-	}
-}
-
-impl KeyProvider {
-	fn make_enforcement_state_cell(&self, commitment_seed: [u8; 32]) -> Arc<Mutex<EnforcementState>> {
-		let mut revoked_commitments = self.enforcement_states.lock().unwrap();
-		if !revoked_commitments.contains_key(&commitment_seed) {
-			revoked_commitments.insert(commitment_seed, Arc::new(Mutex::new(EnforcementState::new())));
-		}
-		let cell = revoked_commitments.get(&commitment_seed).unwrap();
-		Arc::clone(cell)
 	}
 }
 
@@ -1259,6 +1250,51 @@ pub fn do_test<Out: Output>(data: &[u8], underlying_out: Out, anchors: bool) {
 			},
 			0x89 => { fee_est_c.ret_val.store(253, atomic::Ordering::Release); nodes[2].maybe_update_chan_fees(); },
 
+			0xa0 => {
+				let signer_states = keys_manager_a.enforcement_states.lock().unwrap();
+				assert_eq!(signer_states.len(), 1);
+				*signer_states.values().next().unwrap().unavailable.lock().unwrap() = u32::max_value();
+			}
+			0xa1 => {
+				let signer_states = keys_manager_a.enforcement_states.lock().unwrap();
+				assert_eq!(signer_states.len(), 1);
+				*signer_states.values().next().unwrap().unavailable.lock().unwrap() = 0;
+				nodes[0].signer_unblocked(None);
+			}
+			/*0xa2 => {
+				let signer_states = keys_manager_a.enforcement_states.lock().unwrap();
+				assert_eq!(signer_states.len(), 1);
+				*signer_states.values().next().unwrap().unavailable.lock().unwrap() = true;
+			}
+			0xa3 => {
+				let signer_states = keys_manager_a.enforcement_states.lock().unwrap();
+				assert_eq!(signer_states.len(), 1);
+				*signer_states.values().next().unwrap().unavailable.lock().unwrap() = false;
+				nodes[0].signer_unblocked(None);
+			}
+			0xa4 => {
+				let signer_states = keys_manager_a.enforcement_states.lock().unwrap();
+				assert_eq!(signer_states.len(), 1);
+				*signer_states.values().next().unwrap().unavailable.lock().unwrap() = true;
+			}
+			0xa5 => {
+				let signer_states = keys_manager_a.enforcement_states.lock().unwrap();
+				assert_eq!(signer_states.len(), 1);
+				*signer_states.values().next().unwrap().unavailable.lock().unwrap() = false;
+				nodes[0].signer_unblocked(None);
+			}*/
+			0xa6 => {
+				let signer_states = keys_manager_c.enforcement_states.lock().unwrap();
+				assert_eq!(signer_states.len(), 1);
+				*signer_states.values().next().unwrap().unavailable.lock().unwrap() = u32::max_value();
+			}
+			0xa7 => {
+				let signer_states = keys_manager_c.enforcement_states.lock().unwrap();
+				assert_eq!(signer_states.len(), 1);
+				*signer_states.values().next().unwrap().unavailable.lock().unwrap() = 0;
+				nodes[2].signer_unblocked(None);
+			}
+
 			0xff => {
 				// Test that no channel is in a stuck state where neither party can send funds even
 				// after we resolve all pending events.
@@ -1267,6 +1303,19 @@ pub fn do_test<Out: Output>(data: &[u8], underlying_out: Out, anchors: bool) {
 				*monitor_a.persister.update_ret.lock().unwrap() = ChannelMonitorUpdateStatus::Completed;
 				*monitor_b.persister.update_ret.lock().unwrap() = ChannelMonitorUpdateStatus::Completed;
 				*monitor_c.persister.update_ret.lock().unwrap() = ChannelMonitorUpdateStatus::Completed;
+
+				for signer_state in keys_manager_a.enforcement_states.lock().unwrap().values() {
+					*signer_state.unavailable.lock().unwrap() = 0;
+				}
+				for signer_state in keys_manager_b.enforcement_states.lock().unwrap().values() {
+					*signer_state.unavailable.lock().unwrap() = 0;
+				}
+				for signer_state in keys_manager_c.enforcement_states.lock().unwrap().values() {
+					*signer_state.unavailable.lock().unwrap() = 0;
+				}
+				nodes[0].signer_unblocked(None);
+				nodes[1].signer_unblocked(None);
+				nodes[2].signer_unblocked(None);
 
 				if let Some((id, _)) = monitor_a.latest_monitors.lock().unwrap().get(&chan_1_funding) {
 					monitor_a.chain_monitor.force_channel_monitor_updated(chan_1_funding, *id);
