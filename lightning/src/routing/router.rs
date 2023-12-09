@@ -1532,7 +1532,7 @@ impl<'a> CandidateRouteHop<'a> {
 	/// Source node id refers to the node forwarding the HTLC through this hop.
 	///
 	/// For [`Self::FirstHop`] we return payer's node id.
-	#[inline]
+	#[inline(always)]
 	pub fn source(&self) -> NodeId {
 		match self {
 			CandidateRouteHop::FirstHop(hop) => *hop.payer_node_id,
@@ -1551,7 +1551,7 @@ impl<'a> CandidateRouteHop<'a> {
 	///
 	/// For [`Self::OneHopBlinded`] we return `None` because the target is the same as the source,
 	/// and such a return value would be somewhat nonsensical.
-	#[inline]
+	#[inline(always)]
 	pub fn target(&self) -> Option<NodeId> {
 		match self {
 			CandidateRouteHop::FirstHop(hop) => Some(hop.details.counterparty.node_id.into()),
