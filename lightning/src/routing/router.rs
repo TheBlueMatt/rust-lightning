@@ -1758,6 +1758,34 @@ fn iter_equal<I1: Iterator, I2: Iterator>(mut iter_a: I1, mut iter_b: I2)
 	}
 }
 
+#[cfg(target_feature = "sse")]
+#[inline(always)]
+unsafe fn do_prefetch<T>(ptr: *const T) {
+	#[cfg(target_arch = "x86_64")]
+	use core::arch::x86_64::*;
+	#[cfg(target_arch = "x86")]
+	use core::arch::x86::*;
+	_mm_prefetch(ptr as *const i8, _MM_HINT_T0);
+}
+
+#[cfg(not(target_feature = "sse"))]
+#[inline(always)]
+unsafe fn do_prefetch<T>(_: *const T) {}
+
+#[inline(always)]
+fn prefetch_first_byte<T>(t: &T) {
+	// While X86's prefetch should be safe even on an invalid memory address (the ISA says
+	// "PREFETCHh instruction is merely a hint and does not affect program behavior"), we take
+	// an extra step towards safety here by requiring the pointer be valid (as Rust references
+	// are always valid when accessed).
+	//
+	// Note that a pointer in Rust could be to a zero sized type, in which case the pointer could
+	// be NULL (or some other bogus value), so we explicitly check for that here.
+	if ::core::mem::size_of::<T>() != 0 {
+		unsafe { do_prefetch(t) }
+	}
+}
+
 /// It's useful to keep track of the hops associated with the fees required to use them,
 /// so that we can choose cheaper paths (as per Dijkstra's algorithm).
 /// Fee values should be updated only in the context of the whole path, see update_value_and_recompute_fees.
@@ -2741,6 +2769,13 @@ where L::Target: Logger {
 				if !features.requires_unknown_bits() {
 					for chan_id in $node.channels.iter() {
 						let chan = network_channels.get(chan_id).unwrap();
+						// Calling chan.as_directed_to, below, will require access to memory two
+						// cache lines away from chan.features (in the form of `one_to_two` or
+						// `two_to_one`, depending on our direction). Thus, while we're looking at
+						// feature flags, go ahead and prefetch that memory, reducing the price we
+						// pay for it later.
+						prefetch_first_byte(&chan.one_to_two);
+						prefetch_first_byte(&chan.two_to_one);
 						if !chan.features.requires_unknown_bits() {
 							if let Some((directed_channel, source)) = chan.as_directed_to(&$node_id) {
 								if first_hops.is_none() || *source != our_node_id {
