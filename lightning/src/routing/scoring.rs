@@ -1070,9 +1070,9 @@ const PRECISION_LOWER_BOUND_DENOMINATOR: u64 = log_approx::LOWER_BITS_BOUND;
 const AMOUNT_PENALTY_DIVISOR: u64 = 1 << 20;
 const BASE_AMOUNT_PENALTY_DIVISOR: u64 = 1 << 30;
 
-/// Raises three `f64`s to the 3rd power, without `powi` because it requires `std` (dunno why).
+/// Raises three `f32`s to the 3rd power, without `powi` because it requires `std` (dunno why).
 #[inline(always)]
-fn three_f64_pow_3(a: f64, b: f64, c: f64) -> (f64, f64, f64) {
+fn three_f32_pow_3(a: f32, b: f32, c: f32) -> (f32, f32, f32) {
 	(a * a * a, b * b * b, c * c * c)
 }
 
@@ -1101,11 +1101,11 @@ fn linear_success_probability(
 #[inline(always)]
 fn nonlinear_success_probability(
 	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
-) -> (f64, f64) {
-	let capacity = capacity_msat as f64;
-	let min = (min_liquidity_msat as f64) / capacity;
-	let max = (max_liquidity_msat as f64) / capacity;
-	let amount = (amount_msat as f64) / capacity;
+) -> (f32, f32) {
+	let capacity = capacity_msat as f32;
+	let min = (min_liquidity_msat as f32) / capacity;
+	let max = (max_liquidity_msat as f32) / capacity;
+	let amount = (amount_msat as f32) / capacity;
 
 	// Assume the channel has a probability density function of (x - 0.5)^2 for values from
 	// 0 to 1 (where 1 is the channel's full capacity). The success probability given some
@@ -1117,7 +1117,7 @@ fn nonlinear_success_probability(
 	// calculate the cumulative density function between the min/max bounds trivially. Note
 	// that we don't bother to normalize the CDF to total to 1, as it will come out in the
 	// division of num / den.
-	let (max_pow, amt_pow, min_pow) = three_f64_pow_3(max - 0.5, amount - 0.5, min - 0.5);
+	let (max_pow, amt_pow, min_pow) = three_f32_pow_3(max - 0.5, amount - 0.5, min - 0.5);
 	(max_pow - amt_pow, max_pow - min_pow)
 }
 
@@ -1148,7 +1148,7 @@ fn success_probability(
 
 	// Because our numerator and denominator max out at 0.5^3 we need to multiply them by
 	// quite a large factor to get something useful (ideally in the 2^30 range).
-	const BILLIONISH: f64 = 1024.0 * 1024.0 * 1024.0;
+	const BILLIONISH: f32 = 1024.0 * 1024.0 * 1024.0;
 	let numerator = (num * BILLIONISH) as u64 + 1;
 	let mut denominator = (den * BILLIONISH) as u64 + 1;
 	debug_assert!(numerator <= 1 << 30, "Got large numerator ({}) from float {}.", numerator, num);
@@ -1194,7 +1194,7 @@ fn success_probability_times_value_times_billion(
 		amount_msat, min_liquidity_msat, max_liquidity_msat, capacity_msat
 	);
 
-	let value = (value_numerator as f64) / (value_denominator as f64);
+	let value = (value_numerator as f32) / (value_denominator as f32);
 
 	if min_zero_implies_no_successes && min_liquidity_msat == 0 {
 		// If we have no knowledge of the channel, scale probability down by ~75%
@@ -1204,7 +1204,7 @@ fn success_probability_times_value_times_billion(
 		den = den * 21.0 / 16.0
 	}
 
-	const BILLIONISH: f64 = 1024.0 * 1024.0 * 1024.0;
+	const BILLIONISH: f32 = 1024.0 * 1024.0 * 1024.0;
 	let res = (value * num / den) * BILLIONISH;
 
 	res as u64
