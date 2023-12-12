@@ -1173,10 +1173,10 @@ fn success_probability(
 /// min_zero_implies_no_successes signals that a `min_liquidity_msat` of 0 means we've not
 /// (recently) seen an HTLC successfully complete over this channel.
 #[inline(always)]
-fn success_probability_times_value(
+fn success_probability_times_value_times_billion(
 	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
 	params: &ProbabilisticScoringFeeParameters, min_zero_implies_no_successes: bool,
-	value: u32,
+	value_numerator: u64, value_denominator: u64,
 ) -> u64 {
 	debug_assert!(min_liquidity_msat <= amount_msat);
 	debug_assert!(amount_msat < max_liquidity_msat);
@@ -1186,12 +1186,15 @@ fn success_probability_times_value(
 		let (numerator, denominator) = linear_success_probability(
 			amount_msat, min_liquidity_msat, max_liquidity_msat, min_zero_implies_no_successes
 		);
-		return (value as u64) * numerator / denominator;
+		const BILLIONISH: u64 = 1024 * 1024 * 1024;
+		return (value_numerator * BILLIONISH / value_denominator) * numerator / denominator;
 	}
 
 	let (num, mut den) = nonlinear_success_probability(
 		amount_msat, min_liquidity_msat, max_liquidity_msat, capacity_msat
 	);
+
+	let value = (value_numerator as f64) / (value_denominator as f64);
 
 	if min_zero_implies_no_successes && min_liquidity_msat == 0 {
 		// If we have no knowledge of the channel, scale probability down by ~75%
@@ -1201,7 +1204,8 @@ fn success_probability_times_value(
 		den = den * 21.0 / 16.0
 	}
 
-	let res = (value as f64) * num / den;
+	const BILLIONISH: f64 = 1024.0 * 1024.0 * 1024.0;
+	let res = (value * num / den) * BILLIONISH;
 
 	res as u64
 }
@@ -1892,13 +1896,11 @@ mod bucketed_history {
 				}
 				let max_bucket_end_pos = BUCKET_START_POS[32 - highest_max_bucket_with_points] - 1;
 				if payment_pos < max_bucket_end_pos {
-					let bucket_prob_times_billion =
-						(min_liquidity_offset_history_buckets[0] as u64) * total_max_points
-							* 1024 * 1024 * 1024 / total_valid_points_tracked;
-					debug_assert!(bucket_prob_times_billion < u32::max_value() as u64);
-					cumulative_success_prob_times_billion += success_probability_times_value(
+					let bucket_points = (min_liquidity_offset_history_buckets[0] as u64) * total_max_points;
+					cumulative_success_prob_times_billion += success_probability_times_value_times_billion(
 						payment_pos as u64, 0, max_bucket_end_pos as u64,
-						POSITION_TICKS as u64 - 1, params, true, bucket_prob_times_billion as u32
+						POSITION_TICKS as u64 - 1, params, true,
+						bucket_points, total_valid_points_tracked
 					);
 				}
 			}
@@ -1928,13 +1930,11 @@ mod bucketed_history {
 						}
 						// Note that this multiply can only barely not overflow - two 16 bit ints plus
 						// 30 bits is 62 bits.
-						let bucket_prob_times_billion = ((*min_bucket as u32) * (*max_bucket as u32)) as u64
-							* 1024 * 1024 * 1024 / total_valid_points_tracked;
-						debug_assert!(bucket_prob_times_billion < u32::max_value() as u64);
-						cumulative_success_prob_times_billion += success_probability_times_value(
+						let bucket_points = ((*min_bucket as u32) * (*max_bucket as u32)) as u64;
+						cumulative_success_prob_times_billion += success_probability_times_value_times_billion(
 							payment_pos as u64, min_bucket_start_pos as u64,
 							max_bucket_end_pos as u64, POSITION_TICKS as u64 - 1, params, true,
-							bucket_prob_times_billion as u32);
+							bucket_points, total_valid_points_tracked);
 					}
 				}
 			}
