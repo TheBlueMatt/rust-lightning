@@ -1837,18 +1837,30 @@ mod bucketed_history {
 
 			for (min_idx, min_bucket) in min_liquidity_offset_history_buckets.iter().enumerate().skip(1) {
 				let min_bucket_start_pos = BUCKET_START_POS[min_idx];
-				for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate().take(32 - min_idx) {
-					let max_bucket_end_pos = BUCKET_START_POS[32 - max_idx] - 1;
-					// Note that this multiply can only barely not overflow - two 16 bit ints plus
-					// 30 bits is 62 bits.
-					let bucket_prob_times_billion = (*min_bucket as u64) * (*max_bucket as u64)
-						* 1024 * 1024 * 1024 / total_valid_points_tracked;
-					if payment_pos >= max_bucket_end_pos {
-						// Success probability 0, the payment amount may be above the max liquidity
-						break;
-					} else if payment_pos < min_bucket_start_pos {
+				if payment_pos < min_bucket_start_pos {
+					for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate().take(32 - min_idx) {
+						let max_bucket_end_pos = BUCKET_START_POS[32 - max_idx] - 1;
+						// Note that this multiply can only barely not overflow - two 16 bit ints plus
+						// 30 bits is 62 bits.
+						let bucket_prob_times_billion = (*min_bucket as u64) * (*max_bucket as u64)
+							* 1024 * 1024 * 1024 / total_valid_points_tracked;
+						if payment_pos >= max_bucket_end_pos {
+							// Success probability 0, the payment amount may be above the max liquidity
+							break;
+						}
 						cumulative_success_prob_times_billion += bucket_prob_times_billion;
-					} else {
+					}
+				} else {
+					for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate().take(32 - min_idx) {
+						let max_bucket_end_pos = BUCKET_START_POS[32 - max_idx] - 1;
+						// Note that this multiply can only barely not overflow - two 16 bit ints plus
+						// 30 bits is 62 bits.
+						let bucket_prob_times_billion = (*min_bucket as u64) * (*max_bucket as u64)
+							* 1024 * 1024 * 1024 / total_valid_points_tracked;
+						if payment_pos >= max_bucket_end_pos {
+							// Success probability 0, the payment amount may be above the max liquidity
+							break;
+						}
 						let (numerator, denominator) = success_probability(payment_pos as u64,
 							min_bucket_start_pos as u64, max_bucket_end_pos as u64,
 							POSITION_TICKS as u64 - 1, params, true);
