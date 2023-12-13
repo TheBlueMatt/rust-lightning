@@ -1105,7 +1105,8 @@ struct AlignedFloats([f32; 4]);
 #[cfg(target_feature = "sse")]
 unsafe fn do_nonlinear_success_probability(
 	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
-) -> (f32, f32) {
+	value_numerator: u64, value_denominator: u64, times_16_on_21: bool,
+) -> f32 {
 	#[cfg(target_arch = "x86")]
 	use std::arch::x86::*;
 	#[cfg(target_arch = "x86_64")]
@@ -1129,20 +1130,55 @@ unsafe fn do_nonlinear_success_probability(
 	let min_max_amt_max_sq = _mm_mul_ps(min_max_amt_max_offset, min_max_amt_max_offset);
 	let min_max_amt_max_pow = _mm_mul_ps(min_max_amt_max_sq, min_max_amt_max_offset);
 
-	let zero_zero_zero_zero = _mm_set_ps(0.0f32, 0.0f32, 0.0f32, 0.0f32);
-	let maxamt_maxmin_zero_zero = _mm_hsub_ps(min_max_amt_max_pow, zero_zero_zero_zero);
+	let zero_zero_zero_zero = _mm_setzero_ps();
+	let zero_zero_maxmin_maxamt = _mm_hsub_ps(min_max_amt_max_pow, zero_zero_zero_zero);
 
-	let mut maxamt_maxmin_zero_zero_mem = AlignedFloats([0.0; 4]);
-	_mm_store_ps(&mut maxamt_maxmin_zero_zero_mem.0[0], maxamt_maxmin_zero_zero);
-	(
-		maxamt_maxmin_zero_zero_mem.0[0],
-		maxamt_maxmin_zero_zero_mem.0[1]
-	)
+	let mut zero_zero_den_num = zero_zero_maxmin_maxamt;
+	if times_16_on_21 {
+		let zero_zero_twentyone_sixteen = _mm_set_ps(0.0f32, 0.0f32, 21.0f32, 16.0f32);
+		zero_zero_den_num = _mm_mul_ps(zero_zero_den_num, zero_zero_twentyone_sixteen);
+	}
+
+	let zero_zero_vden_vnum = _mm_set_ps(0.0f32, 0.0f32, value_denominator as f32, value_numerator as f32);
+	let zero_zero_rden_rnum = _mm_mul_ps(zero_zero_den_num, zero_zero_vden_vnum);
+
+	let mut res = AlignedFloats([0.0; 4]);
+	_mm_store_ps(&mut res.0[0], zero_zero_rden_rnum);
+	res.0[0] / res.0[1]
 }
 
 #[inline(always)]
 #[cfg(not(target_feature = "sse"))]
 unsafe fn do_nonlinear_success_probability(
+	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
+	value_numerator: u64, value_denominator: u64, times_16_on_21: bool,
+) -> f32 {
+	let (num, mut den) = rust_nonlinear_success_probability(
+		amount_msat, min_liquidity_msat, max_liquidity_msat, capacity_msat
+	);
+	let value = (value_numerator as f32) / (value_denominator as f32);
+	if times_16_on_21 {
+		den = den * 21 / 16;
+	}
+	value * num / den
+}
+
+
+#[inline(always)]
+fn nonlinear_success_probability_f(
+	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
+	value_numerator: u64, value_denominator: u64, times_16_on_21: bool,
+) -> f32 {
+	unsafe { do_nonlinear_success_probability(
+		amount_msat, min_liquidity_msat, max_liquidity_msat, capacity_msat,
+		value_numerator, value_denominator, times_16_on_21,
+	) }
+}
+
+
+
+#[inline(always)]
+fn nonlinear_success_probability(
 	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
 ) -> (f32, f32) {
 	let capacity = capacity_msat as f32;
@@ -1163,17 +1199,6 @@ unsafe fn do_nonlinear_success_probability(
 	let (max_pow, amt_pow, min_pow) = three_f32_pow_3(max - 0.5, amount - 0.5, min - 0.5);
 	(max_pow - amt_pow, max_pow - min_pow)
 }
-
-
-#[inline(always)]
-fn nonlinear_success_probability(
-	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
-) -> (f32, f32) {
-	unsafe { do_nonlinear_success_probability(
-		amount_msat, min_liquidity_msat, max_liquidity_msat, capacity_msat
-	) }
-}
-
 
 /// Given liquidity bounds, calculates the success probability (in the form of a numerator and
 /// denominator) of an HTLC. This is a key assumption in our scoring models.
@@ -1243,24 +1268,13 @@ fn success_probability_times_value_times_billion(
 		return (value_numerator * BILLIONISH / value_denominator) * numerator / denominator;
 	}
 
-	let (num, mut den) = nonlinear_success_probability(
-		amount_msat, min_liquidity_msat, max_liquidity_msat, capacity_msat
+	let res = nonlinear_success_probability_f(
+		amount_msat, min_liquidity_msat, max_liquidity_msat, capacity_msat,
+		value_numerator, value_denominator, min_zero_implies_no_successes && min_liquidity_msat == 0
 	);
 
-	let value = (value_numerator as f32) / (value_denominator as f32);
-
-	if min_zero_implies_no_successes && min_liquidity_msat == 0 {
-		// If we have no knowledge of the channel, scale probability down by ~75%
-		// Note that we prefer to increase the denominator rather than decrease the numerator as
-		// the denominator is more likely to be larger and thus provide greater precision. This is
-		// mostly an overoptimization but makes a large difference in tests.
-		den = den * 21.0 / 16.0
-	}
-
 	const BILLIONISH: f32 = 1024.0 * 1024.0 * 1024.0;
-	let res = (value * num / den) * BILLIONISH;
-
-	res as u64
+	(res * BILLIONISH) as u64
 }
 
 impl<L: Deref<Target = u64>, HT: Deref<Target = HistoricalLiquidityTracker>, T: Deref<Target = Duration>>
