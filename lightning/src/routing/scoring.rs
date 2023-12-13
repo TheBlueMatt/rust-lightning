@@ -1098,8 +1098,51 @@ fn linear_success_probability(
 	(numerator, denominator)
 }
 
+#[repr(align(16))]
+struct AlignedFloats([f32; 4]);
+
 #[inline(always)]
-fn nonlinear_success_probability(
+#[cfg(target_feature = "sse")]
+unsafe fn do_nonlinear_success_probability(
+	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
+) -> (f32, f32) {
+	#[cfg(target_arch = "x86")]
+	use std::arch::x86::*;
+	#[cfg(target_arch = "x86_64")]
+	use std::arch::x86_64::*;
+
+	let min_max_amt_max_msat = _mm_set_ps(
+		min_liquidity_msat as f32,
+		max_liquidity_msat as f32,
+		amount_msat as f32,
+		max_liquidity_msat as f32,
+	);
+
+	let capacity = capacity_msat as f32;
+	let cap_cap_cap_cap = _mm_set_ps(capacity, capacity, capacity, capacity);
+
+	let min_max_amt_max = _mm_div_ps(min_max_amt_max_msat, cap_cap_cap_cap);
+
+	let mhalf_mhalf_mhalf_mhalf = _mm_set_ps(-0.5f32, -0.5f32, -0.5f32, -0.5f32);
+	let min_max_amt_max_offset = _mm_add_ps(min_max_amt_max, mhalf_mhalf_mhalf_mhalf);
+
+	let min_max_amt_max_sq = _mm_mul_ps(min_max_amt_max_offset, min_max_amt_max_offset);
+	let min_max_amt_max_pow = _mm_mul_ps(min_max_amt_max_sq, min_max_amt_max_offset);
+
+	let zero_zero_zero_zero = _mm_set_ps(0.0f32, 0.0f32, 0.0f32, 0.0f32);
+	let maxamt_maxmin_zero_zero = _mm_hsub_ps(min_max_amt_max_pow, zero_zero_zero_zero);
+
+	let mut maxamt_maxmin_zero_zero_mem = AlignedFloats([0.0; 4]);
+	_mm_store_ps(&mut maxamt_maxmin_zero_zero_mem.0[0], maxamt_maxmin_zero_zero);
+	(
+		maxamt_maxmin_zero_zero_mem.0[0],
+		maxamt_maxmin_zero_zero_mem.0[1]
+	)
+}
+
+#[inline(always)]
+#[cfg(not(target_feature = "sse"))]
+unsafe fn do_nonlinear_success_probability(
 	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
 ) -> (f32, f32) {
 	let capacity = capacity_msat as f32;
@@ -1119,6 +1162,16 @@ fn nonlinear_success_probability(
 	// division of num / den.
 	let (max_pow, amt_pow, min_pow) = three_f32_pow_3(max - 0.5, amount - 0.5, min - 0.5);
 	(max_pow - amt_pow, max_pow - min_pow)
+}
+
+
+#[inline(always)]
+fn nonlinear_success_probability(
+	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
+) -> (f32, f32) {
+	unsafe { do_nonlinear_success_probability(
+		amount_msat, min_liquidity_msat, max_liquidity_msat, capacity_msat
+	) }
 }
 
 
