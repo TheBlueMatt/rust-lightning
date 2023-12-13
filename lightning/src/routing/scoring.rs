@@ -1937,19 +1937,33 @@ mod bucketed_history {
 
 			for (min_idx, min_bucket) in min_liquidity_offset_history_buckets.iter().enumerate().skip(1) {
 				let min_bucket_start_pos = BUCKET_START_POS[min_idx];
+				let max_max_idx = 31 - min_idx;
 				if payment_pos < min_bucket_start_pos {
-					for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate().take(32 - min_idx) {
-						let max_bucket_end_pos = BUCKET_START_POS[32 - max_idx] - 1;
-						if payment_pos >= max_bucket_end_pos {
+					for (idx, chunk) in max_liquidity_offset_history_buckets.chunks(2).enumerate().take(16 - min_idx/2) {
+						let max_idx_a = idx * 2;
+						let max_idx_b = idx * 2 + 1;
+
+						let max_bucket_a = chunk[0];
+						let mut max_bucket_b = chunk[1];
+
+						let max_bucket_end_pos_a = BUCKET_START_POS[32 - max_idx_a] - 1;
+						if payment_pos >= max_bucket_end_pos_a {
 							// Success probability 0, the payment amount may be above the max liquidity
 							break;
 						}
+						let max_bucket_end_pos_b = BUCKET_START_POS[32 - max_idx_b] - 1;
+						if max_idx_b > max_max_idx || payment_pos >= max_bucket_end_pos_b { max_bucket_b = 0 }
+
 						// Note that this multiply can only barely not overflow - two 16 bit ints plus
 						// 30 bits is 62 bits.
-						let bucket_prob_times_billion = ((*min_bucket as u32) * (*max_bucket as u32)) as u64
+						let bucket_prob_times_billion_a = ((*min_bucket as u32) * (max_bucket_a as u32)) as u64
 							* 1024 * 1024 * 1024 / total_valid_points_tracked;
-						debug_assert!(bucket_prob_times_billion < u32::max_value() as u64);
-						cumulative_success_prob_times_billion += bucket_prob_times_billion;
+						let bucket_prob_times_billion_b = ((*min_bucket as u32) * (max_bucket_b as u32)) as u64
+							* 1024 * 1024 * 1024 / total_valid_points_tracked;
+						debug_assert!(bucket_prob_times_billion_a < u32::max_value() as u64);
+						debug_assert!(bucket_prob_times_billion_b < u32::max_value() as u64);
+						cumulative_success_prob_times_billion += bucket_prob_times_billion_a;
+						cumulative_success_prob_times_billion += bucket_prob_times_billion_b;
 					}
 				} else {
 			macro_rules! main_liq_loop { ($prob: ident, $accum: ident) => { {
