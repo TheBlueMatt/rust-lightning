@@ -35,6 +35,7 @@ pub(crate) mod byte_utils;
 pub(crate) mod transaction_utils;
 pub(crate) mod time;
 pub mod hash_tables;
+pub(crate) mod simd_f32;
 
 pub mod indexed_map;
 
