@@ -1102,8 +1102,12 @@ fn linear_success_probability(
 #[inline(always)]
 fn nonlinear_success_probability_f(
 	amount_msat: u16, min_liquidity_msat: u16, max_liquidity_msat: u16, capacity_msat: u16,
-	value_numerator: u64, value_denominator: u64, times_16_on_21: bool,
+	min_zero_implies_no_successes: bool, value_numerator: u64, value_denominator: u64,
 ) -> f32 {
+	debug_assert!(min_liquidity_msat <= amount_msat);
+	debug_assert!(amount_msat < max_liquidity_msat);
+	debug_assert!(max_liquidity_msat <= capacity_msat);
+
 	let min_max_amt_max_msat = FourF32::from_ints(
 		min_liquidity_msat,
 		max_liquidity_msat,
@@ -1125,7 +1129,7 @@ fn nonlinear_success_probability_f(
 	let zero_zero_maxmin_maxamt = min_max_amt_max_pow.hsub();
 
 	let mut zero_zero_den_num = zero_zero_maxmin_maxamt;
-	if times_16_on_21 {
+	if min_zero_implies_no_successes && min_liquidity_msat == 0 {
 		let zero_zero_twentyone_sixteen = FourF32::new(0.0f32, 0.0f32, 21.0f32, 16.0f32);
 		zero_zero_den_num = zero_zero_den_num * zero_zero_twentyone_sixteen;
 	}
@@ -1213,30 +1217,19 @@ fn success_probability(
 /// min_zero_implies_no_successes signals that a `min_liquidity_msat` of 0 means we've not
 /// (recently) seen an HTLC successfully complete over this channel.
 #[inline(always)]
-fn success_probability_times_value_times_billion(
+fn linear_success_probability_times_value_times_billion(
 	amount_msat: u16, min_liquidity_msat: u16, max_liquidity_msat: u16, capacity_msat: u16,
-	params: &ProbabilisticScoringFeeParameters, min_zero_implies_no_successes: bool,
-	value_numerator: u64, value_denominator: u64,
+	min_zero_implies_no_successes: bool, value_numerator: u64, value_denominator: u64,
 ) -> u64 {
 	debug_assert!(min_liquidity_msat <= amount_msat);
 	debug_assert!(amount_msat < max_liquidity_msat);
 	debug_assert!(max_liquidity_msat <= capacity_msat);
 
-	if params.linear_success_probability {
-		let (numerator, denominator) = linear_success_probability(
-			amount_msat as u64, min_liquidity_msat as u64, max_liquidity_msat as u64, min_zero_implies_no_successes
-		);
-		const BILLIONISH: u64 = 1024 * 1024 * 1024;
-		return (value_numerator * BILLIONISH / value_denominator) * numerator / denominator;
-	}
-
-	let res = nonlinear_success_probability_f(
-		amount_msat, min_liquidity_msat, max_liquidity_msat, capacity_msat,
-		value_numerator, value_denominator, min_zero_implies_no_successes && min_liquidity_msat == 0
+	let (numerator, denominator) = linear_success_probability(
+		amount_msat as u64, min_liquidity_msat as u64, max_liquidity_msat as u64, min_zero_implies_no_successes
 	);
-
-	const BILLIONISH: f32 = 1024.0 * 1024.0 * 1024.0;
-	(res * BILLIONISH) as u64
+	const BILLIONISH: u64 = 1024 * 1024 * 1024;
+	return (value_numerator * BILLIONISH / value_denominator) * numerator / denominator;
 }
 
 impl<L: Deref<Target = u64>, HT: Deref<Target = HistoricalLiquidityTracker>, T: Deref<Target = Duration>>
@@ -1907,6 +1900,8 @@ mod bucketed_history {
 			}
 
 			let mut cumulative_success_prob_times_billion = 0;
+			let mut cumulative_float_success_prob = 0.0;
+			macro_rules! zero_min_bucket { ($prob: ident, $accum: ident) => { {
 			// Special-case the 0th min bucket - it generally means we failed a payment, so only
 			// consider the highest (i.e. largest-offset-from-max-capacity) max bucket for all
 			// points against the 0th min bucket. This avoids the case where we fail to route
@@ -1926,12 +1921,18 @@ mod bucketed_history {
 				let max_bucket_end_pos = BUCKET_START_POS[32 - highest_max_bucket_with_points] - 1;
 				if payment_pos < max_bucket_end_pos {
 					let bucket_points = (min_liquidity_offset_history_buckets[0] as u64) * total_max_points;
-					cumulative_success_prob_times_billion += success_probability_times_value_times_billion(
+					$accum += $prob(
 						payment_pos, 0, max_bucket_end_pos,
-						POSITION_TICKS - 1, params, true,
+						POSITION_TICKS - 1, true,
 						bucket_points, total_valid_points_tracked
 					);
 				}
+			}
+			} } }
+			if params.linear_success_probability {
+				zero_min_bucket!(linear_success_probability_times_value_times_billion, cumulative_success_prob_times_billion);
+			} else {
+				zero_min_bucket!(nonlinear_success_probability_f, cumulative_float_success_prob);
 			}
 
 			for (min_idx, min_bucket) in min_liquidity_offset_history_buckets.iter().enumerate().skip(1) {
@@ -1951,6 +1952,7 @@ mod bucketed_history {
 						cumulative_success_prob_times_billion += bucket_prob_times_billion;
 					}
 				} else {
+			macro_rules! main_liq_loop { ($prob: ident, $accum: ident) => { {
 					for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate().take(32 - min_idx) {
 						let max_bucket_end_pos = BUCKET_START_POS[32 - max_idx] - 1;
 						if payment_pos >= max_bucket_end_pos {
@@ -1960,13 +1962,22 @@ mod bucketed_history {
 						// Note that this multiply can only barely not overflow - two 16 bit ints plus
 						// 30 bits is 62 bits.
 						let bucket_points = ((*min_bucket as u32) * (*max_bucket as u32)) as u64;
-						cumulative_success_prob_times_billion += success_probability_times_value_times_billion(
+						$accum += $prob(
 							payment_pos, min_bucket_start_pos,
-							max_bucket_end_pos, POSITION_TICKS - 1, params, true,
+							max_bucket_end_pos, POSITION_TICKS - 1, true,
 							bucket_points, total_valid_points_tracked);
 					}
+			} } }
+			if params.linear_success_probability {
+				main_liq_loop!(linear_success_probability_times_value_times_billion, cumulative_success_prob_times_billion);
+			} else {
+				main_liq_loop!(nonlinear_success_probability_f, cumulative_float_success_prob);
+			}
 				}
 			}
+
+			const BILLIONISH: f32 = 1024.0 * 1024.0 * 1024.0;
+			cumulative_success_prob_times_billion += (cumulative_float_success_prob * BILLIONISH) as u64;
 
 			Some(cumulative_success_prob_times_billion)
 		}
