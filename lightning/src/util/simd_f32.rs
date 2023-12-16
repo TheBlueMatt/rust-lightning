@@ -66,6 +66,8 @@ mod x86_sse {
 
 	#[repr(align(16))]
 	struct AlignedFloats([f32; 4]);
+	#[repr(align(32))]
+	struct AlignedInts([u64; 4]);
 
 	#[derive(Clone, Copy)]
 	pub(crate) struct FourF32(__m128);
@@ -128,6 +130,30 @@ mod x86_sse {
 		#[inline(always)]
 		fn sub(self, o: FourF32) -> Self {
 			Self(unsafe { _mm_sub_ps(self.0, o.0) })
+		}
+	}
+
+	#[inline(always)]
+	pub(crate) fn mul_sum_8xu16(multiplicand: u16, a: u16, b: u16, c: u16, d: u16, e: u16, f: u16, g: u16, h: u16) -> u64 {
+		unsafe {
+			let mul = _mm256_set1_epi32(multiplicand as i32);
+			let vals = _mm256_set_epi32(a as i32, b as i32, c as i32, d as i32, e as i32, f as i32, g as i32, h as i32);
+
+			let lo = _mm256_mullo_epi32(mul, vals);
+
+			let zeros = _mm256_setzero_si256();
+			let res_a = _mm256_unpacklo_epi32(lo, zeros);
+			let res_b = _mm256_unpackhi_epi32(lo, zeros);
+
+			let suma = _mm256_add_epi64(res_a, res_b);
+			let res_a = _mm256_unpacklo_epi64(suma, zeros);
+			let res_b = _mm256_unpackhi_epi64(suma, zeros);
+
+			let sumb = _mm256_add_epi64(res_a, res_b);
+
+			let mut res_bytes = AlignedInts([0; 4]);
+			_mm256_store_si256(&mut res_bytes.0[0] as *mut u64 as *mut __m256i, sumb);
+			res_bytes.0[0] + res_bytes.0[2]
 		}
 	}
 }
