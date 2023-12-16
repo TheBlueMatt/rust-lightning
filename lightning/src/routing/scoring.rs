@@ -1582,12 +1582,12 @@ mod bucketed_history {
 	// By default u16s may not be cache-aligned, but we'd rather not have to read a third cache
 	// line just to access it
 	#[repr(align(128))]
-	struct BucketStartPos([u16; 33]);
+	struct BucketStartPos([u16; 32]);
 	impl BucketStartPos {
 		const fn new() -> Self {
 			Self([
-				0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288,
-				13312, 14336, 15360, 15872, 16128, 16256, 16320, 16352, 16368, 16376, 16380, 16382, 16383, 16384,
+				0, 1, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 3071, 4095, 6143, 8191, 10239, 12287,
+				13311, 14335, 15359, 15871, 16127, 16255, 16319, 16351, 16367, 16375, 16379, 16381, 16382, 16383,
 			])
 		}
 	}
@@ -1606,7 +1606,7 @@ mod bucketed_history {
 
 	fn pos_to_bucket(pos: u16) -> usize {
 		for bucket in 0..32 {
-			if pos < BUCKET_START_POS[bucket + 1] {
+			if pos < BUCKET_START_POS[bucket] + 1 {
 				return bucket;
 			}
 		}
@@ -1624,7 +1624,9 @@ mod bucketed_history {
 		let mut min_size_iter = 0;
 		let mut legacy_bucket_iter = 0;
 		for (bucket, width) in BUCKET_WIDTH_IN_16384S.iter().enumerate() {
-			assert_eq!(BUCKET_START_POS[bucket], min_size_iter);
+			if bucket != 0 {
+				assert_eq!(BUCKET_START_POS[bucket - 1] + 1, min_size_iter);
+			}
 			for i in 0..*width {
 				assert_eq!(pos_to_bucket(min_size_iter + i) as usize, bucket);
 			}
@@ -1637,7 +1639,7 @@ mod bucketed_history {
 				legacy_bucket_iter += 1;
 			}
 		}
-		assert_eq!(BUCKET_START_POS[32], POSITION_TICKS);
+		assert_eq!(BUCKET_START_POS[31], POSITION_TICKS - 1);
 		assert_eq!(min_size_iter, POSITION_TICKS);
 	}
 
@@ -1906,7 +1908,7 @@ mod bucketed_history {
 							}
 							total_max_points += *max_bucket as u64;
 						}
-						let max_bucket_end_pos = BUCKET_START_POS[32 - highest_max_bucket_with_points] - 1;
+						let max_bucket_end_pos = BUCKET_START_POS[31 - highest_max_bucket_with_points];
 						if payment_pos < max_bucket_end_pos {
 							let success_probability = $success_probability(payment_pos, 0,
 								max_bucket_end_pos , POSITION_TICKS - 1, true);
@@ -1917,10 +1919,10 @@ mod bucketed_history {
 					}
 
 					for (min_idx, min_bucket) in min_liquidity_offset_history_buckets.iter().enumerate().skip(1) {
-						let min_bucket_start_pos = BUCKET_START_POS[min_idx];
+						let min_bucket_start_pos = min_idx.checked_sub(1).map(|idx| BUCKET_START_POS[idx] + 1).unwrap_or(0);
 						if payment_pos < min_bucket_start_pos {
 							for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate().take(32 - min_idx) {
-								let max_bucket_end_pos = BUCKET_START_POS[32 - max_idx] - 1;
+								let max_bucket_end_pos = BUCKET_START_POS[31 - max_idx];
 								if payment_pos >= max_bucket_end_pos {
 									// Success probability 0, the payment amount may be above the max liquidity
 									break;
@@ -1929,7 +1931,7 @@ mod bucketed_history {
 							}
 						} else {
 							for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate().take(32 - min_idx) {
-								let max_bucket_end_pos = BUCKET_START_POS[32 - max_idx] - 1;
+								let max_bucket_end_pos = BUCKET_START_POS[31 - max_idx];
 								if payment_pos >= max_bucket_end_pos {
 									// Success probability 0, the payment amount may be above the max liquidity
 									break;
