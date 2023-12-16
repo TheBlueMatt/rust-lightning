@@ -146,14 +146,10 @@ mod x86_sse {
 			let res_b = _mm256_unpackhi_epi32(lo, zeros);
 
 			let suma = _mm256_add_epi64(res_a, res_b);
-			let res_a = _mm256_unpacklo_epi64(suma, zeros);
-			let res_b = _mm256_unpackhi_epi64(suma, zeros);
-
-			let sumb = _mm256_add_epi64(res_a, res_b);
 
 			let mut res_bytes = AlignedInts([0; 4]);
-			_mm256_store_si256(&mut res_bytes.0[0] as *mut u64 as *mut __m256i, sumb);
-			res_bytes.0[0] + res_bytes.0[2]
+			_mm256_store_si256(&mut res_bytes.0[0] as *mut u64 as *mut __m256i, suma);
+			res_bytes.0[0] + res_bytes.0[1] + res_bytes.0[2] + res_bytes.0[3]
 		}
 	}
 }
