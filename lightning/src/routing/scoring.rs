@@ -1807,6 +1807,7 @@ mod bucketed_history {
 			}
 
 			let mut cumulative_success_prob_times_billion = 0;
+			let mut cumulative_success_points = 0;
 			// Special-case the 0th min bucket - it generally means we failed a payment, so only
 			// consider the highest (i.e. largest-offset-from-max-capacity) max bucket for all
 			// points against the 0th min bucket. This avoids the case where we fail to route
@@ -1840,15 +1841,11 @@ mod bucketed_history {
 				if payment_pos < min_bucket_start_pos {
 					for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate().take(32 - min_idx) {
 						let max_bucket_end_pos = BUCKET_START_POS[32 - max_idx] - 1;
-						// Note that this multiply can only barely not overflow - two 16 bit ints plus
-						// 30 bits is 62 bits.
-						let bucket_prob_times_billion = (*min_bucket as u64) * (*max_bucket as u64)
-							* 1024 * 1024 * 1024 / total_valid_points_tracked;
 						if payment_pos >= max_bucket_end_pos {
 							// Success probability 0, the payment amount may be above the max liquidity
 							break;
 						}
-						cumulative_success_prob_times_billion += bucket_prob_times_billion;
+						cumulative_success_points += ((*min_bucket as u32) * (*max_bucket as u32)) as u64;
 					}
 				} else {
 					for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate().take(32 - min_idx) {
@@ -1869,6 +1866,13 @@ mod bucketed_history {
 					}
 				}
 			}
+
+			// Once we've added all 32*32/2 32-bit success points together, we may have up to 42
+			// bits. Thus, we still have > 20 bits left, which we multiply before dividing by
+			// total_valid_points_tracked. We finally normalize back to billions.
+			debug_assert!(cumulative_success_points < u64::max_value() / 1024 / 1024);
+			cumulative_success_prob_times_billion +=
+				cumulative_success_points * 1024 * 1024 / total_valid_points_tracked * 1024;
 
 			Some(cumulative_success_prob_times_billion)
 		}
