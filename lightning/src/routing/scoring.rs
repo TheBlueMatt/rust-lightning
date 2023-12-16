@@ -1102,7 +1102,7 @@ fn linear_success_probability(
 fn nonlinear_success_probability(
 	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
 	min_zero_implies_no_successes: bool,
-) -> (u64, u64) {
+) -> (f64, f64) {
 	debug_assert!(min_liquidity_msat <= amount_msat);
 	debug_assert!(amount_msat < max_liquidity_msat);
 	debug_assert!(max_liquidity_msat <= capacity_msat);
@@ -1126,25 +1126,13 @@ fn nonlinear_success_probability(
 	let mut num = max_pow - amt_pow;
 	let mut den = max_pow - min_pow;
 
-	// Because our numerator and denominator max out at 0.5^3 we need to multiply them by
-	// quite a large factor to get something useful (ideally in the 2^30 range).
-	const BILLIONISH: f64 = 1024.0 * 1024.0 * 1024.0;
-	let numerator = (num * BILLIONISH) as u64 + 1;
-	let mut denominator = (den * BILLIONISH) as u64 + 1;
-	debug_assert!(numerator <= 1 << 30, "Got large numerator ({}) from float {}.", numerator, num);
-	debug_assert!(denominator <= 1 << 30, "Got large denominator ({}) from float {}.", denominator, den);
-
-	if min_zero_implies_no_successes && min_liquidity_msat == 0 &&
-		denominator < u64::max_value() / 21
-	{
+	if min_zero_implies_no_successes && min_liquidity_msat == 0 {
 		// If we have no knowledge of the channel, scale probability down by ~75%
-		// Note that we prefer to increase the denominator rather than decrease the numerator as
-		// the denominator is more likely to be larger and thus provide greater precision. This is
-		// mostly an overoptimization but makes a large difference in tests.
-		denominator = denominator * 21 / 16
+		den *= 21.0;
+		num *= 16.0;
 	}
 
-	(numerator, denominator)
+	(num, den)
 }
 
 
@@ -1168,10 +1156,19 @@ fn success_probability(
 			min_zero_implies_no_successes,
 		)
 	} else {
-		nonlinear_success_probability(
+		let (num, den) = nonlinear_success_probability(
 			amount_msat, min_liquidity_msat, max_liquidity_msat, capacity_msat,
 			min_zero_implies_no_successes,
-		)
+		);
+		// Because our numerator and denominator max out at 0.5^3 we need to multiply them by
+		// quite a large factor to get something useful (ideally in the 2^30 range).
+		const MILLIONISH: f64 = 1024.0 * 1024.0 * 32.0;
+		let numerator = (num * MILLIONISH) as u64 + 1;
+		let mut denominator = (den * MILLIONISH) as u64 + 1;
+		debug_assert!(numerator <= 1 << 30, "Got large numerator ({}) from float {}.", numerator, num);
+		debug_assert!(denominator <= 1 << 30, "Got large denominator ({}) from float {}.", denominator, den);
+
+		(numerator, denominator)
 	}
 }
 
@@ -1841,11 +1838,13 @@ mod bucketed_history {
 			if total_valid_points_tracked < FULLY_DECAYED.into() {
 				return None;
 			}
+			let total_points_tracked_float = total_valid_points_tracked as f64;
 
 			let mut cumulative_success_prob_times_billion = 0;
+			let mut cumulative_success_prob_float = 0.0;
 			let mut cumulative_success_points = 0;
 			macro_rules! calculate_probability {
-				($success_probability: ident) => { {
+				($success_probability: ident, $accumulate_prob: ident) => { {
 					// Special-case the 0th min bucket - it generally means we failed a payment, so only
 					// consider the highest (i.e. largest-offset-from-max-capacity) max bucket for all
 					// points against the 0th min bucket. This avoids the case where we fail to route
@@ -1866,11 +1865,9 @@ mod bucketed_history {
 						if payment_pos < max_bucket_end_pos {
 							let (numerator, denominator) = $success_probability(payment_pos as u64, 0,
 								max_bucket_end_pos as u64, POSITION_TICKS as u64 - 1, true);
-							let bucket_prob_times_billion =
-								(min_liquidity_offset_history_buckets[0] as u64) * total_max_points
-									* 1024 * 1024 * 1024 / total_valid_points_tracked;
-							cumulative_success_prob_times_billion += bucket_prob_times_billion *
-								numerator / denominator;
+							let bucket_points =
+								(min_liquidity_offset_history_buckets[0] as u64) * total_max_points;
+							$accumulate_prob(numerator, denominator, bucket_points);
 						}
 					}
 
@@ -1897,11 +1894,8 @@ mod bucketed_history {
 									POSITION_TICKS as u64 - 1, true);
 								// Note that this multiply can only barely not overflow - two 16 bit ints plus
 								// 30 bits is 62 bits.
-								let bucket_prob_times_billion = ((*min_bucket as u32) * (*max_bucket as u32)) as u64
-									* 1024 * 1024 * 1024 / total_valid_points_tracked;
-								debug_assert!(bucket_prob_times_billion < u32::max_value() as u64);
-								cumulative_success_prob_times_billion += bucket_prob_times_billion *
-									numerator / denominator;
+								let bucket_points = (*min_bucket as u32) * (*max_bucket as u32);
+								$accumulate_prob(numerator, denominator, bucket_points as u64);
 							}
 						}
 					}
@@ -1909,9 +1903,18 @@ mod bucketed_history {
 			}
 
 			if params.linear_success_probability {
-				calculate_probability!(linear_success_probability);
+				let mut int_success_prob = |numerator: u64, denominator: u64, bucket_points: u64| {
+					cumulative_success_prob_times_billion += bucket_points
+						* 1024 * 1024 * 1024 / total_valid_points_tracked
+						* numerator / denominator;
+				};
+				calculate_probability!(linear_success_probability, int_success_prob);
 			} else {
-				calculate_probability!(nonlinear_success_probability);
+				let mut float_success_prob = |numerator: f64, denominator: f64, bucket_points: u64| {
+					cumulative_success_prob_float += (bucket_points as f64)
+						/ total_points_tracked_float * numerator / denominator;
+				};
+				calculate_probability!(nonlinear_success_probability, float_success_prob);
 			}
 
 			// Once we've added all 32*32/2 32-bit success points together, we may have up to 42
@@ -1920,6 +1923,9 @@ mod bucketed_history {
 			debug_assert!(cumulative_success_points < u64::max_value() / 1024 / 1024);
 			cumulative_success_prob_times_billion +=
 				cumulative_success_points * 1024 * 1024 / total_valid_points_tracked * 1024;
+
+			cumulative_success_prob_times_billion +=
+				(cumulative_success_prob_float * 1024.0 * 1024.0 * 1024.0) as u64;
 
 			Some(cumulative_success_prob_times_billion)
 		}
