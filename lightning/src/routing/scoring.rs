@@ -1950,78 +1950,86 @@ mod bucketed_history {
 							.map(|idx| BUCKET_START_POS[idx] + 1).unwrap_or(0);
 
 						if payment_pos < int_min_bucket_start_pos {
-							let max_max_idx = 31 - min_idx;
-							for (idx, chunk) in max_liquidity_offset_history_buckets.chunks(8).enumerate() {
-								let (max_idx_a, max_idx_b, max_idx_c, max_idx_d, max_idx_e, max_idx_f, max_idx_g, max_idx_h) =
-									(idx * 8, idx * 8 + 1, idx * 8 + 2, idx * 8 + 3, idx * 8 + 4, idx * 8 + 5, idx * 8 + 6, idx * 8 + 7);
+							loop { // Used to break early if we pass the min bucket
+								let max_max_idx = 31 - min_idx;
+								macro_rules! handle_eight_buckets { ($start_idx: expr, $chunk: expr) => { {
+									let (max_idx_a, max_idx_b, max_idx_c, max_idx_d, max_idx_e, max_idx_f, max_idx_g, max_idx_h) =
+										($start_idx, $start_idx + 1, $start_idx + 2, $start_idx + 3,
+										 $start_idx + 4, $start_idx + 5, $start_idx + 6, $start_idx + 7);
 
-								let max_bucket_a = chunk[0];
-								let mut max_bucket_b = chunk[1];
-								let mut max_bucket_c = chunk[2];
-								let mut max_bucket_d = chunk[3];
-								let mut max_bucket_e = chunk[4];
-								let mut max_bucket_f = chunk[5];
-								let mut max_bucket_g = chunk[6];
-								let mut max_bucket_h = chunk[7];
+									let max_bucket_a = $chunk[0];
+									let mut max_bucket_b = $chunk[1];
+									let mut max_bucket_c = $chunk[2];
+									let mut max_bucket_d = $chunk[3];
+									let mut max_bucket_e = $chunk[4];
+									let mut max_bucket_f = $chunk[5];
+									let mut max_bucket_g = $chunk[6];
+									let mut max_bucket_h = $chunk[7];
 
-								let max_bucket_end_pos_a = BUCKET_START_POS[31 - max_idx_a];
-								if payment_pos >= max_bucket_end_pos_a || max_idx_a > max_max_idx {
-									// Success probability 0, the payment amount may be above the max liquidity
-									break;
-								}
-								let max_bucket_end_pos_b = BUCKET_START_POS[31 - max_idx_b];
-								if payment_pos >= max_bucket_end_pos_b {
-									max_bucket_b = 0;
-									let max_bucket_end_pos_c = BUCKET_START_POS[31 - max_idx_c];
-									if payment_pos >= max_bucket_end_pos_c {
-										max_bucket_c = 0;
-										let max_bucket_end_pos_d = BUCKET_START_POS[31 - max_idx_d];
-										if payment_pos >= max_bucket_end_pos_d {
-											max_bucket_d = 0;
-											let max_bucket_end_pos_e = BUCKET_START_POS[31 - max_idx_e];
-											if payment_pos >= max_bucket_end_pos_e {
-												max_bucket_e = 0;
-												let max_bucket_end_pos_f = BUCKET_START_POS[31 - max_idx_f];
-												if payment_pos >= max_bucket_end_pos_f {
-													max_bucket_f = 0;
-													let max_bucket_end_pos_g = BUCKET_START_POS[31 - max_idx_g];
-													if payment_pos >= max_bucket_end_pos_g {
-														max_bucket_g = 0;
-														let max_bucket_end_pos_h = BUCKET_START_POS[31 - max_idx_h];
-														if payment_pos >= max_bucket_end_pos_h {
-															max_bucket_h = 0;
+									let max_bucket_end_pos_a = BUCKET_START_POS[31 - max_idx_a];
+									if payment_pos >= max_bucket_end_pos_a || max_idx_a > max_max_idx {
+										// Success probability 0, the payment amount may be above the max liquidity
+										break;
+									}
+									let max_bucket_end_pos_b = BUCKET_START_POS[31 - max_idx_b];
+									if payment_pos >= max_bucket_end_pos_b {
+										max_bucket_b = 0;
+										let max_bucket_end_pos_c = BUCKET_START_POS[31 - max_idx_c];
+										if payment_pos >= max_bucket_end_pos_c {
+											max_bucket_c = 0;
+											let max_bucket_end_pos_d = BUCKET_START_POS[31 - max_idx_d];
+											if payment_pos >= max_bucket_end_pos_d {
+												max_bucket_d = 0;
+												let max_bucket_end_pos_e = BUCKET_START_POS[31 - max_idx_e];
+												if payment_pos >= max_bucket_end_pos_e {
+													max_bucket_e = 0;
+													let max_bucket_end_pos_f = BUCKET_START_POS[31 - max_idx_f];
+													if payment_pos >= max_bucket_end_pos_f {
+														max_bucket_f = 0;
+														let max_bucket_end_pos_g = BUCKET_START_POS[31 - max_idx_g];
+														if payment_pos >= max_bucket_end_pos_g {
+															max_bucket_g = 0;
+															let max_bucket_end_pos_h = BUCKET_START_POS[31 - max_idx_h];
+															if payment_pos >= max_bucket_end_pos_h {
+																max_bucket_h = 0;
+															}
 														}
 													}
 												}
 											}
 										}
 									}
-								}
-								if max_idx_h > max_max_idx {
-									max_bucket_h = 0;
-									if max_idx_g > max_max_idx {
-										max_bucket_g = 0;
-										if max_idx_f > max_max_idx {
-											max_bucket_f = 0;
-											if max_idx_e > max_max_idx {
-												max_bucket_e = 0;
-												if max_idx_d > max_max_idx {
-													max_bucket_d = 0;
-													if max_idx_c > max_max_idx {
-														max_bucket_c = 0;
-														if max_idx_b > max_max_idx {
-															max_bucket_b = 0;
+									if max_idx_h > max_max_idx {
+										max_bucket_h = 0;
+										if max_idx_g > max_max_idx {
+											max_bucket_g = 0;
+											if max_idx_f > max_max_idx {
+												max_bucket_f = 0;
+												if max_idx_e > max_max_idx {
+													max_bucket_e = 0;
+													if max_idx_d > max_max_idx {
+														max_bucket_d = 0;
+														if max_idx_c > max_max_idx {
+															max_bucket_c = 0;
+															if max_idx_b > max_max_idx {
+																max_bucket_b = 0;
+															}
 														}
 													}
 												}
 											}
 										}
 									}
-								}
 
-								cumulative_success_points += crate::util::simd_f32::mul_sum_8xu16(*min_bucket,
-									max_bucket_a, max_bucket_b, max_bucket_c, max_bucket_d,
-									max_bucket_e, max_bucket_f, max_bucket_g, max_bucket_h);
+									cumulative_success_points += crate::util::simd_f32::mul_sum_8xu16(*min_bucket,
+										max_bucket_a, max_bucket_b, max_bucket_c, max_bucket_d,
+										max_bucket_e, max_bucket_f, max_bucket_g, max_bucket_h);
+								} } }
+								handle_eight_buckets!(0, &max_liquidity_offset_history_buckets[0..8]);
+								handle_eight_buckets!(8, &max_liquidity_offset_history_buckets[8..16]);
+								handle_eight_buckets!(16, &max_liquidity_offset_history_buckets[16..24]);
+								handle_eight_buckets!(24, &max_liquidity_offset_history_buckets[24..]);
+								break;
 							}
 						} else {
 							for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate().take(32 - min_idx) {
