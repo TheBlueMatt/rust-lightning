@@ -1970,19 +1970,54 @@ mod bucketed_history {
 									break;
 								}
 								let max_bucket_end_pos_b = BUCKET_START_POS[31 - max_idx_b];
-								if max_idx_b > max_max_idx || payment_pos >= max_bucket_end_pos_b { max_bucket_b = 0; }
-								let max_bucket_end_pos_c = BUCKET_START_POS[31 - max_idx_c];
-								if max_idx_c > max_max_idx || payment_pos >= max_bucket_end_pos_c { max_bucket_c = 0; }
-								let max_bucket_end_pos_d = BUCKET_START_POS[31 - max_idx_d];
-								if max_idx_d > max_max_idx || payment_pos >= max_bucket_end_pos_d { max_bucket_d = 0; }
-								let max_bucket_end_pos_e = BUCKET_START_POS[31 - max_idx_e];
-								if max_idx_e > max_max_idx || payment_pos >= max_bucket_end_pos_e { max_bucket_e = 0; }
-								let max_bucket_end_pos_f = BUCKET_START_POS[31 - max_idx_f];
-								if max_idx_f > max_max_idx || payment_pos >= max_bucket_end_pos_f { max_bucket_f = 0; }
-								let max_bucket_end_pos_g = BUCKET_START_POS[31 - max_idx_g];
-								if max_idx_g > max_max_idx || payment_pos >= max_bucket_end_pos_g { max_bucket_g = 0; }
-								let max_bucket_end_pos_h = BUCKET_START_POS[31 - max_idx_h];
-								if max_idx_h > max_max_idx || payment_pos >= max_bucket_end_pos_h { max_bucket_h = 0; }
+								if payment_pos >= max_bucket_end_pos_b {
+									max_bucket_b = 0;
+									let max_bucket_end_pos_c = BUCKET_START_POS[31 - max_idx_c];
+									if payment_pos >= max_bucket_end_pos_c {
+										max_bucket_c = 0;
+										let max_bucket_end_pos_d = BUCKET_START_POS[31 - max_idx_d];
+										if payment_pos >= max_bucket_end_pos_d {
+											max_bucket_d = 0;
+											let max_bucket_end_pos_e = BUCKET_START_POS[31 - max_idx_e];
+											if payment_pos >= max_bucket_end_pos_e {
+												max_bucket_e = 0;
+												let max_bucket_end_pos_f = BUCKET_START_POS[31 - max_idx_f];
+												if payment_pos >= max_bucket_end_pos_f {
+													max_bucket_f = 0;
+													let max_bucket_end_pos_g = BUCKET_START_POS[31 - max_idx_g];
+													if payment_pos >= max_bucket_end_pos_g {
+														max_bucket_g = 0;
+														let max_bucket_end_pos_h = BUCKET_START_POS[31 - max_idx_h];
+														if payment_pos >= max_bucket_end_pos_h {
+															max_bucket_h = 0;
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+								if max_idx_h > max_max_idx {
+									max_bucket_h = 0;
+									if max_idx_g > max_max_idx {
+										max_bucket_g = 0;
+										if max_idx_f > max_max_idx {
+											max_bucket_f = 0;
+											if max_idx_e > max_max_idx {
+												max_bucket_e = 0;
+												if max_idx_d > max_max_idx {
+													max_bucket_d = 0;
+													if max_idx_c > max_max_idx {
+														max_bucket_c = 0;
+														if max_idx_b > max_max_idx {
+															max_bucket_b = 0;
+														}
+													}
+												}
+											}
+										}
+									}
+								}
 
 								cumulative_success_points += crate::util::simd_f32::mul_sum_8xu16(*min_bucket,
 									max_bucket_a, max_bucket_b, max_bucket_c, max_bucket_d,
