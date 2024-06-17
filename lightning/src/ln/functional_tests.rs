@@ -3796,10 +3796,10 @@ fn test_unsafe_manual_funding_transaction_generated() {
 	let accept_channel = get_event_msg!(nodes[1], MessageSendEvent::SendAcceptChannel, nodes[0].node.get_our_node_id());
 	nodes[0].node.handle_accept_channel(&nodes[1].node.get_our_node_id(), &accept_channel);
 
-	let (temporary_channel_id, tx, _funding_output) = create_funding_tx_without_witness_data(&nodes[0], &nodes[1].node.get_our_node_id(), 1_000_000, 42);
+	let (temporary_channel_id, _, funding_outpoint) = create_funding_tx_without_witness_data(&nodes[0], &nodes[1].node.get_our_node_id(), 1_000_000, 42);
 	assert_eq!(temporary_channel_id, expected_temporary_channel_id);
 
-	assert!(nodes[0].node.unsafe_manual_funding_transaction_generated(&temporary_channel_id, &nodes[1].node.get_our_node_id(), tx.clone()).is_ok());
+	assert!(nodes[0].node.unsafe_manual_funding_transaction_generated(&temporary_channel_id, &nodes[1].node.get_our_node_id(), funding_outpoint).is_ok());
 	let node_0_msg_events = nodes[0].node.get_and_clear_pending_msg_events();
 	match node_0_msg_events[0] {
 		MessageSendEvent::SendFundingCreated { ref node_id, .. } => {
@@ -11242,8 +11242,8 @@ fn test_funding_signed_event() {
 	let accept_channel = get_event_msg!(nodes[1], MessageSendEvent::SendAcceptChannel, nodes[0].node.get_our_node_id());
 
 	nodes[0].node.handle_accept_channel(&nodes[1].node.get_our_node_id(), &accept_channel);
-	let (temporary_channel_id, tx, _) = create_funding_transaction(&nodes[0], &nodes[1].node.get_our_node_id(), 100_000, 42);
-	nodes[0].node.unsafe_manual_funding_transaction_generated(&temporary_channel_id, &nodes[1].node.get_our_node_id(), tx.clone()).unwrap();
+	let (temporary_channel_id, tx, funding_outpoint) = create_funding_transaction(&nodes[0], &nodes[1].node.get_our_node_id(), 100_000, 42);
+	nodes[0].node.unsafe_manual_funding_transaction_generated(&temporary_channel_id, &nodes[1].node.get_our_node_id(), funding_outpoint).unwrap();
 	check_added_monitors!(nodes[0], 0);
 
 	let funding_created = get_event_msg!(nodes[0], MessageSendEvent::SendFundingCreated, nodes[1].node.get_our_node_id());

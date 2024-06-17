@@ -698,6 +698,32 @@ struct ClaimablePayment {
 	htlcs: Vec<ClaimableHTLC>,
 }
 
+enum FundingType {
+	Unchecked(OutPoint),
+	Checked(Transaction),
+}
+
+impl FundingType {
+	fn txid(&self) -> Txid {
+		match self {
+			FundingType::Unchecked(outp) => outp.txid,
+			FundingType::Checked(tx) => tx.txid(),
+		}
+	}
+
+	fn transaction_or_dummy(&self) -> Transaction {
+		match self {
+			FundingType::Unchecked(_) => Transaction {
+				version: bitcoin::transaction::Version::TWO,
+				lock_time: bitcoin::absolute::LockTime::ZERO,
+				input: Vec::new(),
+				output: Vec::new(),
+			},
+			FundingType::Checked(tx) => tx.clone(),
+		}
+	}
+}
+
 /// Information about claimable or being-claimed payments
 struct ClaimablePayments {
 	/// Map from payment hash to the payment data and any HTLCs which are to us and can be
@@ -4200,7 +4226,7 @@ where
 
 	/// Handles the generation of a funding transaction, optionally (for tests) with a function
 	/// which checks the correctness of the funding transaction given the associated channel.
-	fn funding_transaction_generated_intern<FundingOutput: FnMut(&OutboundV1Channel<SP>, &Transaction) -> Result<OutPoint, &'static str>>(
+	fn funding_transaction_generated_intern<FundingOutput: FnMut(&OutboundV1Channel<SP>) -> Result<OutPoint, &'static str>>(
 		&self, temporary_channel_id: &ChannelId, counterparty_node_id: &PublicKey, funding_transaction: Transaction, is_batch_funding: bool,
 		mut find_funding_output: FundingOutput, is_manual_broadcast: bool,
 	) -> Result<(), APIError> {
@@ -4228,7 +4254,7 @@ where
 					let _: Result<(), _> = handle_error!(self, Err(err), counterparty);
 					Err($api_err)
 				} } }
-				match find_funding_output(&chan, &funding_transaction) {
+				match find_funding_output(&chan) {
 					Ok(found_funding_txo) => funding_txo = found_funding_txo,
 					Err(err) => {
 						let chan_err = ChannelError::Close(err.to_owned());
@@ -4299,8 +4325,9 @@ where
 
 	#[cfg(test)]
 	pub(crate) fn funding_transaction_generated_unchecked(&self, temporary_channel_id: &ChannelId, counterparty_node_id: &PublicKey, funding_transaction: Transaction, output_index: u16) -> Result<(), APIError> {
-		self.funding_transaction_generated_intern(temporary_channel_id, counterparty_node_id, funding_transaction, false, |_, tx| {
-			Ok(OutPoint { txid: tx.txid(), index: output_index })
+		let txid = funding_transaction.txid();
+		self.funding_transaction_generated_intern(temporary_channel_id, counterparty_node_id, funding_transaction, false, |_| {
+			Ok(OutPoint { txid, index: output_index })
 		}, false)
 	}
 
@@ -4370,11 +4397,11 @@ where
 	/// [`Event::FundingTxBroadcastSafe`]: crate::events::Event::FundingTxBroadcastSafe
 	/// [`Event::ChannelClosed`]: crate::events::Event::ChannelClosed
 	/// [`ChannelManager::funding_transaction_generated`]: crate::ln::channelmanager::ChannelManager::funding_transaction_generated
-	pub fn unsafe_manual_funding_transaction_generated(&self, temporary_channel_id: &ChannelId, counterparty_node_id: &PublicKey, funding_transaction: Transaction) -> Result<(), APIError> {
+	pub fn unsafe_manual_funding_transaction_generated(&self, temporary_channel_id: &ChannelId, counterparty_node_id: &PublicKey, funding: OutPoint) -> Result<(), APIError> {
 		let _persistence_guard = PersistenceNotifierGuard::notify_on_drop(self);
 
 		let temporary_channels = &[(temporary_channel_id, counterparty_node_id)];
-		return self.batch_funding_transaction_generated_intern(temporary_channels, funding_transaction, true);
+		return self.batch_funding_transaction_generated_intern(temporary_channels, FundingType::Unchecked(funding));
 
 	}
 
@@ -4401,33 +4428,35 @@ where
 				}
 			}
 		}
-		result.and(self.batch_funding_transaction_generated_intern(temporary_channels, funding_transaction, false))
+		result.and(self.batch_funding_transaction_generated_intern(temporary_channels, FundingType::Checked(funding_transaction)))
 	}
 
-	fn batch_funding_transaction_generated_intern(&self, temporary_channels: &[(&ChannelId, &PublicKey)], funding_transaction: Transaction, is_manual_broadcast: bool) -> Result<(), APIError> {
+	fn batch_funding_transaction_generated_intern(&self, temporary_channels: &[(&ChannelId, &PublicKey)], funding: FundingType) -> Result<(), APIError> {
 		let mut result = Ok(());
-		if funding_transaction.output.len() > u16::max_value() as usize {
-			result = result.and(Err(APIError::APIMisuseError {
-				err: "Transaction had more than 2^16 outputs, which is not supported".to_owned()
-			}));
-		}
-		{
-			let height = self.best_block.read().unwrap().height;
-			// Transactions are evaluated as final by network mempools if their locktime is strictly
-			// lower than the next block height. However, the modules constituting our Lightning
-			// node might not have perfect sync about their blockchain views. Thus, if the wallet
-			// module is ahead of LDK, only allow one more block of headroom.
-			if !funding_transaction.input.iter().all(|input| input.sequence == Sequence::MAX) &&
-				funding_transaction.lock_time.is_block_height() &&
-				funding_transaction.lock_time.to_consensus_u32() > height + 1
-			{
+		if let FundingType::Checked(funding_transaction) = &funding {
+			if funding_transaction.output.len() > u16::max_value() as usize {
 				result = result.and(Err(APIError::APIMisuseError {
-					err: "Funding transaction absolute timelock is non-final".to_owned()
+					err: "Transaction had more than 2^16 outputs, which is not supported".to_owned()
 				}));
+			}
+			{
+				let height = self.best_block.read().unwrap().height;
+				// Transactions are evaluated as final by network mempools if their locktime is strictly
+				// lower than the next block height. However, the modules constituting our Lightning
+				// node might not have perfect sync about their blockchain views. Thus, if the wallet
+				// module is ahead of LDK, only allow one more block of headroom.
+				if !funding_transaction.input.iter().all(|input| input.sequence == Sequence::MAX) &&
+					funding_transaction.lock_time.is_block_height() &&
+					funding_transaction.lock_time.to_consensus_u32() > height + 1
+				{
+					result = result.and(Err(APIError::APIMisuseError {
+						err: "Funding transaction absolute timelock is non-final".to_owned()
+					}));
+				}
 			}
 		}
 
-		let txid = funding_transaction.txid();
+		let txid = funding.txid();
 		let is_batch_funding = temporary_channels.len() > 1;
 		let mut funding_batch_states = if is_batch_funding {
 			Some(self.funding_batch_states.lock().unwrap())
@@ -4445,27 +4474,36 @@ where
 				btree_map::Entry::Vacant(vacant) => Some(vacant.insert(Vec::new())),
 			}
 		});
+		let is_manual_broadcast = match &funding {
+			FundingType::Checked(_) => false,
+			FundingType::Unchecked(_) => true,
+		};
 		for &(temporary_channel_id, counterparty_node_id) in temporary_channels {
 			result = result.and_then(|_| self.funding_transaction_generated_intern(
 				temporary_channel_id,
 				counterparty_node_id,
-				funding_transaction.clone(),
+				funding.transaction_or_dummy(),
 				is_batch_funding,
-				|chan, tx| {
+				|chan| {
 					let mut output_index = None;
 					let expected_spk = chan.context.get_funding_redeemscript().to_p2wsh();
-					for (idx, outp) in tx.output.iter().enumerate() {
-						if outp.script_pubkey == expected_spk && outp.value.to_sat() == chan.context.get_value_satoshis() {
-							if output_index.is_some() {
-								return Err("Multiple outputs matched the expected script and value");
+					let outpoint = match &funding {
+						FundingType::Checked(tx) => {
+							for (idx, outp) in tx.output.iter().enumerate() {
+								if outp.script_pubkey == expected_spk && outp.value.to_sat() == chan.context.get_value_satoshis() {
+									if output_index.is_some() {
+										return Err("Multiple outputs matched the expected script and value");
+									}
+									output_index = Some(idx as u16);
+								}
 							}
-							output_index = Some(idx as u16);
-						}
-					}
-					if output_index.is_none() {
-						return Err("No output matched the script_pubkey and value in the FundingGenerationReady event");
-					}
-					let outpoint = OutPoint { txid: tx.txid(), index: output_index.unwrap() };
+							if output_index.is_none() {
+								return Err("No output matched the script_pubkey and value in the FundingGenerationReady event");
+							}
+							OutPoint { txid, index: output_index.unwrap() }
+						},
+						FundingType::Unchecked(outpoint) => outpoint.clone(),
+					};
 					if let Some(funding_batch_state) = funding_batch_state.as_mut() {
 						// TODO(dual_funding): We only do batch funding for V1 channels at the moment, but we'll probably
 						// need to fix this somehow to not rely on using the outpoint for the channel ID if we
