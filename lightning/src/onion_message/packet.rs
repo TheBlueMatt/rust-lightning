@@ -341,7 +341,7 @@ impl Readable for ControlTlvs {
 			})
 		} else if valid_recv_fmt {
 			ControlTlvs::Receive(ReceiveTlvs {
-				path_id,
+				path_id, // this would be unwrap_or(::Empty)
 			})
 		} else {
 			return Err(DecodeError::InvalidValue)

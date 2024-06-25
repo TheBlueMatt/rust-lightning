@@ -52,12 +52,21 @@ pub(crate) struct ForwardTlvs {
 	pub(crate) next_blinding_override: Option<PublicKey>,
 }
 
-/// Similar to [`ForwardTlvs`], but these TLVs are for the final node.
-pub(crate) struct ReceiveTlvs {
-	/// If `path_id` is `Some`, it is used to identify the blinded path that this onion message is
-	/// sending to. This is useful for receivers to check that said blinded path is being used in
-	/// the right context.
-	pub path_id: Option<MessageContext>
+
+/// Represents additional data included by the recipient in a [`BlindedPath`].
+///
+/// This data is encrypted and will be included when sending through
+/// [`BlindedPath`]. The recipient can authenticate the message and
+/// utilize it for further processing if needed.
+#[derive(Clone, Debug)]
+pub enum ReceiveTlvs {
+	/// Represents the data specific to [`OffersMessage`]
+	///
+	/// [`OffersMessage`]: crate::onion_message::offers::OffersMessage
+	Offers(OffersContext),
+	/// Represents the data appended with Custom Onion Message.
+	Custom(Vec<u8>),
+	Empty,
 }
 
 impl Writeable for ForwardTlvs {
@@ -78,36 +87,44 @@ impl Writeable for ForwardTlvs {
 
 impl Writeable for ReceiveTlvs {
 	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), io::Error> {
-		// TODO: write padding
-		encode_tlv_stream!(writer, {
-			(6, self.path_id, option),
-		});
+		match self {
+			Self::Offers(o) => {
+				encode_tlv_stream!(writer, {
+					(6, (0u8, &o), required),
+				});
+			},
+			Self::Custom(v) => {
+				encode_tlv_stream!(writer, {
+					(6, (1u8, &v), required),
+				});
+			},
+			Self::Empty => {},
+		}
 		Ok(())
 	}
 }
 
 impl Readable for ReceiveTlvs {
 	fn read<R: io::Read>(r: &mut R) -> Result<Self, DecodeError> {
-		_init_and_read_tlv_stream!(r, {
-			(6, path_id, option),
-		});
-		Ok(ReceiveTlvs { path_id })
+		let mut res = Self::Empty;
+		decode_tlv_stream_with_custom_tlv_decode!(r, {},
+			|ty, reader| {
+				if ty == 6 {
+					let ty: u8 = Readable::read(reader)?;
+					match ty {
+						0 => { res = Self::Offers(Readable::read(reader)?); }
+						1 => { res = Self::Custom(Readable::read(reader)?); }
+						_ if ty % 2 == 0 => { return Err(DecodeError::UnknownRequiredFeature); }
+						_ => {},
+					}
+					Ok(true)
+				} else {
+					Ok(false)
+				}
+			}
+		);
+		Ok(res)
 	}
-}
-
-/// Represents additional data included by the recipient in a [`BlindedPath`].
-///
-/// This data is encrypted and will be included when sending through
-/// [`BlindedPath`]. The recipient can authenticate the message and
-/// utilize it for further processing if needed.
-#[derive(Clone, Debug)]
-pub enum MessageContext {
-	/// Represents the data specific to [`OffersMessage`]
-	///
-	/// [`OffersMessage`]: crate::onion_message::offers::OffersMessage
-	Offers(OffersContext),
-	/// Represents the data appended with Custom Onion Message.
-	Custom(Vec<u8>),
 }
 
 /// Contains the data specific to [`OffersMessage`]
@@ -124,11 +141,6 @@ pub enum OffersContext {
 	},
 
 }
-
-impl_writeable_tlv_based_enum!(MessageContext, ;
-	(0, Offers),
-	(1, Custom),
-);
 
 impl_writeable_tlv_based_enum!(OffersContext,
 	(0, Unknown) => {},
