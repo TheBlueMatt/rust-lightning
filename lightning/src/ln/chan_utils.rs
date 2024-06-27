@@ -1844,7 +1844,6 @@ mod tests {
 	use bitcoin::hashes::Hash;
 	use bitcoin::hashes::hex::FromHex;
 	use crate::ln::types::PaymentHash;
-	use bitcoin::address::Payload;
 	use bitcoin::PublicKey as BitcoinPublicKey;
 	use crate::ln::features::ChannelTypeFeatures;
 
@@ -1917,7 +1916,7 @@ mod tests {
 		// Generate broadcaster and counterparty outputs
 		let tx = builder.build(1000, 2000);
 		assert_eq!(tx.built.transaction.output.len(), 2);
-		assert_eq!(tx.built.transaction.output[1].script_pubkey, Payload::p2wpkh(&BitcoinPublicKey::new(builder.counterparty_pubkeys.payment_point)).unwrap().script_pubkey());
+		assert_eq!(tx.built.transaction.output[1].script_pubkey, BitcoinPublicKey::new(builder.counterparty_pubkeys.payment_point).p2wpkh_script_code().unwrap());
 
 		// Generate broadcaster and counterparty outputs as well as two anchors
 		builder.channel_parameters.channel_type_features = ChannelTypeFeatures::anchors_zero_htlc_fee_and_dependencies();

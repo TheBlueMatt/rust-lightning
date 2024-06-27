@@ -102,11 +102,12 @@
 //!
 //! ```
 
-use bitcoin::{WitnessProgram, Network, WitnessVersion};
+use bitcoin::{Network, WitnessVersion};
 use bitcoin::blockdata::constants::ChainHash;
 use bitcoin::secp256k1::{Keypair, PublicKey, Secp256k1, self};
 use bitcoin::secp256k1::schnorr::Signature;
-use bitcoin::address::{Address, Payload};
+use bitcoin::address::Address;
+use bitcoin::blockdata::script::witness_program::WitnessProgram;
 use core::time::Duration;
 use core::hash::{Hash, Hasher};
 use crate::io;
@@ -1074,12 +1075,11 @@ pub(super) fn filter_fallbacks(
 			Err(_) => return None,
 		};
 
-		let program = address.program.clone();
-		let witness_program = match WitnessProgram::new(version, program) {
+		let witness_program = match WitnessProgram::new(version, &address.program) {
 			Ok(witness_program) => witness_program,
 			Err(_) => return None,
 		};
-		Some(Address::new(network, Payload::WitnessProgram(witness_program)))
+		Some(Address::from_witness_program(witness_program, network.into()))
 	};
 
 	fallbacks.iter().filter_map(to_valid_address).collect()
@@ -1398,13 +1398,13 @@ pub(super) fn check_invoice_signing_pubkey(
 mod tests {
 	use super::{Bolt12Invoice, DEFAULT_RELATIVE_EXPIRY, FallbackAddress, FullInvoiceTlvStreamRef, InvoiceTlvStreamRef, SIGNATURE_TAG, UnsignedBolt12Invoice};
 
-	use bitcoin::{WitnessProgram, WitnessVersion};
+	use bitcoin::{CompressedPublicKey, WitnessProgram, WitnessVersion};
 	use bitcoin::blockdata::constants::ChainHash;
 	use bitcoin::blockdata::script::ScriptBuf;
 	use bitcoin::hashes::Hash;
 	use bitcoin::network::Network;
 	use bitcoin::secp256k1::{Keypair, Message, Secp256k1, SecretKey, XOnlyPublicKey, self};
-	use bitcoin::address::{Address, Payload};
+	use bitcoin::address::Address;
 	use bitcoin::key::TweakedPublicKey;
 
 	use core::time::Duration;
@@ -2242,16 +2242,16 @@ mod tests {
 
 		match Bolt12Invoice::try_from(buffer) {
 			Ok(invoice) => {
-				let v1_witness_program = WitnessProgram::new(WitnessVersion::V1, vec![0u8; 33]).unwrap();
-				let v2_witness_program = WitnessProgram::new(WitnessVersion::V2, vec![0u8; 40]).unwrap();
+				let v1_witness_program = WitnessProgram::new(WitnessVersion::V1, &vec![0u8; 33]).unwrap();
+				let v2_witness_program = WitnessProgram::new(WitnessVersion::V2, &vec![0u8; 40]).unwrap();
 				assert_eq!(
 					invoice.fallbacks(),
 					vec![
 						Address::p2wsh(&script, Network::Bitcoin),
-						Address::p2wpkh(&pubkey, Network::Bitcoin).unwrap(),
+						Address::p2wpkh(&CompressedPublicKey(pubkey.inner), Network::Bitcoin).unwrap(),
 						Address::p2tr_tweaked(tweaked_pubkey, Network::Bitcoin),
-						Address::new(Network::Bitcoin, Payload::WitnessProgram(v1_witness_program)),
-						Address::new(Network::Bitcoin, Payload::WitnessProgram(v2_witness_program)),
+						Address::from_witness_program(v1_witness_program, Network::Bitcoin.into()),
+						Address::from_witness_program(v2_witness_program, Network::Bitcoin.into()),
 					],
 				);
 			},
