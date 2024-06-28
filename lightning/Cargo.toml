@@ -32,7 +32,7 @@ unsafe_revoked_tx_signing = []
 _test_vectors = []
 
 no-std = ["hashbrown", "possiblyrandom", "core2/alloc", "libm"]
-std = ["bitcoin/std", "bech32/std"]
+std = ["bitcoin/std", "bech32/std", "core2/alloc"]
 
 # Generates low-r bitcoin signatures, which saves 1 byte in 50% of the cases
 grind_signatures = []

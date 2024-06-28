@@ -68,6 +68,8 @@ extern crate core;
 extern crate hex;
 #[cfg(any(test, feature = "_test_utils"))] extern crate regex;
 
+extern crate core2;
+
 #[cfg(not(feature = "std"))] extern crate core2;
 #[cfg(not(feature = "std"))] extern crate libm;
 
@@ -86,12 +88,19 @@ pub mod events;
 
 pub(crate) mod crypto;
 
+pub mod io {
+	pub use bitcoin::io::*;
+
+	pub use core2::io::Seek;
+	pub use core2::io::SeekFrom;
+}
+
 #[cfg(feature = "std")]
 /// Re-export of either `core2::io` or `std::io`, depending on the `std` feature flag.
-pub use std::io;
+// pub use bitcoin::io;
 #[cfg(not(feature = "std"))]
 /// Re-export of either `core2::io` or `std::io`, depending on the `std` feature flag.
-pub use core2::io;
+// pub use bitcoin::io;
 
 #[cfg(not(feature = "std"))]
 #[doc(hidden)]

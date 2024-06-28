@@ -1238,7 +1238,7 @@ macro_rules! impl_consensus_ser {
 				match consensus::encode::Decodable::consensus_decode(r) {
 					Ok(t) => Ok(t),
 					Err(consensus::encode::Error::Io(ref e)) if e.kind() == io::ErrorKind::UnexpectedEof => Err(DecodeError::ShortRead),
-					Err(consensus::encode::Error::Io(e)) => Err(DecodeError::Io(e.kind())),
+					Err(consensus::encode::Error::Io(e)) => Err(DecodeError::Io(e.kind().into())),
 					Err(_) => Err(DecodeError::InvalidValue),
 				}
 			}
@@ -1246,34 +1246,9 @@ macro_rules! impl_consensus_ser {
 	}
 }
 
-impl Into<io::ErrorKind> for bitcoin::io::ErrorKind {
-	fn into(self) -> io::ErrorKind {
-		todo!()
-	}
-}
-
-impl Writeable for Witness {
-	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), io::Error> {
-		match self.consensus_encode(&mut WriterWriteAdaptor(writer)) {
-			Ok(_) => Ok(()),
-			Err(e) => Err(e.into()),
-		}
-	}
-}
-impl Readable for Witness {
-	fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
-		match consensus::encode::Decodable::consensus_decode(r) {
-			Ok(t) => Ok(t),
-			Err(consensus::encode::Error::Io(ref e))   if e.kind() == bitcoin::io::ErrorKind::UnexpectedEof => Err(DecodeError::ShortRead),
-			Err(consensus::encode::Error::Io(e)) => Err(DecodeError::Io(e.kind())),
-			Err(_) => Err(DecodeError::InvalidValue),
-		}
-	}
-}
-
 impl_consensus_ser!(Transaction);
 impl_consensus_ser!(TxOut);
-// impl_consensus_ser!(Witness);
+impl_consensus_ser!(Witness);
 
 impl<T: Readable> Readable for Mutex<T> {
 	fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
