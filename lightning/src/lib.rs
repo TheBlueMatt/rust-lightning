@@ -89,11 +89,256 @@ pub(crate) mod crypto;
 pub mod io {
 	pub use bitcoin::io::*;
 
-	#[cfg(not(feature = "std"))] pub use core2::io::Seek;
-	#[cfg(not(feature = "std"))] pub use core2::io::SeekFrom;
+	/// The `Seek` trait provides a cursor which can be moved within a stream of
+	/// bytes.
+	///
+	/// The stream typically has a fixed size, allowing seeking relative to either
+	/// end or the current offset.
+	///
+	/// # Examples
+	///
+	/// [`File`]s implement `Seek`:
+	///
+	/// [`File`]: crate::fs::File
+	///
+	/// ```no_run
+	/// use std::io;
+	/// use std::io::prelude::*;
+	/// use std::fs::File;
+	/// use std::io::SeekFrom;
+	///
+	/// fn main() -> io::Result<()> {
+	///     let mut f = File::open("foo.txt")?;
+	///
+	///     // move the cursor 42 bytes from the start of the file
+	///     f.seek(SeekFrom::Start(42))?;
+	///     Ok(())
+	/// }
+	/// ```
+	pub trait Seek {
+		/// Seek to an offset, in bytes, in a stream.
+		///
+		/// A seek beyond the end of a stream is allowed, but behavior is defined
+		/// by the implementation.
+		///
+		/// If the seek operation completed successfully,
+		/// this method returns the new position from the start of the stream.
+		/// That position can be used later with [`SeekFrom::Start`].
+		///
+		/// # Errors
+		///
+		/// Seeking to a negative offset is considered an error.
+		fn seek(&mut self, pos: SeekFrom) -> Result<u64>;
+	}
 
-	#[cfg(feature = "std")] pub use std::io::Seek;
-	#[cfg(feature = "std")] pub use std::io::SeekFrom;
+	/// Enumeration of possible methods to seek within an I/O object.
+	///
+	/// It is used by the [`Seek`] trait.
+	#[derive(Copy, PartialEq, Eq, Clone, Debug)]
+	pub enum SeekFrom {
+		/// Sets the offset to the provided number of bytes.
+		Start(u64),
+
+		/// Sets the offset to the size of this object plus the specified number of
+		/// bytes.
+		///
+		/// It is possible to seek beyond the end of an object, but it's an error to
+		/// seek before byte 0.
+		End(i64),
+
+		/// Sets the offset to the current position plus the specified number of
+		/// bytes.
+		///
+		/// It is possible to seek beyond the end of an object, but it's an error to
+		/// seek before byte 0.
+		Current(i64),
+	}
+
+	#[derive(Clone, Debug, Default, Eq, PartialEq)]
+	pub struct Cursor<T> {
+		inner: T,
+		pos: u64,
+	}
+
+	impl<T> Cursor<T> {
+		/// Creates a new cursor wrapping the provided underlying in-memory buffer.
+		///
+		/// Cursor initial position is `0` even if underlying buffer (e.g., [`Vec`])
+		/// is not empty. So writing to cursor starts with overwriting [`Vec`]
+		/// content, not with appending to it.
+		///
+		/// # Examples
+		///
+		/// ```
+		/// use bitcoin::io::Cursor;
+		///
+		/// let buff = Cursor::new(Vec::new());
+		/// # fn force_inference(_: &Cursor<Vec<u8>>) {}
+		/// # force_inference(&buff);
+		/// ```
+		pub fn new(inner: T) -> Cursor<T> {
+			Cursor { pos: 0, inner }
+		}
+
+		/// Consumes this cursor, returning the underlying value.
+		///
+		/// # Examples
+		///
+		/// ```
+		/// use bitcoin::io::Cursor;
+		///
+		/// let buff = Cursor::new(Vec::new());
+		/// # fn force_inference(_: &Cursor<Vec<u8>>) {}
+		/// # force_inference(&buff);
+		///
+		/// let vec = buff.into_inner();
+		/// ```
+		pub fn into_inner(self) -> T {
+			self.inner
+		}
+
+		/// Gets a reference to the underlying value in this cursor.
+		///
+		/// # Examples
+		///
+		/// ```
+		/// use bitcoin::io::Cursor;
+		///
+		/// let buff = Cursor::new(Vec::new());
+		/// # fn force_inference(_: &Cursor<Vec<u8>>) {}
+		/// # force_inference(&buff);
+		///
+		/// let reference = buff.get_ref();
+		/// ```
+		pub fn get_ref(&self) -> &T {
+			&self.inner
+		}
+
+		/// Gets a mutable reference to the underlying value in this cursor.
+		///
+		/// Care should be taken to avoid modifying the internal I/O state of the
+		/// underlying value as it may corrupt this cursor's position.
+		///
+		/// # Examples
+		///
+		/// ```
+		/// use bitcoin::io::Cursor;
+		///
+		/// let mut buff = Cursor::new(Vec::new());
+		/// # fn force_inference(_: &Cursor<Vec<u8>>) {}
+		/// # force_inference(&buff);
+		///
+		/// let reference = buff.get_mut();
+		/// ```
+		pub fn get_mut(&mut self) -> &mut T {
+			&mut self.inner
+		}
+
+		/// Returns the current position of this cursor.
+		///
+		/// # Examples
+		///
+		/// ```
+		/// use core2::io::{Cursor, Seek, SeekFrom};
+		/// use std::io::prelude::*;
+		///
+		/// let mut buff = Cursor::new(vec![1, 2, 3, 4, 5]);
+		///
+		/// assert_eq!(buff.position(), 0);
+		///
+		/// buff.seek(SeekFrom::Current(2)).unwrap();
+		/// assert_eq!(buff.position(), 2);
+		///
+		/// buff.seek(SeekFrom::Current(-1)).unwrap();
+		/// assert_eq!(buff.position(), 1);
+		/// ```
+		pub fn position(&self) -> u64 {
+			self.pos
+		}
+
+		/// Sets the position of this cursor.
+		///
+		/// # Examples
+		///
+		/// ```
+		/// use core2::io::Cursor;
+		///
+		/// let mut buff = Cursor::new(vec![1, 2, 3, 4, 5]);
+		///
+		/// assert_eq!(buff.position(), 0);
+		///
+		/// buff.set_position(2);
+		/// assert_eq!(buff.position(), 2);
+		///
+		/// buff.set_position(4);
+		/// assert_eq!(buff.position(), 4);
+		/// ```
+		pub fn set_position(&mut self, pos: u64) {
+			self.pos = pos;
+		}
+	}
+
+	impl<T> Seek for Cursor<T>
+	where
+		T: AsRef<[u8]>,
+	{
+		fn seek(&mut self, style: SeekFrom) -> Result<u64> {
+			let (base_pos, offset) = match style {
+				SeekFrom::Start(n) => {
+					self.pos = n;
+					return Ok(n);
+				}
+				SeekFrom::End(n) => (self.inner.as_ref().len() as u64, n),
+				SeekFrom::Current(n) => (self.pos, n),
+			};
+			let new_pos = if offset >= 0 {
+				base_pos.checked_add(offset as u64)
+			} else {
+				base_pos.checked_sub((offset.wrapping_neg()) as u64)
+			};
+			match new_pos {
+				Some(n) => {
+					self.pos = n;
+					Ok(self.pos)
+				}
+				None => Err(Error::new(
+					ErrorKind::InvalidInput,
+					"invalid seek to a negative or overflowing position",
+				)),
+			}
+		}
+	}
+
+	impl<T> Read for Cursor<T>
+	where
+		T: AsRef<[u8]>,
+	{
+		fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+			let n = Read::read(&mut self.fill_buf()?, buf)?;
+			self.pos += n as u64;
+			Ok(n)
+		}
+
+		fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
+			let n = buf.len();
+			Read::read_exact(&mut self.fill_buf()?, buf)?;
+			self.pos += n as u64;
+			Ok(())
+		}
+	}
+
+	impl<T> BufRead for Cursor<T>
+	where
+		T: AsRef<[u8]>,
+	{
+		fn fill_buf(&mut self) -> Result<&[u8]> {
+			let amt = core::cmp::min(self.pos, self.inner.as_ref().len() as u64);
+			Ok(&self.inner.as_ref()[(amt as usize)..])
+		}
+		fn consume(&mut self, amt: usize) {
+			self.pos += amt as u64;
+		}
+	}
 }
 
 // #[cfg(feature = "std")]
