@@ -153,6 +153,24 @@ impl<'a, R: Read> Read for FixedLengthReader<'a, R> {
 	}
 }
 
+impl<'a, R: Read> Read for &mut FixedLengthReader<'a, R> {
+	#[inline]
+	fn read(&mut self, dest: &mut [u8]) -> Result<usize, io::Error> {
+		if self.total_bytes == self.bytes_read {
+			Ok(0)
+		} else {
+			let read_len = cmp::min(dest.len() as u64, self.total_bytes - self.bytes_read);
+			match self.read.read(&mut dest[0..(read_len as usize)]) {
+				Ok(v) => {
+					self.bytes_read += v as u64;
+					Ok(v)
+				},
+				Err(e) => Err(e),
+			}
+		}
+	}
+}
+
 impl<'a, R: Read> LengthRead for FixedLengthReader<'a, R> {
 	#[inline]
 	fn total_bytes(&self) -> u64 {
