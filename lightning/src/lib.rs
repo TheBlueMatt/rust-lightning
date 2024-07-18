@@ -96,42 +96,22 @@ pub mod io {
 	#[cfg(feature = "std")] pub use std::io::SeekFrom;
 }
 
-#[cfg(feature = "std")]
-/// Re-export of either `core2::io` or `std::io`, depending on the `std` feature flag.
-// pub use bitcoin::io;
-#[cfg(not(feature = "std"))]
-/// Re-export of either `core2::io` or `std::io`, depending on the `std` feature flag.
-// pub use bitcoin::io;
+// #[cfg(feature = "std")]
+// /// Re-export of either `core2::io` or `std::io`, depending on the `std` feature flag.
+// // pub use bitcoin::io;
+// #[cfg(not(feature = "std"))]
+// /// Re-export of either `core2::io` or `std::io`, depending on the `std` feature flag.
+// // pub use bitcoin::io;
 
-#[cfg(not(feature = "std"))]
 #[doc(hidden)]
 /// IO utilities public only for use by in-crate macros. These should not be used externally
 ///
 /// This is not exported to bindings users as it is not intended for public consumption.
 pub mod io_extras {
-	use core2::io::{self, Read, Write};
-
-	/// A writer which will move data into the void.
-	pub struct Sink {
-		_priv: (),
-	}
+	use bitcoin::io::{self, Read, Write};
 
 	/// Creates an instance of a writer which will successfully consume all data.
-	pub const fn sink() -> Sink {
-		Sink { _priv: () }
-	}
-
-	impl core2::io::Write for Sink {
-		#[inline]
-		fn write(&mut self, buf: &[u8]) -> core2::io::Result<usize> {
-			Ok(buf.len())
-		}
-
-		#[inline]
-		fn flush(&mut self) -> core2::io::Result<()> {
-			Ok(())
-		}
-	}
+	pub use bitcoin::io::sink;
 
 	pub fn copy<R: ?Sized, W: ?Sized>(reader: &mut R, writer: &mut W) -> Result<u64, io::Error>
 		where
@@ -152,7 +132,7 @@ pub mod io_extras {
 		Ok(count)
 	}
 
-	pub fn read_to_end<D: io::Read>(mut d: D) -> Result<alloc::vec::Vec<u8>, io::Error> {
+	pub fn read_to_end<D: Read>(mut d: D) -> Result<alloc::vec::Vec<u8>, io::Error> {
 		let mut result = vec![];
 		let mut buf = [0u8; 64];
 		loop {
@@ -167,21 +147,21 @@ pub mod io_extras {
 	}
 }
 
-#[cfg(feature = "std")]
-#[doc(hidden)]
-/// IO utilities public only for use by in-crate macros. These should not be used externally
-///
-/// This is not exported to bindings users as it is not intended for public consumption.
-mod io_extras {
-	pub fn read_to_end<D: ::std::io::Read>(mut d: D) -> Result<Vec<u8>, ::std::io::Error> {
-		let mut buf = Vec::new();
-		d.read_to_end(&mut buf)?;
-		Ok(buf)
-	}
-
-	pub use bitcoin::io::sink;
-	pub use std::io::copy;
-}
+// #[cfg(feature = "std")]
+// #[doc(hidden)]
+// /// IO utilities public only for use by in-crate macros. These should not be used externally
+// ///
+// /// This is not exported to bindings users as it is not intended for public consumption.
+// mod io_extras {
+// 	pub fn read_to_end<D: ::std::io::Read>(mut d: D) -> Result<Vec<u8>, ::std::io::Error> {
+// 		let mut buf = Vec::new();
+// 		d.read_to_end(&mut buf)?;
+// 		Ok(buf)
+// 	}
+//
+// 	pub use bitcoin::io::sink;
+// 	pub use std::io::copy;
+// }
 
 mod prelude {
 	#![allow(unused_imports)]
