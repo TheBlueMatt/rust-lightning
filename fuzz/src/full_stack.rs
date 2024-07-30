@@ -49,8 +49,11 @@ use lightning::ln::peer_handler::{
 };
 use lightning::ln::script::ShutdownScript;
 use lightning::ln::types::ChannelId;
-use lightning::offers::invoice::UnsignedBolt12Invoice;
+use lightning::offers::invoice::{Bolt12Invoice, UnsignedBolt12Invoice};
+use lightning::offers::invoice_request::InvoiceRequest;
+use lightning::offers::offer::{self, Offer};
 use lightning::onion_message::messenger::{Destination, MessageRouter, OnionMessagePath};
+use lightning::onion_message::offers::{OffersMessage, OffersMessageHandler};
 use lightning::routing::gossip::{NetworkGraph, P2PGossipSync};
 use lightning::routing::router::{
 	InFlightHtlcs, PaymentParameters, Route, RouteParameters, Router,
@@ -146,7 +149,7 @@ impl FeeEstimator for FuzzEstimator {
 	}
 }
 
-struct FuzzRouter {}
+struct FuzzRouter(Arc<KeyProvider>);
 
 impl Router for FuzzRouter {
 	fn find_route(
@@ -172,10 +175,12 @@ impl MessageRouter for FuzzRouter {
 	}
 
 	fn create_blinded_paths<T: secp256k1::Signing + secp256k1::Verification>(
-		&self, _recipient: PublicKey, _local_node_receive_key: ReceiveAuthKey,
-		_context: MessageContext, _peers: Vec<MessageForwardNode>, _secp_ctx: &Secp256k1<T>,
+		&self, recipient: PublicKey, local_node_receive_key: ReceiveAuthKey,
+		context: MessageContext, peers: Vec<MessageForwardNode>, secp_ctx: &Secp256k1<T>,
 	) -> Result<Vec<BlindedMessagePath>, ()> {
-		unreachable!()
+		let es = &*self.0;
+		let path = BlindedMessagePath::one_hop(recipient, local_node_receive_key, context, es, secp_ctx);
+		Ok(vec![path])
 	}
 }
 
@@ -538,7 +543,6 @@ pub fn do_test(mut data: &[u8], logger: &Arc<dyn Logger>) {
 		fee_estimates: Mutex::new(VecDeque::new()),
 	});
 	let fee_est = Arc::new(FuzzEstimator { input: input.clone() });
-	let router = FuzzRouter {};
 
 	macro_rules! get_slice {
 		($len: expr) => {
@@ -594,6 +598,7 @@ pub fn do_test(mut data: &[u8], logger: &Arc<dyn Logger>) {
 		keys_manager.get_peer_storage_key(),
 	));
 
+	let router = FuzzRouter(Arc::clone(&keys_manager));
 	let network = Network::Bitcoin;
 	let best_block_timestamp = genesis_block(network).header.time;
 	let params = ChainParameters { network, best_block: BestBlock::from_network(network) };
@@ -974,6 +979,56 @@ pub fn do_test(mut data: &[u8], logger: &Arc<dyn Logger>) {
 						&config,
 					);
 				}
+			},
+			0x28 => {
+				let offer_len = u16::from_be_bytes(get_bytes!(2));
+				let offer_opt = input
+					.get_slice(offer_len as usize)
+					.and_then(|slice| Offer::try_from(slice.to_vec()).ok());
+				let offer = if let Some(offer) = offer_opt { offer } else { return };
+				let amount = if let Some(amt) = offer.amount() {
+					match amt {
+						offer::Amount::Bitcoin { amount_msats } => Some(amount_msats),
+						offer::Amount::Currency { .. } => Some(1_000),
+					}
+				} else {
+					Some(1_000)
+				};
+				let idx = (get_bytes!(1)[0] as u16) % cmp::max(payments_sent, 1);
+				let mut payment_id = PaymentId([0; 32]);
+				payment_id.0[0..2].copy_from_slice(&idx.to_be_bytes());
+				let _ = channelmanager.pay_for_offer(
+					&offer,
+					amount,
+					payment_id,
+					Default::default(),
+				);
+			},
+			0x29 => {
+				let inv_len = u16::from_be_bytes(get_bytes!(2));
+				let inv_opt = input
+					.get_slice((inv_len & 0x7fff) as usize)
+					.and_then(|slice| Bolt12Invoice::try_from(slice.to_vec()).ok());
+				let inv = if let Some(inv) = inv_opt { inv } else { return };
+				let context = if let Ok(c) = Readable::read(&mut &*input) { c } else { return };
+				if inv_len & 0x8000 != 0 {
+					let _ = channelmanager.send_payment_for_bolt12_invoice(&inv, Some(&context));
+				} else {
+					let msg = OffersMessage::Invoice(inv);
+					let _ = channelmanager.handle_message(msg, Some(context), None);
+				}
+			},
+			0x2a => {
+				let invreq_len = u16::from_be_bytes(get_bytes!(2));
+				let invreq_opt = input
+					.get_slice(invreq_len as usize)
+					.and_then(|slice| InvoiceRequest::try_from(slice.to_vec()).ok());
+				let invreq = if let Some(invreq) = invreq_opt { invreq } else { return };
+				let context = if let Ok(c) = Readable::read(&mut &*input) { c } else { return };
+				let response_path =
+					if let Ok(p) = Readable::read(&mut &*input) { Some(p) } else { return };
+				let msg = OffersMessage::InvoiceRequest(invreq);
+				let _ = channelmanager.handle_message(msg, context, response_path);
 			},
 			48 => {
 				let fee = u32::from_le_bytes(get_slice!(4).try_into().unwrap());
