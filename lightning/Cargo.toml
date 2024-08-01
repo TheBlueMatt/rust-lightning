@@ -42,6 +42,7 @@ default = ["std", "grind_signatures"]
 [dependencies]
 bech32 = { version = "0.9.1", default-features = false }
 bitcoin = { version = "0.32.2", default-features = false, features = ["secp-recovery"] }
+# bitcoin = { path = "../../../rust-bitcoin/bitcoin", default-features = false, features = ["secp-recovery"] }
 
 hashbrown = { version = "0.13", optional = true, default-features = false }
 possiblyrandom = { version = "0.2", optional = true, default-features = false }
@@ -57,6 +58,7 @@ regex = "1.5.6"
 
 [dev-dependencies.bitcoin]
 version = "0.32.2"
+# path = "../../../rust-bitcoin/bitcoin"
 default-features = false
 features = ["bitcoinconsensus", "secp-recovery"]
 

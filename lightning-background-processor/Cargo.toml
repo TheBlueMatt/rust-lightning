@@ -21,7 +21,8 @@ no-std = ["lightning/no-std", "lightning-rapid-gossip-sync/no-std"]
 default = ["std"]
 
 [dependencies]
-bitcoin = { version = "0.32.2", default-features = false }
+#bitcoin = { version = "0.32.2", default-features = false }
+bitcoin = { path = "../../../rust-bitcoin/bitcoin", default-features = false }
 lightning = { version = "0.0.123-beta", path = "../lightning", default-features = false }
 lightning-rapid-gossip-sync = { version = "0.0.123-beta", path = "../lightning-rapid-gossip-sync", default-features = false }
 

@@ -14,7 +14,7 @@
 //! [`ChannelMonitor`]: crate::chain::channelmonitor::ChannelMonitor
 
 use crate::prelude::*;
-use crate::io::{self, Read, Seek, Write};
+use crate::io::{self, Read, Seek, Take, Write, BufRead};
 use crate::io_extras::{copy, sink};
 use core::hash::Hash;
 use crate::sync::{Mutex, RwLock};
@@ -112,6 +112,7 @@ pub struct FixedLengthReader<'a, R: Read> {
 	bytes_read: u64,
 	total_bytes: u64,
 }
+
 impl<'a, R: Read> FixedLengthReader<'a, R> {
 	/// Returns a new [`FixedLengthReader`].
 	pub fn new(read: &'a mut R, total_bytes: u64) -> Self {
@@ -153,6 +154,18 @@ impl<'a, R: Read> Read for FixedLengthReader<'a, R> {
 	}
 }
 
+// impl<'a, R: Read> Read for &mut FixedLengthReader<'a, R> {
+// 	#[inline]
+// 	fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
+// 		(**self).read(buf)
+// 	}
+//
+// 	#[inline]
+// 	fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), io::Error> {
+// 		(**self).read_exact(buf)
+// 	}
+// }
+
 impl<'a, R: Read> LengthRead for FixedLengthReader<'a, R> {
 	#[inline]
 	fn total_bytes(&self) -> u64 {
@@ -188,6 +201,30 @@ impl<R: Read> Read for ReadTrackingReader<R> {
 		}
 	}
 }
+
+// impl<R: Read> Read for &mut ReadTrackingReader<R> {
+// 	#[inline]
+// 	fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
+// 		(**self).read(buf)
+// 	}
+//
+// 	#[inline]
+// 	fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), io::Error> {
+// 		(**self).read_exact(buf)
+// 	}
+// }
+
+// impl<R: Read> Read for &mut &mut ReadTrackingReader<R> {
+// 	#[inline]
+// 	fn read(&mut self, buf: &mut [u8]) -> Result<usize, io::Error> {
+// 		(**self).read(buf)
+// 	}
+//
+// 	#[inline]
+// 	fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), io::Error> {
+// 		(**self).read_exact(buf)
+// 	}
+// }
 
 /// A trait that various LDK types implement allowing them to be written out to a [`Writer`].
 ///
@@ -243,7 +280,7 @@ pub trait Readable
 	where Self: Sized
 {
 	/// Reads a `Self` in from the given [`Read`].
-	fn read<R: Read>(reader: &mut R) -> Result<Self, DecodeError>;
+	fn read<R: BufRead>(reader: &mut R) -> Result<Self, DecodeError>;
 }
 
 /// A trait that various LDK types implement allowing them to be read in from a
@@ -1234,7 +1271,7 @@ macro_rules! impl_consensus_ser {
 		}
 
 		impl Readable for $bitcoin_type {
-			fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
+			fn read<R: BufRead>(r: &mut R) -> Result<Self, DecodeError> {
 				match consensus::encode::Decodable::consensus_decode(r) {
 					Ok(t) => Ok(t),
 					Err(consensus::encode::Error::Io(ref e)) if e.kind() == io::ErrorKind::UnexpectedEof => Err(DecodeError::ShortRead),

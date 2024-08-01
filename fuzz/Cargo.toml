@@ -22,7 +22,8 @@ lightning = { path = "../lightning", features = ["regex", "hashbrown", "_test_ut
 lightning-invoice = { path = "../lightning-invoice" }
 lightning-rapid-gossip-sync = { path = "../lightning-rapid-gossip-sync" }
 bech32 = "0.9.1"
-bitcoin = { version = "0.32.2", features = ["secp-lowmemory"] }
+#bitcoin = { version = "0.32.2", features = ["secp-lowmemory"] }
+bitcoin = { path = "../../../rust-bitcoin/bitcoin", features = ["secp-lowmemory"] }
 hex = { package = "hex-conservative", version = "0.1.1", default-features = false }
 
 afl = { version = "0.12", optional = true }

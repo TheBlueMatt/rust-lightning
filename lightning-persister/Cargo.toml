@@ -14,7 +14,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-bitcoin = "0.32.2"
+#bitcoin = "0.32.2"
+bitcoin = { path = "../../../rust-bitcoin/bitcoin" }
 lightning = { version = "0.0.123-beta", path = "../lightning" }
 
 [target.'cfg(windows)'.dependencies]
@@ -25,7 +26,8 @@ criterion = { version = "0.4", optional = true, default-features = false }
 
 [dev-dependencies]
 lightning = { version = "0.0.123-beta", path = "../lightning", features = ["_test_utils"] }
-bitcoin = { version = "0.32.2", default-features = false }
+#bitcoin = { version = "0.32.2", default-features = false }
+bitcoin = { path = "../../../rust-bitcoin/bitcoin", default-features = false }
 
 [lints]
 workspace = true

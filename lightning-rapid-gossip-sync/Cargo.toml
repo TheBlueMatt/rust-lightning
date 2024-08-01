@@ -16,7 +16,8 @@ std = ["lightning/std"]
 
 [dependencies]
 lightning = { version = "0.0.123-beta", path = "../lightning", default-features = false }
-bitcoin = { version = "0.32.2", default-features = false }
+#bitcoin = { version = "0.32.2", default-features = false }
+bitcoin = { path = "../../../rust-bitcoin/bitcoin", default-features = false }
 
 [target.'cfg(ldk_bench)'.dependencies]
 criterion = { version = "0.4", optional = true, default-features = false }
