@@ -14,7 +14,7 @@
 //! [`ChannelMonitor`]: crate::chain::channelmonitor::ChannelMonitor
 
 use crate::prelude::*;
-use crate::io::{self, Read, Seek, Write};
+use crate::io::{self, BufRead, Read, Seek, Write};
 use crate::io_extras::{copy, sink};
 use core::hash::Hash;
 use crate::sync::{Mutex, RwLock};
@@ -61,6 +61,24 @@ impl<W: Write> Writer for W {
 	#[inline]
 	fn write_all(&mut self, buf: &[u8]) -> Result<(), io::Error> {
 		<Self as io::Write>::write_all(self, buf)
+	}
+}
+
+pub(crate) struct ReadBufReadAdapter<R: Read + ?Sized>(pub R);
+
+impl<R: Read + ?Sized> Read for ReadBufReadAdapter<R> {
+	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+		self.0.read(buf)
+	}
+}
+
+impl<R: Read + ?Sized> BufRead for ReadBufReadAdapter<R> {
+	fn fill_buf(&mut self) -> io::Result<&[u8]> {
+		todo!()
+	}
+
+	fn consume(&mut self, amount: usize) {
+		todo!()
 	}
 }
 
@@ -1272,7 +1290,7 @@ macro_rules! impl_consensus_ser {
 
 		impl Readable for $bitcoin_type {
 			fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
-				match consensus::encode::Decodable::consensus_decode_read(r) {
+				match consensus::encode::Decodable::consensus_decode(&mut ReadBufReadAdapter(r)) {
 					Ok(t) => Ok(t),
 					Err(consensus::encode::Error::Io(ref e)) if e.kind() == io::ErrorKind::UnexpectedEof => Err(DecodeError::ShortRead),
 					Err(consensus::encode::Error::Io(e)) => Err(DecodeError::Io(e.kind().into())),
