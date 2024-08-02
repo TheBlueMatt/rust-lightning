@@ -14,7 +14,7 @@
 //! [`ChannelMonitor`]: crate::chain::channelmonitor::ChannelMonitor
 
 use crate::prelude::*;
-use crate::io::{self, Read, Seek, Take, Write, BufRead};
+use crate::io::{self, Read, Seek, Write};
 use crate::io_extras::{copy, sink};
 use core::hash::Hash;
 use crate::sync::{Mutex, RwLock};
@@ -280,7 +280,7 @@ pub trait Readable
 	where Self: Sized
 {
 	/// Reads a `Self` in from the given [`Read`].
-	fn read<R: BufRead>(reader: &mut R) -> Result<Self, DecodeError>;
+	fn read<R: Read>(reader: &mut R) -> Result<Self, DecodeError>;
 }
 
 /// A trait that various LDK types implement allowing them to be read in from a
@@ -1271,8 +1271,8 @@ macro_rules! impl_consensus_ser {
 		}
 
 		impl Readable for $bitcoin_type {
-			fn read<R: BufRead>(r: &mut R) -> Result<Self, DecodeError> {
-				match consensus::encode::Decodable::consensus_decode(r) {
+			fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
+				match consensus::encode::Decodable::consensus_decode_read(r) {
 					Ok(t) => Ok(t),
 					Err(consensus::encode::Error::Io(ref e)) if e.kind() == io::ErrorKind::UnexpectedEof => Err(DecodeError::ShortRead),
 					Err(consensus::encode::Error::Io(e)) => Err(DecodeError::Io(e.kind().into())),
