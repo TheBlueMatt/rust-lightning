@@ -1079,7 +1079,7 @@ pub(super) fn filter_fallbacks(
 			Ok(witness_program) => witness_program,
 			Err(_) => return None,
 		};
-		Some(Address::from_witness_program(witness_program, network.into()))
+		Some(Address::from_witness_program(witness_program, network))
 	};
 
 	fallbacks.iter().filter_map(to_valid_address).collect()
