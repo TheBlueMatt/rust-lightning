@@ -2736,7 +2736,8 @@ impl<NS: Deref> ReadableArgs<(Option<PublicKey>, &NS)> for InboundOnionPayload w
 		}, |msg_type: u64, msg_reader: &mut FixedLengthReader<_>| -> Result<bool, DecodeError> {
 			if msg_type < 1 << 16 { return Ok(false) }
 			let mut value = Vec::new();
-			msg_reader.read_to_end(&mut value)?;
+			// msg_reader.read_to_end(&mut value)?;
+			msg_reader.read_to_limit(&mut value, u64::MAX)?;
 			custom_tlvs.push((msg_type, value));
 			Ok(true)
 		});

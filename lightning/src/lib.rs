@@ -86,6 +86,7 @@ pub mod events;
 
 pub(crate) mod crypto;
 
+/// Extension of the bitcoin::io module
 pub mod io {
 	pub use bitcoin::io::*;
 
@@ -154,6 +155,7 @@ pub mod io {
 		Current(i64),
 	}
 
+	/// Emulation of std::io::Cursor
 	#[derive(Clone, Debug, Default, Eq, PartialEq)]
 	pub struct Cursor<T> {
 		inner: T,
