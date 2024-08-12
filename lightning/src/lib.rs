@@ -155,6 +155,30 @@ pub mod io {
 		Current(i64),
 	}
 
+	/// Adaptor to chain together two readers.
+	///
+	/// This struct is generally created by calling [`chain`] on a reader.
+	/// Please see the documentation of [`chain`] for more details.
+	///
+	/// [`chain`]: Read::chain
+	pub struct Chain<T, U> {
+		first: T,
+		second: U,
+		done_first: bool,
+	}
+
+	impl<T: Read, U: Read> Read for Chain<T, U> {
+		fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+			if !self.done_first {
+				match self.first.read(buf)? {
+					0 if !buf.is_empty() => self.done_first = true,
+					n => return Ok(n),
+				}
+			}
+			self.second.read(buf)
+		}
+	}
+
 	/// Emulation of std::io::Cursor
 	#[derive(Clone, Debug, Default, Eq, PartialEq)]
 	pub struct Cursor<T> {

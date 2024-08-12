@@ -64,23 +64,77 @@ impl<W: Write> Writer for W {
 	}
 }
 
-pub(crate) struct ReadBufReadAdapter<R: Read + ?Sized>(pub R);
+// pub(crate) struct ReadBufReadAdapter<R: Read + ?Sized>(pub R);
+pub struct BufReader<R, const S: usize> {
+	inner: R,
+	buf: [u8; S],
+	pos: usize,
+	cap: usize,
+}
 
-impl<R: Read + ?Sized> Read for ReadBufReadAdapter<R> {
+impl<R: Read, const S: usize> BufReader<R, S> {
+	pub fn new(inner: R) -> BufReader<R, S> {
+		BufReader {
+			inner,
+			buf: [0; S],
+			pos: 0,
+			cap: 0,
+		}
+	}
+}
+
+impl<R: Read, const S: usize> Read for BufReader<R, S> {
 	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-		self.0.read(buf)
+		// If we don't have any buffered data and we're doing a massive read
+		// (larger than our internal buffer), bypass our internal buffer
+		// entirely.
+		if self.pos == self.cap && buf.len() >= S {
+			self.discard_buffer();
+			return self.inner.read(buf);
+		}
+		let nread = {
+			let mut rem = self.fill_buf()?;
+			rem.read(buf)?
+		};
+		self.consume(nread);
+		Ok(nread)
 	}
 }
 
-impl<R: Read + ?Sized> BufRead for ReadBufReadAdapter<R> {
+impl<R: Read, const S: usize> BufRead for BufReader<R, S> {
 	fn fill_buf(&mut self) -> io::Result<&[u8]> {
-		todo!()
+		// If we've reached the end of our internal buffer then we need to fetch
+		// some more data from the underlying reader.
+		// Branch using `>=` instead of the more correct `==`
+		// to tell the compiler that the pos..cap slice is always valid.
+		if self.pos >= self.cap {
+			debug_assert!(self.pos == self.cap);
+			self.cap = self.inner.read(&mut self.buf)?;
+			self.pos = 0;
+		}
+		Ok(&self.buf[self.pos..self.cap])
 	}
 
-	fn consume(&mut self, amount: usize) {
-		todo!()
+	fn consume(&mut self, amt: usize) {
+		self.pos = cmp::min(self.pos + amt, self.cap);
 	}
 }
+
+// impl<R: Read + ?Sized> Read for ReadBufReadAdapter<R> {
+// 	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+// 		self.0.read(buf)
+// 	}
+// }
+//
+// impl<R: Read + ?Sized> BufRead for ReadBufReadAdapter<R> {
+// 	fn fill_buf(&mut self) -> io::Result<&[u8]> {
+// 		todo!()
+// 	}
+//
+// 	fn consume(&mut self, amount: usize) {
+// 		todo!()
+// 	}
+// }
 
 pub(crate) struct WriterWriteAdaptor<'a, W: Writer + 'a>(pub &'a mut W);
 impl<'a, W: Writer + 'a> Write for WriterWriteAdaptor<'a, W> {
@@ -1290,7 +1344,7 @@ macro_rules! impl_consensus_ser {
 
 		impl Readable for $bitcoin_type {
 			fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
-				match consensus::encode::Decodable::consensus_decode(&mut ReadBufReadAdapter(r)) {
+				match consensus::encode::Decodable::consensus_decode(&mut BufReader::new(r)) {
 					Ok(t) => Ok(t),
 					Err(consensus::encode::Error::Io(ref e)) if e.kind() == io::ErrorKind::UnexpectedEof => Err(DecodeError::ShortRead),
 					Err(consensus::encode::Error::Io(e)) => Err(DecodeError::Io(e.kind().into())),

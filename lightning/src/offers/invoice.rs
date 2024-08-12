@@ -1934,7 +1934,7 @@ mod tests {
 			invoice.fallbacks(),
 			vec![
 				Address::p2wsh(&script, Network::Bitcoin),
-				Address::p2wpkh(&pubkey, Network::Bitcoin).unwrap(),
+				Address::p2wpkh(&CompressedPublicKey(pubkey.inner), Network::Bitcoin),
 				Address::p2tr_tweaked(tweaked_pubkey, Network::Bitcoin),
 			],
 		);
@@ -2248,10 +2248,10 @@ mod tests {
 					invoice.fallbacks(),
 					vec![
 						Address::p2wsh(&script, Network::Bitcoin),
-						Address::p2wpkh(&CompressedPublicKey(pubkey.inner), Network::Bitcoin).unwrap(),
+						Address::p2wpkh(&CompressedPublicKey(pubkey.inner), Network::Bitcoin),
 						Address::p2tr_tweaked(tweaked_pubkey, Network::Bitcoin),
-						Address::from_witness_program(v1_witness_program, Network::Bitcoin.into()),
-						Address::from_witness_program(v2_witness_program, Network::Bitcoin.into()),
+						Address::from_witness_program(v1_witness_program, Network::Bitcoin),
+						Address::from_witness_program(v2_witness_program, Network::Bitcoin),
 					],
 				);
 			},
