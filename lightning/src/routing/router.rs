@@ -8868,9 +8868,9 @@ pub(crate) mod bench_utils {
 	pub(crate) fn read_graph_scorer(logger: &TestLogger)
 	-> Result<(Arc<NetworkGraph<&TestLogger>>, ProbabilisticScorer<Arc<NetworkGraph<&TestLogger>>, &TestLogger>), &'static str> {
 		let (mut graph_file, mut scorer_file) = get_graph_scorer_file()?;
-		let graph = Arc::new(NetworkGraph::read(&mut graph_file, logger).unwrap());
+		let graph = Arc::new(NetworkGraph::read(&mut std::io::BufReader::new(graph_file), logger).unwrap());
 		let scorer_args = (Default::default(), Arc::clone(&graph), logger);
-		let scorer = ProbabilisticScorer::read(&mut scorer_file, scorer_args).unwrap();
+		let scorer = ProbabilisticScorer::read(&mut std::io::BufReader::new(scorer_file), scorer_args).unwrap();
 		Ok((graph, scorer))
 	}
 

@@ -519,7 +519,7 @@ macro_rules! _decode_tlv_stream_range {
 				// determine whether we should break or return ShortRead if we get an
 				// UnexpectedEof. This should in every case be largely cosmetic, but its nice to
 				// pass the TLV test vectors exactly, which require this distinction.
-				let mut tracking_reader = ser::ReadTrackingReader::new(&mut stream_ref);
+				let mut tracking_reader = ser::ReadTrackingReader::new(stream_ref);
 				match <$crate::util::ser::BigSize as $crate::util::ser::Readable>::read(&mut tracking_reader) {
 					Err(DecodeError::ShortRead) => {
 						if !tracking_reader.have_read {
@@ -555,8 +555,8 @@ macro_rules! _decode_tlv_stream_range {
 			last_seen_type = Some(typ.0);
 
 			// Finally, read the length and value itself:
-			let length: ser::BigSize = $crate::util::ser::Readable::read(&mut stream_ref)?;
-			let mut s = ser::FixedLengthReader::new(&mut stream_ref, length.0);
+			let length: ser::BigSize = $crate::util::ser::Readable::read(stream_ref)?;
+			let mut s = ser::FixedLengthReader::new(stream_ref, length.0);
 			match typ.0 {
 				$(_t if $crate::_decode_tlv_stream_match_check!(_t, $type, $fieldty) => {
 					$crate::_decode_tlv!($stream, s, $field, $fieldty);
@@ -1102,7 +1102,7 @@ macro_rules! impl_writeable_tlv_based_enum {
 					}),*
 					$($tuple_variant_id => {
 						let length: $crate::util::ser::BigSize = $crate::util::ser::Readable::read(reader)?;
-						let mut s = $crate::util::ser::FixedLengthReader::new(&mut reader, length.0);
+						let mut s = $crate::util::ser::FixedLengthReader::new(reader, length.0);
 						let res = $crate::util::ser::Readable::read(&mut s)?;
 						if s.bytes_remain() {
 							s.eat_remaining()?; // Return ShortRead if there's actually not enough bytes
@@ -1214,7 +1214,7 @@ macro_rules! impl_writeable_tlv_based_enum_upgradable {
 					}),*
 					$($tuple_variant_id => {
 						let length: $crate::util::ser::BigSize = $crate::util::ser::Readable::read(reader)?;
-						let mut s = $crate::util::ser::FixedLengthReader::new(&mut reader, length.0);
+						let mut s = $crate::util::ser::FixedLengthReader::new(reader, length.0);
 						let res = $crate::util::ser::Readable::read(&mut s)?;
 						if s.bytes_remain() {
 							s.eat_remaining()?; // Return ShortRead if there's actually not enough bytes

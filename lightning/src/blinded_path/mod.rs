@@ -281,8 +281,10 @@ impl Readable for BlindedPath {
 			1 => IntroductionNode::DirectedShortChannelId(Direction::NodeTwo, Readable::read(r)?),
 			2|3 => {
 				use io::Read;
-				let mut pubkey_read = core::slice::from_mut(&mut first_byte).chain(r.by_ref());
-				IntroductionNode::NodeId(Readable::read(&mut pubkey_read)?)
+				let mut bytes = [0; 33];
+				bytes[0] = first_byte;
+				r.read_exact(&mut bytes[1..])?;
+				IntroductionNode::NodeId(Readable::read(&mut &bytes[..])?)
 			},
 			_ => return Err(DecodeError::InvalidValue),
 		};

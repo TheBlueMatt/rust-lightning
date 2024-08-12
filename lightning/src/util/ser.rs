@@ -65,15 +65,15 @@ impl<W: Write> Writer for W {
 }
 
 // pub(crate) struct ReadBufReadAdapter<R: Read + ?Sized>(pub R);
-pub struct BufReader<R, const S: usize> {
-	inner: R,
+pub struct BufReader<'a, R, const S: usize = 4096> {
+	inner: &'a mut R,
 	buf: [u8; S],
 	pos: usize,
 	cap: usize,
 }
 
-impl<R: Read, const S: usize> BufReader<R, S> {
-	pub fn new(inner: R) -> BufReader<R, S> {
+impl<'a, R: Read, const S: usize> BufReader<'a, R, S> {
+	pub fn new(inner: &'a mut R) -> BufReader<'a, R, S> {
 		BufReader {
 			inner,
 			buf: [0; S],
@@ -83,13 +83,13 @@ impl<R: Read, const S: usize> BufReader<R, S> {
 	}
 }
 
-impl<R: Read, const S: usize> Read for BufReader<R, S> {
+impl<'a, R: Read, const S: usize> Read for BufReader<'a, R, S> {
 	fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
 		// If we don't have any buffered data and we're doing a massive read
 		// (larger than our internal buffer), bypass our internal buffer
 		// entirely.
 		if self.pos == self.cap && buf.len() >= S {
-			self.discard_buffer();
+			//self.discard_buffer();
 			return self.inner.read(buf);
 		}
 		let nread = {
@@ -101,7 +101,7 @@ impl<R: Read, const S: usize> Read for BufReader<R, S> {
 	}
 }
 
-impl<R: Read, const S: usize> BufRead for BufReader<R, S> {
+impl<'a, R: Read, const S: usize> BufRead for BufReader<'a, R, S> {
 	fn fill_buf(&mut self) -> io::Result<&[u8]> {
 		// If we've reached the end of our internal buffer then we need to fetch
 		// some more data from the underlying reader.
@@ -249,18 +249,18 @@ impl<'a, R: Read> LengthRead for FixedLengthReader<'a, R> {
 /// between "EOF reached before we started" and "EOF reached mid-read".
 ///
 /// This is not exported to bindings users as manual TLV building is not currently supported in bindings
-pub struct ReadTrackingReader<R: Read> {
-	read: R,
+pub struct ReadTrackingReader<'a, R: Read> {
+	read: &'a mut R,
 	/// Returns whether we have read from this reader or not yet.
 	pub have_read: bool,
 }
-impl<R: Read> ReadTrackingReader<R> {
+impl<'a, R: Read> ReadTrackingReader<'a, R> {
 	/// Returns a new [`ReadTrackingReader`].
-	pub fn new(read: R) -> Self {
+	pub fn new(read: &'a mut R) -> Self {
 		Self { read, have_read: false }
 	}
 }
-impl<R: Read> Read for ReadTrackingReader<R> {
+impl<'a, R: Read> Read for ReadTrackingReader<'a, R> {
 	#[inline]
 	fn read(&mut self, dest: &mut [u8]) -> Result<usize, io::Error> {
 		match self.read.read(dest) {
@@ -766,7 +766,7 @@ impl<T: MaybeReadable> Readable for WithoutLength<Vec<T>> {
 	fn read<R: Read>(mut reader: &mut R) -> Result<Self, DecodeError> {
 		let mut values = Vec::new();
 		loop {
-			let mut track_read = ReadTrackingReader::new(&mut reader);
+			let mut track_read = ReadTrackingReader::new(reader);
 			match MaybeReadable::read(&mut track_read) {
 				Ok(Some(v)) => { values.push(v); },
 				Ok(None) => { },
@@ -1344,7 +1344,7 @@ macro_rules! impl_consensus_ser {
 
 		impl Readable for $bitcoin_type {
 			fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
-				match consensus::encode::Decodable::consensus_decode(&mut BufReader::new(r)) {
+				match consensus::encode::Decodable::consensus_decode(&mut BufReader::<_, 4096>::new(r)) {
 					Ok(t) => Ok(t),
 					Err(consensus::encode::Error::Io(ref e)) if e.kind() == io::ErrorKind::UnexpectedEof => Err(DecodeError::ShortRead),
 					Err(consensus::encode::Error::Io(e)) => Err(DecodeError::Io(e.kind().into())),

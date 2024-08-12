@@ -43,11 +43,6 @@ panic = "abort"
 [patch.crates-io.possiblyrandom]
 path = "possiblyrandom"
 
-[patch.crates-io]
-bitcoin = { path = "../../rust-bitcoin/bitcoin" }
-bitcoin-io = {path = "../../rust-bitcoin/io" }
-bitcoin_hashes = {path = "../../rust-bitcoin/hashes"}
-
 [workspace.lints.rust.unexpected_cfgs]
 level = "forbid"
 # When adding a new cfg attribute, ensure that it is added to this list.

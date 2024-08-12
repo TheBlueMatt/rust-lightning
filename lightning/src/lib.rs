@@ -68,7 +68,6 @@ extern crate core;
 extern crate hex;
 #[cfg(any(test, feature = "_test_utils"))] extern crate regex;
 
-#[cfg(not(feature = "std"))] extern crate core2;
 #[cfg(not(feature = "std"))] extern crate libm;
 
 #[cfg(ldk_bench)] extern crate criterion;
@@ -403,7 +402,7 @@ pub mod io_extras {
 		Ok(count)
 	}
 
-	pub fn read_to_end<D: Read>(mut d: D) -> Result<alloc::vec::Vec<u8>, io::Error> {
+	pub fn read_to_end<D: Read>(mut d: &mut D) -> Result<alloc::vec::Vec<u8>, io::Error> {
 		let mut result = vec![];
 		let mut buf = [0u8; 64];
 		loop {
