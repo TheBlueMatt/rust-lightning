@@ -739,7 +739,18 @@ impl<ChannelSigner: EcdsaChannelSigner> OnchainTxHandler<ChannelSigner> {
 
 		// First drop any claims which are duplicate
 		requests.retain(|req| {
-			if self.claimable_outpoints.get(req.outpoints()[0]).is_some() {
+			debug_assert_eq!(
+				req.outpoints().len(),
+				1,
+				"Claims passed to `update_claims_view_from_requests` should not be aggregated"
+			);
+			let mut all_outpoints_claiming = true;
+			for outpoint in req.outpoints() {
+				if self.claimable_outpoints.get(&outpoint).is_none() {
+					all_outpoints_claiming = false;
+				}
+			}
+			if all_outpoints_claiming {
 				log_info!(logger, "Ignoring second claim for outpoint {}:{}, already registered its claiming request", req.outpoints()[0].txid, req.outpoints()[0].vout);
 				false
 			} else {
