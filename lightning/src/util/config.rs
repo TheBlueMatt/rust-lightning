@@ -454,12 +454,17 @@ pub struct ChannelConfig {
 	/// enough time to broadcast and confirm a transaction, possibly with time in between to RBF
 	/// the spending transaction).
 	///
+	/// Note that on-chain HTLC claims may be delayed by [`CLTV_DIFFERENCE_BATCH_CLAIM`] in order
+	/// to batch claims, and thus you might wish to consider adding that value to your desired
+	/// delta.
+	///
 	/// Default value: `72` (12 hours at an average of 6 blocks/hour)
 	///
 	/// Minimum value: [`MIN_CLTV_EXPIRY_DELTA`] (Any values less than this will be treated as
 	///                [`MIN_CLTV_EXPIRY_DELTA`] instead.)
 	///
 	/// [`MIN_CLTV_EXPIRY_DELTA`]: crate::ln::channelmanager::MIN_CLTV_EXPIRY_DELTA
+	/// [`CLTV_DIFFERENCE_BATCH_CLAIM`]: crate::chain::channelmonitor::CLTV_DIFFERENCE_BATCH_CLAIM
 	pub cltv_expiry_delta: u16,
 	/// Limit our total exposure to potential loss to on-chain fees on close, including in-flight
 	/// HTLCs which are burned to fees as they are too small to claim on-chain and fees on

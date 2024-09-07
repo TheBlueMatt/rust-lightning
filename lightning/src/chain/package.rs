@@ -30,7 +30,7 @@ use crate::ln::features::ChannelTypeFeatures;
 use crate::ln::channel_keys::{DelayedPaymentBasepoint, HtlcBasepoint};
 use crate::ln::channelmanager::MIN_CLTV_EXPIRY_DELTA;
 use crate::ln::msgs::DecodeError;
-use crate::chain::channelmonitor::COUNTERPARTY_CLAIMABLE_WITHIN_BLOCKS_PINNABLE;
+use crate::chain::channelmonitor::{COUNTERPARTY_CLAIMABLE_WITHIN_BLOCKS_PINNABLE, CLTV_DIFFERENCE_BATCH_CLAIM};
 use crate::chain::chaininterface::{FeeEstimator, ConfirmationTarget, MIN_RELAY_FEE_SAT_PER_1000_WEIGHT, compute_feerate_sat_per_1000_weight, FEERATE_FLOOR_SATS_PER_KW};
 use crate::chain::transaction::MaybeSignedTransaction;
 use crate::sign::ecdsa::EcdsaChannelSigner;
@@ -829,9 +829,53 @@ impl PackageTemplate {
 					return false;
 				}
 
-				// First, check if the two packages have compatible locktimes.
-				// We only want to aggregate claims if they have the same locktime.
-				if self.package_locktime(cur_height) != other.package_locktime(cur_height) {
+				// First check for claims which have a fixed absolute locktime.
+				// HTLC-Success and HTLC-Timeout claims, even with anchors, have a fixed locktime
+				// and cannot be aggregated with claims requiring a different locktime.
+				let mut self_fixed_locktime = None;
+				for (_, input) in self.inputs.iter() {
+					if let Some(cltv) = input.signed_locktime() {
+						assert!(self_fixed_locktime.is_none() || self_fixed_locktime == Some(cltv));
+						self_fixed_locktime = Some(cltv);
+						#[cfg(not(debug_assertions))]
+						break;
+					}
+				}
+
+				let mut other_fixed_locktime = None;
+				for (_, input) in other.inputs.iter() {
+					if let Some(cltv) = input.signed_locktime() {
+						assert!(other_fixed_locktime.is_none() || other_fixed_locktime == Some(cltv));
+						other_fixed_locktime = Some(cltv);
+						#[cfg(not(debug_assertions))]
+						break;
+					}
+				}
+
+				if self_fixed_locktime != other_fixed_locktime {
+					return false;
+				}
+
+				// Then check if the two packages have compatible locktime ranges.
+				// We only want to aggregate claims if they're within `CLTV_DIFFERENCE_BATCH_CLAIM`
+				// of each other.
+				let mut self_min_locktime = u32::MAX;
+				let mut self_max_locktime = 0;
+				for locktime in self.inputs.iter().map(|(_, input)| input.absolute_tx_timelock(cur_height)) {
+					self_min_locktime = cmp::min(self_min_locktime, locktime);
+					self_max_locktime = cmp::max(self_max_locktime, locktime);
+				}
+				let mut other_min_locktime = u32::MAX;
+				let mut other_max_locktime = 0;
+				for locktime in other.inputs.iter().map(|(_, input)| input.absolute_tx_timelock(cur_height)) {
+					other_min_locktime = cmp::min(other_min_locktime, locktime);
+					other_max_locktime = cmp::max(other_max_locktime, locktime);
+				}
+
+				if self_min_locktime + CLTV_DIFFERENCE_BATCH_CLAIM < other_max_locktime {
+					return false;
+				}
+				if other_min_locktime + CLTV_DIFFERENCE_BATCH_CLAIM < self_max_locktime {
 					return false;
 				}
 
@@ -850,6 +894,10 @@ impl PackageTemplate {
 				let other_unpinnable = self_cluster == AggregationCluster::Unpinnable &&
 					other.counterparty_spendable_height() < cur_height - COUNTERPARTY_CLAIMABLE_WITHIN_BLOCKS_PINNABLE;
 				if self_unpinnable && other_unpinnable {
+					debug_assert_eq!(self_min_locktime, cur_height, "Unpinnable clusters have no locktime");
+					debug_assert_eq!(self_max_locktime, cur_height, "Unpinnable clusters have no locktime");
+					debug_assert_eq!(other_min_locktime, cur_height, "Unpinnable clusters have no locktime");
+					debug_assert_eq!(other_max_locktime, cur_height, "Unpinnable clusters have no locktime");
 					return true;
 				}
 				self_cluster == other_cluster && self.counterparty_spendable_height() == other.counterparty_spendable_height()

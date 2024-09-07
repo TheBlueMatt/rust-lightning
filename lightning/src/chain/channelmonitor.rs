@@ -233,6 +233,18 @@ pub(crate) const COUNTERPARTY_CLAIMABLE_WITHIN_BLOCKS_PINNABLE: u32 = 12;
 /// expiring at the same time.
 const _HTLCS_NOT_PINNABLE_ON_CLOSE: u32 = CLTV_CLAIM_BUFFER - COUNTERPARTY_CLAIMABLE_WITHIN_BLOCKS_PINNABLE;
 
+/// When spending two outputs which need CLTVs this many blocks apart or less, we are willing to
+/// delay claiming the first one in order to batch the claim.
+///
+/// This may imply that an HTLC which has expired on-chain is not claimed for up to this many
+/// blocks.
+pub const CLTV_DIFFERENCE_BATCH_CLAIM: u32 = 6;
+/// If we delay an HTLC claim a few blocks to do a batch claim, make sure that we still have plenty
+/// of room to get our claim transactions confirmed (i.e. that we have at least
+/// [`CLTV_CLAIM_BUFFER`] blocks to get it confirmed).
+const _BATCH_CANT_CAUSE_HTLC_CLAIMS_TO_NOT_CONFIRM: u32 =
+	crate::ln::channelmanager::MIN_CLTV_EXPIRY_DELTA as u32 - CLTV_DIFFERENCE_BATCH_CLAIM - CLTV_CLAIM_BUFFER;
+
 /// If an HTLC expires within this many blocks, force-close the channel to broadcast the
 /// HTLC-Success transaction.
 /// In other words, this is an upper bound on how many blocks we think it can take us to get a

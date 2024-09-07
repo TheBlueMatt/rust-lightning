@@ -2454,12 +2454,14 @@ pub const MIN_FINAL_CLTV_EXPIRY_DELTA: u16 = HTLC_FAIL_BACK_BUFFER as u16 + 3;
 
 // Check that our CLTV_EXPIRY is at least CLTV_CLAIM_BUFFER + ANTI_REORG_DELAY + LATENCY_GRACE_PERIOD_BLOCKS,
 // ie that if the next-hop peer fails the HTLC within
-// LATENCY_GRACE_PERIOD_BLOCKS then we'll still have CLTV_CLAIM_BUFFER left to timeout it onchain,
-// then waiting ANTI_REORG_DELAY to be reorg-safe on the outbound HLTC and
-// failing the corresponding htlc backward, and us now seeing the last block of ANTI_REORG_DELAY before
-// LATENCY_GRACE_PERIOD_BLOCKS.
-#[allow(dead_code)]
-const CHECK_CLTV_EXPIRY_SANITY: u32 = MIN_CLTV_EXPIRY_DELTA as u32 - LATENCY_GRACE_PERIOD_BLOCKS - CLTV_CLAIM_BUFFER - ANTI_REORG_DELAY - LATENCY_GRACE_PERIOD_BLOCKS;
+// LATENCY_GRACE_PERIOD_BLOCKS then we'll still have CLTV_CLAIM_BUFFER
+// (+CLTV_DIFFERENCE_BATCH_CLAIM) left to timeout on chain with ANTI_REORG_DELAY blocks
+// thereafter to wait for reorg-safety before we have to fail the inbound HTLC backwards within
+// LATENCY_GRACE_PERIOD_BLOCKS (preventing our counterparty from force-closing on us).
+const _CHECK_CLTV_EXPIRY_SANITY: u32 =
+	MIN_CLTV_EXPIRY_DELTA as u32 - LATENCY_GRACE_PERIOD_BLOCKS - CLTV_CLAIM_BUFFER -
+	crate::chain::channelmonitor::CLTV_DIFFERENCE_BATCH_CLAIM -
+	ANTI_REORG_DELAY - LATENCY_GRACE_PERIOD_BLOCKS;
 
 // Check for ability of an attacker to make us fail on-chain by delaying an HTLC claim. See
 // ChannelMonitor::should_broadcast_holder_commitment_txn for a description of why this is needed.
