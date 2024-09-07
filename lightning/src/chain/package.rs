@@ -30,7 +30,7 @@ use crate::ln::features::ChannelTypeFeatures;
 use crate::ln::channel_keys::{DelayedPaymentBasepoint, HtlcBasepoint};
 use crate::ln::channelmanager::MIN_CLTV_EXPIRY_DELTA;
 use crate::ln::msgs::DecodeError;
-use crate::chain::channelmonitor::CLTV_SHARED_CLAIM_BUFFER;
+use crate::chain::channelmonitor::COUNTERPARTY_CLAIMABLE_WITHIN_BLOCKS_PINNABLE;
 use crate::chain::chaininterface::{FeeEstimator, ConfirmationTarget, MIN_RELAY_FEE_SAT_PER_1000_WEIGHT, compute_feerate_sat_per_1000_weight, FEERATE_FLOOR_SATS_PER_KW};
 use crate::chain::transaction::MaybeSignedTransaction;
 use crate::sign::ecdsa::EcdsaChannelSigner;
@@ -40,7 +40,6 @@ use crate::util::ser::{Readable, Writer, Writeable, RequiredWrapper};
 
 use crate::io;
 use core::cmp;
-use core::mem;
 use core::ops::Deref;
 
 #[allow(unused_imports)]
@@ -544,25 +543,38 @@ impl PackageSolvingData {
 			PackageSolvingData::HolderFundingOutput(..) => unreachable!(),
 		}
 	}
-	fn is_compatible(&self, input: &PackageSolvingData) -> bool {
+
+	/// Checks if this and `other` are spending types of inputs which could have descended from the
+	/// same commitment transaction(s) and thus could both be spent without requiring a
+	/// double-spend.
+	fn is_possibly_from_same_tx_tree(&self, other: &PackageSolvingData) -> bool {
 		match self {
-			PackageSolvingData::RevokedOutput(..) => {
-				match input {
-					PackageSolvingData::RevokedHTLCOutput(..) => { true },
-					PackageSolvingData::RevokedOutput(..) => { true },
-					_ => { false }
+			PackageSolvingData::RevokedOutput(_)|PackageSolvingData::RevokedHTLCOutput(_) => {
+				match other {
+					PackageSolvingData::RevokedOutput(_)|
+					PackageSolvingData::RevokedHTLCOutput(_) => true,
+					_ => false,
 				}
 			},
-			PackageSolvingData::RevokedHTLCOutput(..) => {
-				match input {
-					PackageSolvingData::RevokedOutput(..) => { true },
-					PackageSolvingData::RevokedHTLCOutput(..) => { true },
-					_ => { false }
+			PackageSolvingData::CounterpartyOfferedHTLCOutput(_)|
+			PackageSolvingData::CounterpartyReceivedHTLCOutput(_) => {
+				match other {
+					PackageSolvingData::CounterpartyOfferedHTLCOutput(_)|
+					PackageSolvingData::CounterpartyReceivedHTLCOutput(_) => true,
+					_ => false,
 				}
 			},
-			_ => { mem::discriminant(self) == mem::discriminant(&input) }
+			PackageSolvingData::HolderHTLCOutput(_)|
+			PackageSolvingData::HolderFundingOutput(_) => {
+				match other {
+					PackageSolvingData::HolderHTLCOutput(_)|
+					PackageSolvingData::HolderFundingOutput(_) => true,
+					_ => false,
+				}
+			},
 		}
 	}
+
 	fn as_tx_input(&self, previous_output: BitcoinOutPoint) -> TxIn {
 		let sequence = match self {
 			PackageSolvingData::RevokedOutput(_) => Sequence::ENABLE_RBF_NO_LOCKTIME,
@@ -676,23 +688,43 @@ impl PackageSolvingData {
 		};
 		absolute_timelock
 	}
-
-	fn map_output_type_flags(&self) -> (PackageMalleability, bool) {
-		// Post-anchor, aggregation of outputs of different types is unsafe. See https://github.com/lightning/bolts/pull/803.
-		let (malleability, aggregable) = match self {
-			PackageSolvingData::RevokedOutput(RevokedOutput { is_counterparty_balance_on_anchors: Some(()), .. }) => { (PackageMalleability::Malleable, false) },
-			PackageSolvingData::RevokedOutput(RevokedOutput { is_counterparty_balance_on_anchors: None, .. }) => { (PackageMalleability::Malleable, true) },
-			PackageSolvingData::RevokedHTLCOutput(..) => { (PackageMalleability::Malleable, true) },
-			PackageSolvingData::CounterpartyOfferedHTLCOutput(..) => { (PackageMalleability::Malleable, true) },
-			PackageSolvingData::CounterpartyReceivedHTLCOutput(..) => { (PackageMalleability::Malleable, false) },
-			PackageSolvingData::HolderHTLCOutput(ref outp) => if outp.channel_type_features.supports_anchors_zero_fee_htlc_tx() {
-				(PackageMalleability::Malleable, outp.preimage.is_some())
-			} else {
-				(PackageMalleability::Untractable, false)
+	/// Some output types are pre-signed in such a way that the spending transaction must have an
+	/// exact locktime.
+	/// This returns that locktime for such outputs.
+	fn signed_locktime(&self) -> Option<u32> {
+		match self {
+			PackageSolvingData::HolderHTLCOutput(_) => {
+				Some(self.absolute_tx_timelock(0))
 			},
-			PackageSolvingData::HolderFundingOutput(..) => { (PackageMalleability::Untractable, false) },
-		};
-		(malleability, aggregable)
+			_ => None,
+		}
+	}
+
+	fn map_output_type_flags(&self) -> PackageMalleability {
+		// We classify claims into not-mergeable (i.e. transactions that have to be broadcasted
+		// as-is) or merge-able (i.e. transactions we can merge with others and claim in batches),
+		// which we then sub-categorize into pinnable (where our counterparty could potentially
+		// also claim the transaction right now) or unpinnable (where only we can claim this
+		// output). We assume we are claiming in a timely manner.
+		match self {
+			PackageSolvingData::RevokedOutput(RevokedOutput { .. }) =>
+				PackageMalleability::Malleable(AggregationCluster::Unpinnable),
+			PackageSolvingData::RevokedHTLCOutput(..) =>
+				PackageMalleability::Malleable(AggregationCluster::Pinnable),
+			PackageSolvingData::CounterpartyOfferedHTLCOutput(..) =>
+				PackageMalleability::Malleable(AggregationCluster::Unpinnable),
+			PackageSolvingData::CounterpartyReceivedHTLCOutput(..) =>
+				PackageMalleability::Malleable(AggregationCluster::Pinnable),
+			PackageSolvingData::HolderHTLCOutput(ref outp) if outp.channel_type_features.supports_anchors_zero_fee_htlc_tx() => {
+				if outp.preimage.is_some() {
+					PackageMalleability::Malleable(AggregationCluster::Unpinnable)
+				} else {
+					PackageMalleability::Malleable(AggregationCluster::Pinnable)
+				}
+			},
+			PackageSolvingData::HolderHTLCOutput(..) => PackageMalleability::Untractable,
+			PackageSolvingData::HolderFundingOutput(..) => PackageMalleability::Untractable,
+		}
 	}
 }
 
@@ -705,11 +737,25 @@ impl_writeable_tlv_based_enum_legacy!(PackageSolvingData, ;
 	(5, HolderFundingOutput),
 );
 
+/// We aggregate claims into clusters based on if we think the output is potentially pinnable by
+/// our counterparty and whether the CLTVs required make sense to aggregate into one claim.
+/// That way we avoid claiming in too many discrete transactions while also avoiding
+/// unnecessarily exposing ourselves to pinning attacks or delaying claims when we could have
+/// claimed at least part of the available outputs quickly and without risk.
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum AggregationCluster {
+	/// Our counterparty can potentially claim this output.
+	Pinnable,
+	/// We are the only party that can claim these funds, thus we believe they are not pinnable
+	/// until they reach a CLTV/CSV expiry where our counterparty could also claim them.
+	Unpinnable,
+}
+
 /// A malleable package might be aggregated with other packages to save on fees.
 /// A untractable package has been counter-signed and aggregable will break cached counterparty signatures.
-#[derive(Clone, PartialEq, Eq)]
-pub(crate) enum PackageMalleability {
-	Malleable,
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum PackageMalleability {
+	Malleable(AggregationCluster),
 	Untractable,
 }
 
@@ -737,16 +783,6 @@ pub struct PackageTemplate {
 	// For HTLCs we're claiming with a preimage and revoked outputs, we need to get our spend
 	// on-chain before this height.
 	counterparty_spendable_height: u32,
-	// Determines if this package can be aggregated.
-	// Timelocked outputs belonging to the same transaction might have differing
-	// satisfying heights. Picking up the later height among the output set would be a valid
-	// aggregable strategy but it comes with at least 2 trade-offs :
-	// * earlier-output fund are going to take longer to come back
-	// * CLTV delta backing up a corresponding HTLC on an upstream channel could be swallowed
-	// by the requirement of the later-output part of the set
-	// For now, we mark such timelocked outputs as non-aggregable, though we might introduce
-	// smarter aggregable strategy in the future.
-	aggregable: bool,
 	// Cache of package feerate committed at previous (re)broadcast. If bumping resources
 	// (either claimed output value or external utxo), it will keep increasing until holder
 	// or counterparty successful claim.
@@ -758,13 +794,70 @@ pub struct PackageTemplate {
 
 impl PackageTemplate {
 	pub(crate) fn can_merge_with(&self, other: &PackageTemplate, cur_height: u32) -> bool {
-		self.aggregable() && other.aggregable() &&
-		self.package_locktime(cur_height) == other.package_locktime(cur_height) &&
-		self.counterparty_spendable_height() > cur_height + CLTV_SHARED_CLAIM_BUFFER &&
-		other.counterparty_spendable_height() > cur_height + CLTV_SHARED_CLAIM_BUFFER
+		match (self.malleability, other.malleability) {
+			(PackageMalleability::Untractable, _) => false,
+			(_, PackageMalleability::Untractable) => false,
+			(PackageMalleability::Malleable(self_cluster), PackageMalleability::Malleable(other_cluster)) => {
+				debug_assert!(self.inputs.len() >= 1);
+				debug_assert!(other.inputs.len() >= 1);
+				if self.inputs.is_empty() {
+					return false;
+				}
+				if other.inputs.is_empty() {
+					return false;
+				}
+
+				// First check the types of the inputs and only merge if they are possibly claiming
+				// at the same time.
+				// This shouldn't ever happen, but if we do end up with packages trying to claim
+				// funds from two different commitment transactions (which cannot possibly be
+				// on-chain at the same time) we definitely shouldn't merge them.
+				#[cfg(debug_assertions)] {
+					for i in 0..self.inputs.len() {
+						for j in 0..i {
+							assert!(self.inputs[i].1.is_possibly_from_same_tx_tree(&self.inputs[j].1));
+						}
+					}
+					for i in 0..other.inputs.len() {
+						for j in 0..i {
+							assert!(other.inputs[i].1.is_possibly_from_same_tx_tree(&other.inputs[j].1));
+						}
+					}
+				}
+				if !self.inputs[0].1.is_possibly_from_same_tx_tree(&other.inputs[0].1) {
+					debug_assert!(false, "We shouldn't have packages from different tx trees");
+					return false;
+				}
+
+				// First, check if the two packages have compatible locktimes.
+				// We only want to aggregate claims if they have the same locktime.
+				if self.package_locktime(cur_height) != other.package_locktime(cur_height) {
+					return false;
+				}
+
+				// Now check that we only merge packages if we they are both unpinnable or both
+				// pinnable
+				let self_pinnable = self_cluster == AggregationCluster::Pinnable ||
+					self.counterparty_spendable_height() >= cur_height;
+				let other_pinnable = other_cluster == AggregationCluster::Pinnable ||
+					other.counterparty_spendable_height() >= cur_height;
+				if self_pinnable && other_pinnable {
+					return true;
+				}
+
+				let self_unpinnable = self_cluster == AggregationCluster::Unpinnable &&
+					self.counterparty_spendable_height() < cur_height - COUNTERPARTY_CLAIMABLE_WITHIN_BLOCKS_PINNABLE;
+				let other_unpinnable = self_cluster == AggregationCluster::Unpinnable &&
+					other.counterparty_spendable_height() < cur_height - COUNTERPARTY_CLAIMABLE_WITHIN_BLOCKS_PINNABLE;
+				if self_unpinnable && other_unpinnable {
+					return true;
+				}
+				self_cluster == other_cluster && self.counterparty_spendable_height() == other.counterparty_spendable_height()
+			},
+		}
 	}
 	pub(crate) fn is_malleable(&self) -> bool {
-		self.malleability == PackageMalleability::Malleable
+		matches!(self.malleability, PackageMalleability::Malleable(..))
 	}
 	/// The height at which our counterparty may be able to spend this output.
 	///
@@ -772,9 +865,6 @@ impl PackageTemplate {
 	/// able to pin transactions spending this output in the mempool.
 	pub(crate) fn counterparty_spendable_height(&self) -> u32 {
 		self.counterparty_spendable_height
-	}
-	pub(crate) fn aggregable(&self) -> bool {
-		self.aggregable
 	}
 	pub(crate) fn previous_feerate(&self) -> u64 {
 		self.feerate_previous
@@ -796,18 +886,16 @@ impl PackageTemplate {
 	}
 	pub(crate) fn split_package(&mut self, split_outp: &BitcoinOutPoint) -> Option<PackageTemplate> {
 		match self.malleability {
-			PackageMalleability::Malleable => {
+			PackageMalleability::Malleable(cluster) => {
 				let mut split_package = None;
-				let aggregable = self.aggregable;
 				let feerate_previous = self.feerate_previous;
 				let height_timer = self.height_timer;
 				self.inputs.retain(|outp| {
 					if *split_outp == outp.0 {
 						split_package = Some(PackageTemplate {
 							inputs: vec![(outp.0, outp.1.clone())],
-							malleability: PackageMalleability::Malleable,
+							malleability: PackageMalleability::Malleable(cluster),
 							counterparty_spendable_height: self.counterparty_spendable_height,
-							aggregable,
 							feerate_previous,
 							height_timer,
 						});
@@ -828,17 +916,7 @@ impl PackageTemplate {
 		}
 	}
 	pub(crate) fn merge_package(&mut self, mut merge_from: PackageTemplate) {
-		if self.malleability == PackageMalleability::Untractable || merge_from.malleability == PackageMalleability::Untractable {
-			panic!("Merging template on untractable packages");
-		}
-		if !self.aggregable || !merge_from.aggregable {
-			panic!("Merging non aggregatable packages");
-		}
-		if let Some((_, lead_input)) = self.inputs.first() {
-			for (_, v) in merge_from.inputs.iter() {
-				if !lead_input.is_compatible(v) { panic!("Merging outputs from differing types !"); }
-			}
-		} else { panic!("Merging template on an empty package"); }
+		assert!(self.can_merge_with(&merge_from, 0));
 		for (k, v) in merge_from.inputs.drain(..) {
 			self.inputs.push((k, v));
 		}
@@ -1046,7 +1124,8 @@ impl PackageTemplate {
 	) -> Option<(u64, u64)>
 	where F::Target: FeeEstimator,
 	{
-		debug_assert!(self.malleability == PackageMalleability::Malleable, "The package output is fixed for non-malleable packages");
+		debug_assert!(matches!(self.malleability, PackageMalleability::Malleable(..)),
+			"The package output is fixed for non-malleable packages");
 		let input_amounts = self.package_amount();
 		assert!(dust_limit_sats as i64 > 0, "Output script must be broadcastable/have a 'real' dust limit.");
 		// If old feerate is 0, first iteration of this claim, use normal fee calculation
@@ -1108,13 +1187,12 @@ impl PackageTemplate {
 	}
 
 	pub (crate) fn build_package(txid: Txid, vout: u32, input_solving_data: PackageSolvingData, counterparty_spendable_height: u32) -> Self {
-		let (malleability, aggregable) = PackageSolvingData::map_output_type_flags(&input_solving_data);
+		let malleability = PackageSolvingData::map_output_type_flags(&input_solving_data);
 		let inputs = vec![(BitcoinOutPoint { txid, vout }, input_solving_data)];
 		PackageTemplate {
 			inputs,
 			malleability,
 			counterparty_spendable_height,
-			aggregable,
 			feerate_previous: 0,
 			height_timer: 0,
 		}
@@ -1148,7 +1226,7 @@ impl Readable for PackageTemplate {
 			let rev_outp = Readable::read(reader)?;
 			inputs.push((outpoint, rev_outp));
 		}
-		let (malleability, aggregable) = if let Some((_, lead_input)) = inputs.first() {
+		let malleability = if let Some((_, lead_input)) = inputs.first() {
 			PackageSolvingData::map_output_type_flags(&lead_input)
 		} else { return Err(DecodeError::InvalidValue); };
 		let mut counterparty_spendable_height = 0;
@@ -1165,7 +1243,6 @@ impl Readable for PackageTemplate {
 			inputs,
 			malleability,
 			counterparty_spendable_height,
-			aggregable,
 			feerate_previous,
 			height_timer: height_timer.unwrap_or(0),
 		})
@@ -1429,7 +1506,6 @@ mod tests {
 			// Packages attributes should be identical
 			assert!(split_package.is_malleable());
 			assert_eq!(split_package.counterparty_spendable_height, package_one.counterparty_spendable_height);
-			assert_eq!(split_package.aggregable, package_one.aggregable);
 			assert_eq!(split_package.feerate_previous, package_one.feerate_previous);
 			assert_eq!(split_package.height_timer, package_one.height_timer);
 		} else { panic!(); }
