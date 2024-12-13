@@ -70,6 +70,13 @@ use {
 	crate::sync::{Mutex, MutexGuard},
 };
 
+/// lol
+pub static NO_DATA_PENALTY: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(85);
+/// lolz
+pub static POW: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(3);
+/// lulz
+pub static ADDL: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(10);
+
 /// We define Score ever-so-slightly differently based on whether we are being built for C bindings
 /// or not. For users, `LockableScore` must somehow be writeable to disk. For Rust users, this is
 /// no problem - you move a `Score` that implements `Writeable` into a `Mutex`, lock it, and now
@@ -1123,8 +1130,45 @@ const BASE_AMOUNT_PENALTY_DIVISOR: u64 = 1 << 30;
 
 /// Raises three `f64`s to the 3rd power, without `powi` because it requires `std` (dunno why).
 #[inline(always)]
-fn three_f64_pow_3(a: f64, b: f64, c: f64) -> (f64, f64, f64) {
-	(a * a * a, b * b * b, c * c * c)
+fn three_f64_pow_5(a: f64, b: f64, c: f64) -> (f64, f64, f64) {
+let pow = POW.load(core::sync::atomic::Ordering::Acquire);
+	if pow == 3 {
+		(a * a * a, b * b * b, c * c * c)
+	} else if pow == 5 {
+		let (a2, b2, c2) = (a * a, b * b, c * c);
+		(a2 * a2 * a, b2 * b2 * b, c2 * c2 * c)
+	} else if pow == 7 {
+		let (a2, b2, c2) = (a * a, b * b, c * c);
+		let (a4, b4, c4) = (a2 * a2, b2 * b2, c2 * c2);
+		(a * a2 * a4, b * b2 * b4, c * c2 * c4)
+	} else if pow == 9 {
+		let (a2, b2, c2) = (a * a, b * b, c * c);
+		let (a4, b4, c4) = (a2 * a2, b2 * b2, c2 * c2);
+		(a * a4 * a4, b * b4 * b4, c * c4 * c4)
+	} else if pow == 11 {
+		let (a2, b2, c2) = (a * a, b * b, c * c);
+		let (a4, b4, c4) = (a2 * a2, b2 * b2, c2 * c2);
+		let (a8, b8, c8) = (a4 * a4, b4 * b4, c4 * c4);
+		(a * a2 * a8, b * b2 * b8, c * c2 * c8)
+	} else if pow == 13 {
+		let (a2, b2, c2) = (a * a, b * b, c * c);
+		let (a4, b4, c4) = (a2 * a2, b2 * b2, c2 * c2);
+		let (a8, b8, c8) = (a4 * a4, b4 * b4, c4 * c4);
+		(a * a4 * a8, b * b4 * b8, c * c4 * c8)
+	} else if pow == 15 {
+		let (a2, b2, c2) = (a * a, b * b, c * c);
+		let (a4, b4, c4) = (a2 * a2, b2 * b2, c2 * c2);
+        let (a6, b6, c6) = (a2 * a4, b2 * b4, c2 * c4);
+		let (a8, b8, c8) = (a4 * a4, b4 * b4, c4 * c4);
+		(a * a6 * a8, b * b6 * b8, c * c6 * c8)
+	} else if pow == 17 {
+		let (a2, b2, c2) = (a * a, b * b, c * c);
+		let (a4, b4, c4) = (a2 * a2, b2 * b2, c2 * c2);
+		let (a8, b8, c8) = (a4 * a4, b4 * b4, c4 * c4);
+		(a * a8 * a8, b * b8 * b8, c * c8 * c8)
+	} else {
+		panic!("Unknown pow {}", pow);
+	}
 }
 
 /// Given liquidity bounds, calculates the success probability (in the form of a numerator and
@@ -1137,17 +1181,20 @@ fn three_f64_pow_3(a: f64, b: f64, c: f64) -> (f64, f64, f64) {
 #[inline(always)]
 fn success_probability(
 	amount_msat: u64, min_liquidity_msat: u64, max_liquidity_msat: u64, capacity_msat: u64,
-	params: &ProbabilisticScoringFeeParameters, min_zero_implies_no_successes: bool,
+	_params: &ProbabilisticScoringFeeParameters, min_zero_implies_no_successes: bool,
 ) -> (u64, u64) {
 	debug_assert!(min_liquidity_msat <= amount_msat);
 	debug_assert!(amount_msat < max_liquidity_msat);
 	debug_assert!(max_liquidity_msat <= capacity_msat);
 
+let pow = POW.load(core::sync::atomic::Ordering::Acquire);
+
 	let (numerator, mut denominator) =
-		if params.linear_success_probability {
+		if pow == 1 {
 			(max_liquidity_msat - amount_msat,
 				(max_liquidity_msat - min_liquidity_msat).saturating_add(1))
 		} else {
+let addl = ADDL.load(core::sync::atomic::Ordering::Acquire);
 			let capacity = capacity_msat as f64;
 			let min = (min_liquidity_msat as f64) / capacity;
 			let max = (max_liquidity_msat as f64) / capacity;
@@ -1163,29 +1210,43 @@ fn success_probability(
 			// calculate the cumulative density function between the min/max bounds trivially. Note
 			// that we don't bother to normalize the CDF to total to 1, as it will come out in the
 			// division of num / den.
-			let (max_pow, amt_pow, min_pow) = three_f64_pow_3(max - 0.5, amount - 0.5, min - 0.5);
-			let num = max_pow - amt_pow;
-			let den = max_pow - min_pow;
+			let (max_pow, amt_pow, min_pow) = three_f64_pow_5(max - 0.5, amount - 0.5, min - 0.5);
+            let (num, den) = if addl == 0 {
+                let num = max_pow - amt_pow;
+                let den = max_pow - min_pow;
+                (num, den)
+            } else {
+                let max_v = max_pow * 2.0 + (addl as f64) / 10.0 * (max - 0.5);
+                let amt_v = amt_pow * 2.0 + (addl as f64) / 10.0 * (amount - 0.5);
+                let min_v = min_pow * 2.0 + (addl as f64) / 10.0 * (min - 0.5);
+                let num = max_v - amt_v;
+                let den = max_v - min_v;
+                (num, den)
+            };
 
 			// Because our numerator and denominator max out at 0.5^3 we need to multiply them by
 			// quite a large factor to get something useful (ideally in the 2^30 range).
-			const BILLIONISH: f64 = 1024.0 * 1024.0 * 1024.0;
-			let numerator = (num * BILLIONISH) as u64 + 1;
-			let denominator = (den * BILLIONISH) as u64 + 1;
-			debug_assert!(numerator <= 1 << 30, "Got large numerator ({}) from float {}.", numerator, num);
-			debug_assert!(denominator <= 1 << 30, "Got large denominator ({}) from float {}.", denominator, den);
+			let mut billionish: f64 = 1024.0 * 1024.0 * 256.0 * ((1 << pow) as f64);
+            if addl != 0 {
+                billionish = 1024.0 * 1024.0 * 256.0;
+            }
+			let numerator = (num * billionish) as u64 + 1;
+			let denominator = (den * billionish) as u64 + 1;
+			debug_assert!(numerator <= 1 << 30, "Got large numerator ({}) from float {} addl {}.", numerator, num, addl);
+			debug_assert!(denominator <= 1 << 30, "Got large denominator ({}) from float {}, addl {}.", denominator, den, addl);
 			(numerator, denominator)
 		};
 
 	if min_zero_implies_no_successes && min_liquidity_msat == 0 &&
-		denominator < u64::max_value() / 21
+		true //denominator < u64::max_value() / 21
 	{
-		// If we have no knowledge of the channel, scale probability down by ~75%
+		// If we have no knowledge of the channel, scale probability down 36%.
 		// Note that we prefer to increase the denominator rather than decrease the numerator as
 		// the denominator is more likely to be larger and thus provide greater precision. This is
 		// mostly an overoptimization but makes a large difference in tests.
-		denominator = denominator * 21 / 16
+		denominator = denominator * NO_DATA_PENALTY.load(core::sync::atomic::Ordering::Acquire) / 64; // default 84 /64 (21/16)
 	}
+//denominator = denominator * 93 / 64;
 
 	(numerator, denominator)
 }
@@ -1929,7 +1990,9 @@ mod bucketed_history {
 				}
 			}
 
-			Some(cumulative_success_prob_times_billion)
+			// In practice, our historical approximation is overly optimistic. Scaling down ~18%
+			// appears to best equalize the success and failure log-loss on real data.
+			Some(cumulative_success_prob_times_billion)// * 53 / 64)
 		}
 	}
 }
