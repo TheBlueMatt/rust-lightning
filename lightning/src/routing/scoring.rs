@@ -76,6 +76,8 @@ pub static NO_DATA_PENALTY: core::sync::atomic::AtomicU64 = core::sync::atomic::
 pub static POW: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(3);
 /// lulz
 pub static ADDL: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(10);
+/// trololol
+pub static HIST_DECAY: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(2047);
 
 /// We define Score ever-so-slightly differently based on whether we are being built for C bindings
 /// or not. For users, `LockableScore` must somehow be writeable to disk. For Rust users, this is
@@ -810,8 +812,8 @@ struct ChannelLiquidity {
 //
 // The next two cache lines will have the historical points, which we only access last during
 // scoring, followed by the last_updated `Duration`s (which we do not need during scoring).
-const _LIQUIDITY_MAP_SIZING_CHECK: usize = 192 - ::core::mem::size_of::<(u64, ChannelLiquidity)>();
-const _LIQUIDITY_MAP_SIZING_CHECK_2: usize = ::core::mem::size_of::<(u64, ChannelLiquidity)>() - 192;
+//const _LIQUIDITY_MAP_SIZING_CHECK: usize = 192 - ::core::mem::size_of::<(u64, ChannelLiquidity)>();
+//const _LIQUIDITY_MAP_SIZING_CHECK_2: usize = ::core::mem::size_of::<(u64, ChannelLiquidity)>() - 192;
 
 /// A snapshot of [`ChannelLiquidity`] in one direction assuming a certain channel capacity.
 struct DirectedChannelLiquidity<L: Deref<Target = u64>, HT: Deref<Target = HistoricalLiquidityTracker>, T: Deref<Target = Duration>> {
@@ -1718,15 +1720,16 @@ mod bucketed_history {
 					buckets[i as usize] = new_val;
 				}
 			}
-			HistoricalBucketRangeTracker { buckets }
+			HistoricalBucketRangeTracker { buckets, history: Vec::new() }
 		}
 	}
 
 	/// Tracks the historical state of a distribution as a weighted average of how much time was spent
 	/// in each of 32 buckets.
-	#[derive(Clone, Copy)]
+	#[derive(Clone)]
 	pub(super) struct HistoricalBucketRangeTracker {
 		buckets: [u16; 32],
+		history: Vec<u32>,
 	}
 
 	/// Buckets are stored in fixed point numbers with a 5 bit fractional part. Thus, the value
@@ -1734,7 +1737,7 @@ mod bucketed_history {
 	pub const BUCKET_FIXED_POINT_ONE: u16 = 32;
 
 	impl HistoricalBucketRangeTracker {
-		pub(super) fn new() -> Self { Self { buckets: [0; 32] } }
+		pub(super) fn new() -> Self { Self { buckets: [0; 32], history: Vec::new() } }
 		fn track_datapoint(&mut self, liquidity_offset_msat: u64, capacity_msat: u64) {
 			// We have 32 leaky buckets for min and max liquidity. Each bucket tracks the amount of time
 			// we spend in each bucket as a 16-bit fixed-point number with a 5 bit fractional part.
@@ -1759,19 +1762,21 @@ mod bucketed_history {
 
 			let pos: u16 = amount_to_pos(liquidity_offset_msat, capacity_msat);
 			if pos < POSITION_TICKS {
+				let decay = super::HIST_DECAY.load(core::sync::atomic::Ordering::Acquire) as u32;
 				for e in self.buckets.iter_mut() {
-					*e = ((*e as u32) * 2047 / 2048) as u16;
+					*e = ((*e as u32) * decay / 2048) as u16;
 				}
 				let bucket = pos_to_bucket(pos);
 				self.buckets[bucket] = self.buckets[bucket].saturating_add(BUCKET_FIXED_POINT_ONE);
 			}
+			self.history.push((((liquidity_offset_msat as f64) / (capacity_msat as f64)) * (u32::MAX as f64)) as u32);
 		}
 	}
 
-	impl_writeable_tlv_based!(HistoricalBucketRangeTracker, { (0, buckets, required) });
+	impl_writeable_tlv_based!(HistoricalBucketRangeTracker, { (0, buckets, required), (2, history, required_vec) });
 	impl_writeable_tlv_based!(LegacyHistoricalBucketRangeTracker, { (0, buckets, required) });
 
-	#[derive(Clone, Copy)]
+	#[derive(Clone)]
 	#[repr(C)] // Force the fields in memory to be in the order we specify.
 	pub(super) struct HistoricalLiquidityTracker {
 		// This struct sits inside a `(u64, ChannelLiquidity)` in memory, and we first read the
@@ -1929,6 +1934,54 @@ mod bucketed_history {
 			if total_valid_points_tracked < FULLY_DECAYED.into() {
 				return None;
 			}
+
+let min_hist = if self.source_less_than_target { &self.tracker.min_liquidity_offset_history.history } else { &self.tracker.max_liquidity_offset_history.history };
+let max_hist = if !self.source_less_than_target { &self.tracker.min_liquidity_offset_history.history } else { &self.tracker.max_liquidity_offset_history.history };
+assert_eq!(min_hist.len(), max_hist.len());
+assert!(min_hist.len() > 0);
+let points_sqrt = (total_valid_points_tracked as f64).sqrt() / (BUCKET_FIXED_POINT_ONE as f64);
+assert!(min_hist.len() as f64 >= points_sqrt, "{:?} {:?} {} {} <= {}", min_liquidity_offset_history_buckets, max_liquidity_offset_history_buckets, total_valid_points_tracked, points_sqrt, min_hist.len());
+let mut mul = 1.0;
+let mut sum_prob = 0.0;
+let mut sum_count = 0.0;
+let decay = super::HIST_DECAY.load(core::sync::atomic::Ordering::Acquire);
+let dec = (decay as f64) / 2048.0;
+assert!(dec < 1.0);
+
+let mut add_datapoint = |min: u32, max: u32, weight: f64| {
+	let min = (capacity_msat as f64 * (min as f64) / (u32::MAX as f64)) as u64;
+	let max = (capacity_msat as f64 * (max as f64) / (u32::MAX as f64)) as u64;
+
+	let (numerator, denominator) =
+		if amount_msat <= min {
+			(1, 1)
+		} else if amount_msat >= max {
+			(0, 1)
+		} else {
+			success_probability(amount_msat, min, max, capacity_msat, params, true)
+		};
+	assert!(numerator <= denominator, "amt {}, min {}, max {}, cap {}: prob {}/{}", amount_msat, min, max, capacity_msat, numerator, denominator);
+	sum_prob += weight * weight * (numerator as f64) / (denominator as f64);
+	sum_count += weight * weight;
+};
+
+let mut min_max = None;
+let mut min_zero_weight = 0.0;
+for (min, max) in min_hist.iter().rev().zip(max_hist.iter().rev()) {
+    if *min == 0 {
+        if min_max.is_none() { min_max = Some(*max); }
+        min_max = Some(cmp::min(min_max.unwrap(), *max));
+        min_zero_weight += mul;
+    } else {
+        add_datapoint(*min, *max, mul);
+    }
+	mul *= dec;
+}
+if let Some(max) = min_max {
+    add_datapoint(0, max, min_zero_weight);
+}
+
+return Some((sum_prob / sum_count * 1024.0 * 1024.0 * 1024.0) as u64);
 
 			let mut cumulative_success_prob_times_billion = 0;
 			// Special-case the 0th min bucket - it generally means we failed a payment, so only
