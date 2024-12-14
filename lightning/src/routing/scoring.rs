@@ -78,6 +78,8 @@ pub static POW: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new
 pub static ADDL: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(10);
 /// trololol
 pub static HIST_DECAY: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(2047);
+/// loltastic
+pub static REWEIGHT_POINTS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(unsafe { core::mem::transmute(1.0f64) });
 
 /// We define Score ever-so-slightly differently based on whether we are being built for C bindings
 /// or not. For users, `LockableScore` must somehow be writeable to disk. For Rust users, this is
@@ -1981,9 +1983,13 @@ if let Some(max) = min_max {
     add_datapoint(0, max, min_zero_weight);
 }
 
-return Some((sum_prob / sum_count * 1024.0 * 1024.0 * 1024.0) as u64);
+//return Some((sum_prob / sum_count * 1024.0 * 1024.0 * 1024.0) as u64);
 
 			let mut cumulative_success_prob_times_billion = 0;
+let mut total_prob_norm = 0.0;
+let mut total_count_norm = 0.0;
+let mut sum_pts_chk = 0;
+let reweight_points: f64 = unsafe { core::mem::transmute(super::REWEIGHT_POINTS.load(core::sync::atomic::Ordering::Acquire)) };
 			// Special-case the 0th min bucket - it generally means we failed a payment, so only
 			// consider the highest (i.e. largest-offset-from-max-capacity) max bucket for all
 			// points against the 0th min bucket. This avoids the case where we fail to route
@@ -2013,10 +2019,16 @@ return Some((sum_prob / sum_count * 1024.0 * 1024.0 * 1024.0) as u64);
 				// have points elsewhere.
 				let selected_max = highest_max_bucket_with_full_points.unwrap_or(highest_max_bucket_with_points);
 				let max_bucket_end_pos = BUCKET_START_POS[32 - selected_max] - 1;
+
+let prob_norm = (((min_liquidity_offset_history_buckets[0] as u64) * total_max_points) as f64).sqrt().powf(reweight_points);
+total_count_norm += prob_norm;
+sum_pts_chk += (min_liquidity_offset_history_buckets[0] as u64) * total_max_points;
+
 				if payment_pos < max_bucket_end_pos {
 					let (numerator, denominator) = success_probability(payment_pos as u64, 0,
 						max_bucket_end_pos as u64, POSITION_TICKS as u64 - 1, params, true);
-					let bucket_prob_times_billion =
+total_prob_norm += prob_norm * (numerator as f64) / (denominator as f64);
+				let bucket_prob_times_billion =
 						(min_liquidity_offset_history_buckets[0] as u64) * total_max_points
 							* 1024 * 1024 * 1024 / total_valid_points_tracked;
 					cumulative_success_prob_times_billion += bucket_prob_times_billion *
@@ -2032,24 +2044,30 @@ return Some((sum_prob / sum_count * 1024.0 * 1024.0 * 1024.0) as u64);
 					// 30 bits is 62 bits.
 					let bucket_prob_times_billion = (*min_bucket as u64) * (*max_bucket as u64)
 						* 1024 * 1024 * 1024 / total_valid_points_tracked;
+
+sum_pts_chk += (*min_bucket as u64) * (*max_bucket as u64);
+let prob_norm = (((*min_bucket as u64) * (*max_bucket as u64)) as f64).sqrt().powf(reweight_points);
+total_count_norm += prob_norm;
 					if payment_pos >= max_bucket_end_pos {
 						// Success probability 0, the payment amount may be above the max liquidity
-						break;
+						continue;
 					} else if payment_pos < min_bucket_start_pos {
 						cumulative_success_prob_times_billion += bucket_prob_times_billion;
+total_prob_norm += prob_norm;
 					} else {
 						let (numerator, denominator) = success_probability(payment_pos as u64,
 							min_bucket_start_pos as u64, max_bucket_end_pos as u64,
 							POSITION_TICKS as u64 - 1, params, true);
+total_prob_norm += prob_norm * (numerator as f64) / (denominator as f64);
 						cumulative_success_prob_times_billion += bucket_prob_times_billion *
 							numerator / denominator;
 					}
 				}
 			}
+assert_eq!(sum_pts_chk, total_valid_points_tracked, "{:?} {:?}", min_liquidity_offset_history_buckets, max_liquidity_offset_history_buckets);
 
-			// In practice, our historical approximation is overly optimistic. Scaling down ~18%
-			// appears to best equalize the success and failure log-loss on real data.
-			Some(cumulative_success_prob_times_billion)// * 53 / 64)
+Some((total_prob_norm / total_count_norm * (1024.0 * 1024.0 * 1024.0)) as u64)
+			//Some(cumulative_success_prob_times_billion)// * 53 / 64)
 		}
 	}
 }
