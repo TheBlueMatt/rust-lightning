@@ -1237,6 +1237,7 @@ let addl = ADDL.load(core::sync::atomic::Ordering::Acquire);
 			let denominator = 1024 * 1024 * 1024;
 			debug_assert!(numerator <= 1 << 30, "Got large numerator ({}) from float {} addl {}.", numerator, num, addl);
 			debug_assert!(denominator <= 1 << 30, "Got large denominator ({}) from float {}, addl {}.", denominator, den, addl);
+			assert!(numerator <= denominator, "max {}, max-p {}. amt {}, amt-p {}. min {}, min-p {}. {}/{} => {}/{}", max, max_pow, amount, amt_pow, min, min_pow, num, den, numerator, denominator);
 			(numerator, denominator)
 		};
 

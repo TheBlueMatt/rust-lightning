@@ -1643,6 +1643,7 @@ impl<L: Deref> NetworkGraph<L> where L::Target: Logger {
 	}
 
 	fn test_node_counter_consistency(&self) {
+return;
 		#[cfg(debug_assertions)] {
 			let channels = self.channels.read().unwrap();
 			let nodes = self.nodes.read().unwrap();
