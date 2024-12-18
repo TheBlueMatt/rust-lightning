@@ -75,7 +75,7 @@ pub static NO_DATA_PENALTY: core::sync::atomic::AtomicU64 = core::sync::atomic::
 /// lolz
 pub static POW: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(3);
 /// lulz
-pub static ADDL: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(10);
+pub static ADDL: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(unsafe { core::mem::transmute(0.0f64) });
 /// trololol
 pub static HIST_DECAY: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(2047);
 /// loltastic
@@ -1198,7 +1198,7 @@ let pow = POW.load(core::sync::atomic::Ordering::Acquire);
 			(max_liquidity_msat - amount_msat,
 				(max_liquidity_msat - min_liquidity_msat).saturating_add(1))
 		} else {
-let addl = ADDL.load(core::sync::atomic::Ordering::Acquire);
+let addl: f64 = unsafe { core::mem::transmute(ADDL.load(core::sync::atomic::Ordering::Acquire)) };
 			let capacity = capacity_msat as f64;
 			let min = (min_liquidity_msat as f64) / capacity;
 			let max = (max_liquidity_msat as f64) / capacity;
@@ -1215,14 +1215,14 @@ let addl = ADDL.load(core::sync::atomic::Ordering::Acquire);
 			// that we don't bother to normalize the CDF to total to 1, as it will come out in the
 			// division of num / den.
 			let (max_pow, amt_pow, min_pow) = three_f64_pow_5(max - 0.5, amount - 0.5, min - 0.5);
-            let (num, den) = if addl == 0 {
+            let (num, den) = if addl == 0.0 {
                 let num = max_pow - amt_pow;
                 let den = max_pow - min_pow;
                 (num, den)
             } else {
-                let max_v = max_pow + (addl as f64) / 100.0 * (max - 0.5);
-                let amt_v = amt_pow + (addl as f64) / 100.0 * (amount - 0.5);
-                let min_v = min_pow + (addl as f64) / 100.0 * (min - 0.5);
+                let max_v = max_pow + addl / 100.0 * (max - 0.5);
+                let amt_v = amt_pow + addl / 100.0 * (amount - 0.5);
+                let min_v = min_pow + addl / 100.0 * (min - 0.5);
                 let num = max_v - amt_v;
                 let den = max_v - min_v;
                 (num, den)
