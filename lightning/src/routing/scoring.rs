@@ -2003,6 +2003,7 @@ let reweight_points: f64 = unsafe { core::mem::transmute(super::REWEIGHT_POINTS.
 				let mut highest_max_bucket_with_points = 0;
 				let mut highest_max_bucket_with_full_points = None;
 				let mut total_max_points = 0; // Total points in max-buckets to consider
+				let mut prob_norm = 0.0;
 				for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate() {
 					if *max_bucket >= BUCKET_FIXED_POINT_ONE {
 						highest_max_bucket_with_full_points = Some(cmp::max(highest_max_bucket_with_full_points.unwrap_or(0), max_idx));
@@ -2010,6 +2011,9 @@ let reweight_points: f64 = unsafe { core::mem::transmute(super::REWEIGHT_POINTS.
 					if *max_bucket != 0 {
 						highest_max_bucket_with_points = cmp::max(highest_max_bucket_with_points, max_idx);
 					}
+					let this_mul = ((*max_bucket as u64) * (min_liquidity_offset_history_buckets[0] as u64));
+					let this_weight = (this_mul as f64).sqrt().powf(reweight_points);
+					prob_norm += this_weight;
 					total_max_points += *max_bucket as u64;
 				}
 				// Use the highest max-bucket with at least BUCKET_FIXED_POINT_ONE, but if none is
@@ -2020,7 +2024,6 @@ let reweight_points: f64 = unsafe { core::mem::transmute(super::REWEIGHT_POINTS.
 				let selected_max = highest_max_bucket_with_full_points.unwrap_or(highest_max_bucket_with_points);
 				let max_bucket_end_pos = BUCKET_START_POS[32 - selected_max] - 1;
 
-let prob_norm = (((min_liquidity_offset_history_buckets[0] as u64) * total_max_points) as f64).sqrt().powf(reweight_points);
 total_count_norm += prob_norm;
 sum_pts_chk += (min_liquidity_offset_history_buckets[0] as u64) * total_max_points;
 
