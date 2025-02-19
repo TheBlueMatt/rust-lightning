@@ -58,7 +58,6 @@ use crate::routing::log_approx;
 use crate::util::ser::{Readable, ReadableArgs, Writeable, Writer};
 use crate::util::logger::Logger;
 use crate::prelude::*;
-use crate::prelude::hash_map::Entry;
 use core::{cmp, fmt, mem};
 use core::ops::{Deref, DerefMut};
 use core::time::Duration;
@@ -480,22 +479,66 @@ where L::Target: Logger {
 	/// decayed every liquidity bound up to that time.
 	last_duration_since_epoch: Duration,
 }
+
+#[derive(Clone)]
+#[repr(C, align(256))]
+struct IndexedChannelLiquidity {
+	scid: u64,
+	liq: ChannelLiquidity,
+}
+impl PartialEq for IndexedChannelLiquidity {
+	#[inline(always)]
+	fn eq(&self, o: &IndexedChannelLiquidity) -> bool {
+		self.scid == o.scid
+	}
+}
+impl Eq for IndexedChannelLiquidity {}
+impl ::core::hash::Hash for IndexedChannelLiquidity {
+	#[inline(always)]
+	fn hash<H: ::core::hash::Hasher>(&self, state: &mut H) {
+		self.scid.hash(state)
+	}
+}
+impl ::hashbrown::Equivalent<IndexedChannelLiquidity> for u64 {
+	#[inline(always)]
+	fn equivalent(&self, key: &IndexedChannelLiquidity) -> bool {
+		*self == key.scid
+	}
+}
+
+impl Readable for IndexedChannelLiquidity {
+	fn read<R: Read>(reader: &mut R) -> Result<Self, DecodeError> {
+		Ok(Self {
+			scid: Readable::read(reader)?,
+			liq: Readable::read(reader)?,
+		})
+	}
+}
+
+impl Writeable for IndexedChannelLiquidity {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), io::Error> {
+		self.scid.write(writer)?;
+		self.liq.write(writer)
+	}
+}
+
 /// Container for live and historical liquidity bounds for each channel.
 #[derive(Clone)]
-pub struct ChannelLiquidities(HashMap<u64, ChannelLiquidity>);
+pub struct ChannelLiquidities(HashSet<IndexedChannelLiquidity>);
 
 impl ChannelLiquidities {
 	fn new() -> Self {
-		Self(new_hash_map())
+		Self(new_hash_set())
 	}
 
 	fn time_passed(&mut self, duration_since_epoch: Duration, decay_params: ProbabilisticScoringDecayParameters) {
-		self.0.retain(|_scid, liquidity| {
-			liquidity.min_liquidity_offset_msat =
-				liquidity.decayed_offset(liquidity.min_liquidity_offset_msat, duration_since_epoch, decay_params);
-			liquidity.max_liquidity_offset_msat =
-				liquidity.decayed_offset(liquidity.max_liquidity_offset_msat, duration_since_epoch, decay_params);
-			liquidity.last_updated = duration_since_epoch;
+		/*let entries_to_remove = Vec::new();
+		for liquidity in self.0.iter() {
+			liquidity.liq.min_liquidity_offset_msat =
+				liquidity.liq.decayed_offset(liquidity.liq.min_liquidity_offset_msat, duration_since_epoch, decay_params);
+			liquidity.liq.max_liquidity_offset_msat =
+				liquidity.liq.decayed_offset(liquidity.liq.max_liquidity_offset_msat, duration_since_epoch, decay_params);
+			liquidity.liq.last_updated = duration_since_epoch;
 
 			// Only decay the historical buckets if there hasn't been new data for a while. This ties back to our
 			// earlier conclusion that fixed half-lives for scoring data are inherently flawed—they tend to be either
@@ -505,33 +548,36 @@ impl ChannelLiquidities {
 			// runs very slowly and only activates when no new data has been received for a while, as our preference is
 			// to decay based on incoming data.
 			let elapsed_time =
-				duration_since_epoch.saturating_sub(liquidity.offset_history_last_updated);
+				duration_since_epoch.saturating_sub(liquidity.liq.offset_history_last_updated);
 			if elapsed_time > decay_params.historical_no_updates_half_life {
 				let half_life = decay_params.historical_no_updates_half_life.as_secs_f64();
 				if half_life != 0.0 {
-					liquidity.liquidity_history.decay_buckets(elapsed_time.as_secs_f64() / half_life);
-					liquidity.offset_history_last_updated = duration_since_epoch;
+					liquidity.liq.liquidity_history.decay_buckets(elapsed_time.as_secs_f64() / half_life);
+					liquidity.liq.offset_history_last_updated = duration_since_epoch;
 				}
 			}
-			liquidity.min_liquidity_offset_msat != 0 || liquidity.max_liquidity_offset_msat != 0 ||
-				liquidity.liquidity_history.has_datapoints()
-		});
+			let remove = liquidity.liq.min_liquidity_offset_msat == 0
+				&& liquidity.liq.max_liquidity_offset_msat == 0
+				&& !liquidity.liq.liquidity_history.has_datapoints();
+			if remove {
+				entries_to_remove.push(liquidity.scid);
+			}
+		}
+		for scid in entries_to_remove {
+			self.0.remove(&scid);
+		}*/
 	}
 
 	fn get(&self, short_channel_id: &u64) -> Option<&ChannelLiquidity> {
-		self.0.get(short_channel_id)
+		self.0.get(short_channel_id).map(|val| &val.liq)
 	}
 
-	fn insert(&mut self, short_channel_id: u64, liquidity: ChannelLiquidity) -> Option<ChannelLiquidity> {
-		self.0.insert(short_channel_id, liquidity)
+	fn insert(&mut self, scid: u64, liq: ChannelLiquidity) {
+		self.0.insert(IndexedChannelLiquidity { scid, liq });
 	}
 
 	fn iter(&self) -> impl Iterator<Item = (&u64, &ChannelLiquidity)> {
-		self.0.iter()
-	}
-
-	fn entry(&mut self, short_channel_id: u64) -> Entry<u64, ChannelLiquidity, RandomState> {
-		self.0.entry(short_channel_id)
+		self.0.iter().map(|entry| (&entry.scid, &entry.liq))
 	}
 
 	#[cfg(test)]
@@ -543,7 +589,7 @@ impl ChannelLiquidities {
 impl Readable for ChannelLiquidities {
 	#[inline]
 	fn read<R: Read>(r: &mut R) -> Result<Self, DecodeError> {
-		let mut channel_liquidities = new_hash_map();
+		let mut channel_liquidities = new_hash_set();
 		read_tlv_fields!(r, {
 			(0, channel_liquidities, required),
 		});
@@ -1695,6 +1741,11 @@ impl<G: Deref<Target = NetworkGraph<L>>, L: Deref> ScoreLookUp for Probabilistic
 		self.channel_liquidities
 			.get(scid)
 			.unwrap_or(&ChannelLiquidity::new(Duration::ZERO))
+		// Prefetch 160 bytes into the liquidity struct (which is the second cache line on 128-byte
+		// cache line machines like Apple M* or the second cace line pair on x86, where neighboring
+		// cache lines are often fetched together).
+		//prefetch(&liq.last_updated);
+		//liq
 			.as_directed(&source, &target, capacity_msat)
 			.penalty_msat(usage.amount_msat, usage.inflight_htlc_msat, time, score_params)
 			.saturating_add(anti_probing_penalty_msat)
@@ -1721,21 +1772,25 @@ impl<G: Deref<Target = NetworkGraph<L>>, L: Deref> ScoreUpdate for Probabilistic
 			// Only score announced channels.
 			if let Some((channel, source)) = channel_directed_from_source {
 				let capacity_msat = channel.effective_capacity().as_msat();
+				/*let empty_val = |_| IndexedChannelLiquidity {
+					scid: hop.short_channel_id,
+					liq: ChannelLiquidity::new(duration_since_epoch),
+				};
 				if at_failed_channel {
-					self.channel_liquidities
-						.entry(hop.short_channel_id)
-						.or_insert_with(|| ChannelLiquidity::new(duration_since_epoch))
+					self.channel_liquidities.0
+						.get_or_insert_with(&hop.short_channel_id, empty_val)
+						.liq
 						.as_directed_mut(source, &target, capacity_msat)
 						.failed_at_channel(amount_msat, duration_since_epoch,
 							format_args!("SCID {}, towards {:?}", hop.short_channel_id, target), &self.logger);
 				} else {
-					self.channel_liquidities
-						.entry(hop.short_channel_id)
-						.or_insert_with(|| ChannelLiquidity::new(duration_since_epoch))
+					self.channel_liquidities.0
+						.get_or_insert_with(&hop.short_channel_id, empty_val)
+						.liq
 						.as_directed_mut(source, &target, capacity_msat)
 						.failed_downstream(amount_msat, duration_since_epoch,
 							format_args!("SCID {}, towards {:?}", hop.short_channel_id, target), &self.logger);
-				}
+				}*/
 			} else {
 				log_debug!(self.logger, "Not able to penalize channel with SCID {} as we do not have graph info for it (likely a route-hint last-hop).",
 					hop.short_channel_id);
@@ -1759,12 +1814,16 @@ impl<G: Deref<Target = NetworkGraph<L>>, L: Deref> ScoreUpdate for Probabilistic
 			// Only score announced channels.
 			if let Some((channel, source)) = channel_directed_from_source {
 				let capacity_msat = channel.effective_capacity().as_msat();
-				self.channel_liquidities
-					.entry(hop.short_channel_id)
-					.or_insert_with(|| ChannelLiquidity::new(duration_since_epoch))
+				/*let empty_val = |_| IndexedChannelLiquidity {
+					scid: hop.short_channel_id,
+					liq: ChannelLiquidity::new(duration_since_epoch),
+				};
+				self.channel_liquidities.0
+					.get_or_insert_with(&hop.short_channel_id, empty_val)
+					.liq
 					.as_directed_mut(source, &target, capacity_msat)
 					.successful(amount_msat, duration_since_epoch,
-						format_args!("SCID {}, towards {:?}", hop.short_channel_id, target), &self.logger);
+						format_args!("SCID {}, towards {:?}", hop.short_channel_id, target), &self.logger);*/
 			} else {
 				log_debug!(self.logger, "Not able to learn for channel with SCID {} as we do not have graph info for it (likely a route-hint last-hop).",
 					hop.short_channel_id);
@@ -1828,11 +1887,11 @@ impl<G: Deref<Target = NetworkGraph<L>> + Clone, L: Deref + Clone> CombinedScore
 		let local_scores = &self.local_only_scorer.channel_liquidities;
 
 		// For each channel, merge the external liquidity information with the isolated local liquidity information.
-		for (scid, mut liquidity) in external_scores.0 {
-			if let Some(local_liquidity) = local_scores.get(&scid) {
-				liquidity.merge(local_liquidity);
+		for mut liquidity in external_scores.0 {
+			if let Some(local_liquidity) = local_scores.get(&liquidity.scid) {
+				liquidity.liq.merge(local_liquidity);
 			}
-			self.scorer.channel_liquidities.insert(scid, liquidity);
+			self.scorer.channel_liquidities.insert(liquidity.scid, liquidity.liq);
 		}
 	}
 
@@ -2441,8 +2500,8 @@ ReadableArgs<(ProbabilisticScoringDecayParameters, G, L)> for ProbabilisticScore
 		let (decay_params, network_graph, logger) = args;
 		let channel_liquidities = ChannelLiquidities::read(r)?;
 		let mut last_duration_since_epoch = Duration::from_secs(0);
-		for (_, liq) in channel_liquidities.0.iter() {
-			last_duration_since_epoch = cmp::max(last_duration_since_epoch, liq.last_updated);
+		for liq in channel_liquidities.0.iter() {
+			last_duration_since_epoch = cmp::max(last_duration_since_epoch, liq.liq.last_updated);
 		}
 		Ok(Self {
 			decay_params,
