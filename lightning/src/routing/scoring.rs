@@ -1270,6 +1270,22 @@ impl ChannelLiquidity {
 		}
 	}
 
+	#[inline(always)]
+	fn prefetch(&self) -> &Self {
+		// Prefetch 160 bytes into the liquidity struct (which is the second cache line on 128-byte
+		// cache line machines like Apple M* or the second cace line pair on x86, where neighboring
+		// cache lines are often fetched together).
+		let ptr = (&self.last_updated as *const Duration) as *const i8;
+		#[cfg(target_arch = "x86_64")] unsafe {
+			core::arch::x86_64::_mm_prefetch(ptr, core::arch::x86_64::_MM_HINT_T0);
+		}
+		#[cfg(target_arch = "aarch64")] unsafe {
+			core::arch::aarch64::_prefetch(ptr, core::arch::aarch64::_PREFETCH_READ, core::arch::aarch64::_PREFETCH_LOCALITY3);
+		}
+
+		self
+	}
+
 	fn merge(&mut self, other: &Self) {
 		// Take average for min/max liquidity offsets.
 		self.min_liquidity_offset_msat = (self.min_liquidity_offset_msat + other.min_liquidity_offset_msat) / 2;
@@ -1741,11 +1757,7 @@ impl<G: Deref<Target = NetworkGraph<L>>, L: Deref> ScoreLookUp for Probabilistic
 		self.channel_liquidities
 			.get(scid)
 			.unwrap_or(&ChannelLiquidity::new(Duration::ZERO))
-		// Prefetch 160 bytes into the liquidity struct (which is the second cache line on 128-byte
-		// cache line machines like Apple M* or the second cace line pair on x86, where neighboring
-		// cache lines are often fetched together).
-		//prefetch(&liq.last_updated);
-		//liq
+			.prefetch()
 			.as_directed(&source, &target, capacity_msat)
 			.penalty_msat(usage.amount_msat, usage.inflight_htlc_msat, time, score_params)
 			.saturating_add(anti_probing_penalty_msat)
