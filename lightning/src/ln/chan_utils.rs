@@ -747,8 +747,14 @@ pub fn build_htlc_transaction(commitment_txid: &Txid, feerate_per_kw: u32, conte
 		broadcaster_delayed_payment_key, revocation_key
 	));
 
+	let version = if channel_type_features.supports_anchor_zero_fee_commitments() {
+		Version(3)
+	} else {
+		Version(2)
+	};
+
 	Transaction {
-		version: Version::TWO,
+		version,
 		lock_time: LockTime::from_consensus(if htlc.offered { htlc.cltv_expiry } else { 0 }),
 		input: txins,
 		output: txouts,
@@ -756,13 +762,20 @@ pub fn build_htlc_transaction(commitment_txid: &Txid, feerate_per_kw: u32, conte
 }
 
 pub(crate) fn build_htlc_input(commitment_txid: &Txid, htlc: &HTLCOutputInCommitment, channel_type_features: &ChannelTypeFeatures) -> TxIn {
+	let sequence = if channel_type_features.supports_anchor_zero_fee_commitments() {
+		Sequence(0xFFFFFFFD)
+	} else if channel_type_features.supports_anchors_zero_fee_htlc_tx() {
+		Sequence(1)
+	} else {
+		Sequence(0)
+	};
 	TxIn {
 		previous_output: OutPoint {
 			txid: commitment_txid.clone(),
 			vout: htlc.transaction_output_index.expect("Can't build an HTLC transaction for a dust output"),
 		},
 		script_sig: ScriptBuf::new(),
-		sequence: Sequence(if channel_type_features.supports_anchors_zero_fee_htlc_tx() { 1 } else { 0 }),
+		sequence,
 		witness: Witness::new(),
 	}
 }
@@ -1531,7 +1544,7 @@ impl CommitmentTransaction {
 		let (outputs, htlcs) = Self::internal_build_outputs(&keys, to_broadcaster_value_sat, to_countersignatory_value_sat, htlcs_with_aux, channel_parameters, &broadcaster_funding_key, &countersignatory_funding_key).unwrap();
 
 		let (obscured_commitment_transaction_number, txins) = Self::internal_build_inputs(commitment_number, channel_parameters);
-		let transaction = Self::make_transaction(obscured_commitment_transaction_number, txins, outputs);
+		let transaction = Self::make_transaction(obscured_commitment_transaction_number, txins, outputs, channel_parameters);
 		let txid = transaction.compute_txid();
 		CommitmentTransaction {
 			commitment_number,
@@ -1563,7 +1576,7 @@ impl CommitmentTransaction {
 		let mut htlcs_with_aux = self.htlcs.iter().map(|h| (h.clone(), ())).collect();
 		let (outputs, _) = Self::internal_build_outputs(keys, self.to_broadcaster_value_sat, self.to_countersignatory_value_sat, &mut htlcs_with_aux, channel_parameters, broadcaster_funding_key, countersignatory_funding_key)?;
 
-		let transaction = Self::make_transaction(obscured_commitment_transaction_number, txins, outputs);
+		let transaction = Self::make_transaction(obscured_commitment_transaction_number, txins, outputs, channel_parameters);
 		let txid = transaction.compute_txid();
 		let built_transaction = BuiltCommitmentTransaction {
 			transaction,
@@ -1572,9 +1585,15 @@ impl CommitmentTransaction {
 		Ok(built_transaction)
 	}
 
-	fn make_transaction(obscured_commitment_transaction_number: u64, txins: Vec<TxIn>, outputs: Vec<TxOut>) -> Transaction {
+	fn make_transaction(obscured_commitment_transaction_number: u64, txins: Vec<TxIn>, outputs: Vec<TxOut>, channel_parameters: &DirectedChannelTransactionParameters) -> Transaction {
+		let channel_type = &channel_parameters.inner.channel_type_features;
+		let version = if channel_type.supports_anchor_zero_fee_commitments() {
+			Version(3)
+		} else {
+			Version(2)
+		};
 		Transaction {
-			version: Version::TWO,
+			version,
 			lock_time: LockTime::from_consensus(((0x20 as u32) << 8 * 3) | ((obscured_commitment_transaction_number & 0xffffffu64) as u32)),
 			input: txins,
 			output: outputs,
@@ -1653,6 +1672,22 @@ impl CommitmentTransaction {
 				value: htlc.to_bitcoin_amount(),
 			};
 			txouts.push((txout, Some(htlc)));
+		}
+
+		if channel_parameters.channel_type_features().supports_anchor_zero_fee_commitments() {
+			let value_in_outputs = txouts.iter().map(|(txout, _)| txout.value.to_sat()).sum();
+			let funding_value = 1000000u64; // XXX: need this passed in via ChannelTransactionParameters
+			let total_dust = funding_value.saturating_sub(value_in_outputs);
+			const MAX_ANCHOR_VALUE: u64 = 42; // XXX the dust threshold
+			let script_pubkey = shared_anchor_script_pubkey();
+			debug_assert!(MAX_ANCHOR_VALUE >= script_pubkey.minimal_non_dust().to_sat());
+			txouts.push((
+				TxOut {
+					script_pubkey,
+					value: Amount::from_sat(cmp::min(MAX_ANCHOR_VALUE, total_dust)),
+				},
+				None,
+			));
 		}
 
 		// Sort output in BIP-69 order (amount, scriptPubkey).  Tie-breaks based on HTLC
@@ -1924,8 +1959,13 @@ impl<'a> TrustedCommitmentTransaction<'a> {
 			script_pubkey: destination_script,
 			value,
 		}];
+		let version = if self.channel_type_features.supports_anchor_zero_fee_commitments() {
+			Version(3)
+		} else {
+			Version(2)
+		};
 		let mut justice_tx = Transaction {
-			version: Version::TWO,
+			version,
 			lock_time: LockTime::ZERO,
 			input,
 			output,
