@@ -2773,12 +2773,18 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider {
 		debug_assert!(!channel_type.supports_any_optional_bits());
 		debug_assert!(!channel_type.requires_unknown_bits_from(&channelmanager::provided_channel_type_features(&config)));
 
-		let (commitment_conf_target, anchor_outputs_value_msat)  = if channel_type.supports_anchors_zero_fee_htlc_tx() {
-			(ConfirmationTarget::AnchorChannelFee, ANCHOR_OUTPUT_VALUE_SATOSHI * 2 * 1000)
-		} else {
-			(ConfirmationTarget::NonAnchorChannelFee, 0)
-		};
-		let commitment_feerate = fee_estimator.bounded_sat_per_1000_weight(commitment_conf_target);
+		let (commitment_feerate, anchor_outputs_value_msat) =
+			if channel_type.supports_anchor_zero_fee_commitments() {
+				(0, 0)
+			} else if channel_type.supports_anchors_zero_fee_htlc_tx() {
+				let feerate = fee_estimator
+					.bounded_sat_per_1000_weight(ConfirmationTarget::AnchorChannelFee);
+				(feerate, ANCHOR_OUTPUT_VALUE_SATOSHI * 2 * 1000)
+			} else {
+				let feerate = fee_estimator
+					.bounded_sat_per_1000_weight(ConfirmationTarget::NonAnchorChannelFee);
+				(feerate, 0)
+			};
 
 		let value_to_self_msat = channel_value_satoshis * 1000 - push_msat;
 		let commitment_tx_fee = commit_tx_fee_sat(commitment_feerate, MIN_AFFORDABLE_HTLC_COUNT, &channel_type) * 1000;
@@ -3356,7 +3362,15 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider {
 	fn get_dust_exposure_limiting_feerate<F: Deref>(&self,
 		fee_estimator: &LowerBoundedFeeEstimator<F>,
 	) -> u32 where F::Target: FeeEstimator {
-		fee_estimator.bounded_sat_per_1000_weight(ConfirmationTarget::MaximumFeeEstimate)
+		if self.channel_type.supports_anchor_zero_fee_commitments() {
+			// We never actually deal with feerate-correlated dust for zero-fee commitment
+			// channels, but we can of course still have dust HTLCs which we need to limit. Because
+			// our dust is no longer feerate-correlated there's no reason to consider feerate when
+			// calculating the dust limit, and thus we fix our limiting feerate to 1 sat/vB here.
+			250
+		} else {
+			fee_estimator.bounded_sat_per_1000_weight(ConfirmationTarget::MaximumFeeEstimate)
+		}
 	}
 
 	pub fn get_max_dust_htlc_exposure_msat(&self, limiting_feerate_sat_per_kw: u32) -> u64 {
@@ -6366,6 +6380,10 @@ impl<SP: Deref> FundedChannel<SP> where
 		}
 		if !self.context.is_live() {
 			panic!("Cannot update fee while peer is disconnected/we're awaiting a monitor update (ChannelManager should have caught this)");
+		}
+
+		if self.context.channel_type.supports_anchor_zero_fee_commitments() {
+			return None;
 		}
 
 		// Before proposing a feerate update, check that we can actually afford the new fee.
