@@ -37,7 +37,6 @@ use crate::ln::types::ChannelId;
 use crate::types::features::ChannelTypeFeatures;
 use crate::types::payment::{PaymentHash, PaymentPreimage};
 use crate::ln::msgs::DecodeError;
-use crate::ln::channel::ANCHOR_OUTPUT_VALUE_SATOSHI;
 use crate::ln::channel_keys::{DelayedPaymentKey, DelayedPaymentBasepoint, HtlcBasepoint, HtlcKey, RevocationKey, RevocationBasepoint};
 use crate::ln::chan_utils::{self,CommitmentTransaction, CounterpartyCommitmentSecrets, HTLCOutputInCommitment, HTLCClaim, ChannelTransactionParameters, HolderCommitmentTransaction, TxCreationKeys};
 use crate::ln::channelmanager::{HTLCSource, SentHTLCId, PaymentClaimDetails};
@@ -2224,6 +2223,7 @@ impl<Signer: EcdsaChannelSigner> ChannelMonitorImpl<Signer> {
 					BitcoinOutPoint::new(*txid, htlc_input_idx_opt.unwrap_or(0))
 				} else {
 					debug_assert!(!self.onchain_tx_handler.channel_type_features().supports_anchors_zero_fee_htlc_tx());
+					debug_assert!(!self.onchain_tx_handler.channel_type_features().supports_anchor_zero_fee_commitments());
 					BitcoinOutPoint::new(*txid, 0)
 				}
 			} else {
@@ -3147,9 +3147,14 @@ impl<Signer: EcdsaChannelSigner> ChannelMonitorImpl<Signer> {
 		self.holder_tx_signed = true;
 		let mut watch_outputs = Vec::new();
 		// We can't broadcast our HTLC transactions while the commitment transaction is
-		// unconfirmed. We'll delay doing so until we detect the confirmed commitment in
+		// unconfirmed (either in the TRUC case or in the zero-HTLC-fee anchors which have 1 CSV).
+		// We'll delay doing so until we detect the confirmed commitment in
 		// `transactions_confirmed`.
-		if !self.onchain_tx_handler.channel_type_features().supports_anchors_zero_fee_htlc_tx() {
+		let zero_fee_htlcs =
+			self.onchain_tx_handler.channel_type_features().supports_anchors_zero_fee_htlc_tx();
+		let zero_fee_commitments =
+			self.onchain_tx_handler.channel_type_features().supports_anchor_zero_fee_commitments();
+		if !zero_fee_htlcs && !zero_fee_commitments {
 			// Because we're broadcasting a commitment transaction, we should construct the package
 			// assuming it gets confirmed in the next block. Sadly, we have code which considers
 			// "not yet confirmed" things as discardable, so we cannot do that here.
@@ -3164,6 +3169,7 @@ impl<Signer: EcdsaChannelSigner> ChannelMonitorImpl<Signer> {
 				watch_outputs.push((self.current_holder_commitment_tx.txid.clone(), new_outputs));
 			}
 			claimable_outpoints.append(&mut new_outpoints);
+panic!("TESTME");
 		}
 		(claimable_outpoints, watch_outputs)
 	}
@@ -3389,8 +3395,6 @@ impl<Signer: EcdsaChannelSigner> ChannelMonitorImpl<Signer> {
 						counterparty_node_id,
 						claim_id,
 						package_target_feerate_sat_per_1000_weight,
-						commitment_tx,
-						commitment_tx_fee_satoshis,
 						anchor_descriptor: AnchorDescriptor {
 							channel_derivation_parameters: ChannelDerivationParameters {
 								keys_id: self.channel_keys_id,
@@ -3401,8 +3405,10 @@ impl<Signer: EcdsaChannelSigner> ChannelMonitorImpl<Signer> {
 								txid: commitment_txid,
 								vout: anchor_output_idx,
 							},
-							value: Amount::from_sat(ANCHOR_OUTPUT_VALUE_SATOSHI),
+							value: commitment_tx.output[anchor_output_idx as usize].value,
 						},
+						commitment_tx,
+						commitment_tx_fee_satoshis,
 						pending_htlcs,
 					}));
 				},
@@ -3982,8 +3988,8 @@ impl<Signer: EcdsaChannelSigner> ChannelMonitorImpl<Signer> {
 		let commitment_tx = self.onchain_tx_handler.get_fully_signed_copy_holder_tx(&self.funding_redeemscript);
 		let txid = commitment_tx.compute_txid();
 		let mut holder_transactions = vec![commitment_tx];
-		// When anchor outputs are present, the HTLC transactions are only final once the commitment
-		// transaction confirms due to the CSV 1 encumberance.
+		// When keyed anchor outputs are present, the HTLC transactions are only final once the
+		// commitment transaction confirms due to the CSV 1 encumberance.
 		if self.onchain_tx_handler.channel_type_features().supports_anchors_zero_fee_htlc_tx() {
 			return holder_transactions;
 		}

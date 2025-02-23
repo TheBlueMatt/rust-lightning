@@ -895,15 +895,6 @@ pub fn get_keyed_anchor_redeemscript(funding_pubkey: &PublicKey) -> ScriptBuf {
 		.into_script()
 }
 
-/// Locates the output with a keyed anchor (non-zero-fee-commitments) script paying to
-/// `funding_pubkey` within `commitment_tx`.
-pub(crate) fn get_keyed_anchor_output<'a>(commitment_tx: &'a Transaction, funding_pubkey: &PublicKey) -> Option<(u32, &'a TxOut)> {
-	let anchor_script = get_keyed_anchor_redeemscript(funding_pubkey).to_p2wsh();
-	commitment_tx.output.iter().enumerate()
-		.find(|(_, txout)| txout.script_pubkey == anchor_script)
-		.map(|(idx, txout)| (idx as u32, txout))
-}
-
 /// Returns the witness required to satisfy and spend a keyed anchor (non-zero-fee-commitments)
 /// input.
 pub fn build_keyed_anchor_input_witness(funding_key: &PublicKey, funding_sig: &Signature) -> Witness {

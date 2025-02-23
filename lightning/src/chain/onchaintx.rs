@@ -26,9 +26,10 @@ use bitcoin::secp256k1;
 
 use crate::chain::chaininterface::{ConfirmationTarget, compute_feerate_sat_per_1000_weight};
 use crate::sign::{ChannelDerivationParameters, HTLCDescriptor, EntropySource, SignerProvider, ecdsa::EcdsaChannelSigner};
+use crate::ln::chan_utils::{shared_anchor_script_pubkey, get_keyed_anchor_redeemscript};
+use crate::ln::chan_utils::{ChannelTransactionParameters, HTLCOutputInCommitment, HolderCommitmentTransaction};
 use crate::ln::msgs::DecodeError;
 use crate::types::payment::PaymentPreimage;
-use crate::ln::chan_utils::{self, ChannelTransactionParameters, HTLCOutputInCommitment, HolderCommitmentTransaction};
 use crate::chain::ClaimId;
 use crate::chain::chaininterface::{FeeEstimator, BroadcasterInterface, LowerBoundedFeeEstimator};
 use crate::chain::channelmonitor::ANTI_REORG_DELAY;
@@ -665,8 +666,17 @@ impl<ChannelSigner: EcdsaChannelSigner> OnchainTxHandler<ChannelSigner> {
 					}
 
 					// We'll locate an anchor output we can spend within the commitment transaction.
-					let funding_pubkey = &self.channel_transaction_parameters.holder_pubkeys.funding_pubkey;
-					match chan_utils::get_keyed_anchor_output(&tx.0, funding_pubkey) {
+					let script_pubkey = if self.channel_type_features().supports_anchors_zero_fee_htlc_tx() {
+						let funding_pubkey = &self.channel_transaction_parameters.holder_pubkeys.funding_pubkey;
+						get_keyed_anchor_redeemscript(funding_pubkey).to_p2wsh()
+					} else {
+						debug_assert!(self.channel_type_features().supports_anchor_zero_fee_commitments());
+						shared_anchor_script_pubkey()
+					};
+					let anchor_output = tx.0.output.iter().enumerate()
+						.find(|(_, txout)| txout.script_pubkey == script_pubkey)
+						.map(|(idx, txout)| (idx as u32, txout));
+					match anchor_output {
 						// An anchor output was found, so we should yield a funding event externally.
 						Some((idx, _)) => {
 							// TODO: Use a lower confirmation target when both our and the

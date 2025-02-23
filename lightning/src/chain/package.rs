@@ -88,6 +88,7 @@ pub(crate) fn verify_channel_type_features(channel_type_features: &Option<Channe
 		let mut supported_feature_set = ChannelTypeFeatures::anchors_zero_htlc_fee_and_dependencies();
 		supported_feature_set.set_scid_privacy_required();
 		supported_feature_set.set_zero_conf_required();
+		supported_feature_set.set_anchor_zero_fee_commitments_required();
 
 		// allow the passing of an additional necessary permitted flag
 		if let Some(additional_permitted_features) = additional_permitted_features {
@@ -514,11 +515,17 @@ impl PackageSolvingData {
 			PackageSolvingData::CounterpartyOfferedHTLCOutput(ref outp) => outp.htlc.amount_msat / 1000,
 			PackageSolvingData::CounterpartyReceivedHTLCOutput(ref outp) => outp.htlc.amount_msat / 1000,
 			PackageSolvingData::HolderHTLCOutput(ref outp) => {
-				debug_assert!(outp.channel_type_features.supports_anchors_zero_fee_htlc_tx());
+				let free_htlcs = outp.channel_type_features.supports_anchors_zero_fee_htlc_tx();
+				let free_commitments =
+					outp.channel_type_features.supports_anchor_zero_fee_commitments();
+				debug_assert!(free_htlcs || free_commitments);
 				outp.amount_msat / 1000
 			},
 			PackageSolvingData::HolderFundingOutput(ref outp) => {
-				debug_assert!(outp.channel_type_features.supports_anchors_zero_fee_htlc_tx());
+				let free_htlcs = outp.channel_type_features.supports_anchors_zero_fee_htlc_tx();
+				let free_commitments =
+					outp.channel_type_features.supports_anchor_zero_fee_commitments();
+				debug_assert!(free_htlcs || free_commitments);
 				outp.funding_amount.unwrap()
 			}
 		};
@@ -531,7 +538,10 @@ impl PackageSolvingData {
 			PackageSolvingData::CounterpartyOfferedHTLCOutput(ref outp) => weight_offered_htlc(&outp.channel_type_features) as usize,
 			PackageSolvingData::CounterpartyReceivedHTLCOutput(ref outp) => weight_received_htlc(&outp.channel_type_features) as usize,
 			PackageSolvingData::HolderHTLCOutput(ref outp) => {
-				debug_assert!(outp.channel_type_features.supports_anchors_zero_fee_htlc_tx());
+				let free_htlcs = outp.channel_type_features.supports_anchors_zero_fee_htlc_tx();
+				let free_commitments =
+					outp.channel_type_features.supports_anchor_zero_fee_commitments();
+				debug_assert!(free_htlcs || free_commitments);
 				if outp.preimage.is_none() {
 					weight_offered_htlc(&outp.channel_type_features) as usize
 				} else {
@@ -713,6 +723,7 @@ impl PackageSolvingData {
 		match self {
 			PackageSolvingData::HolderHTLCOutput(ref outp) => {
 				debug_assert!(!outp.channel_type_features.supports_anchors_zero_fee_htlc_tx());
+				debug_assert!(!outp.channel_type_features.supports_anchor_zero_fee_commitments());
 				onchain_handler.get_maybe_signed_htlc_tx(outpoint, &outp.preimage)
 			}
 			PackageSolvingData::HolderFundingOutput(ref outp) => {
@@ -763,14 +774,20 @@ impl PackageSolvingData {
 				PackageMalleability::Malleable(AggregationCluster::Unpinnable),
 			PackageSolvingData::CounterpartyReceivedHTLCOutput(..) =>
 				PackageMalleability::Malleable(AggregationCluster::Pinnable),
-			PackageSolvingData::HolderHTLCOutput(ref outp) if outp.channel_type_features.supports_anchors_zero_fee_htlc_tx() => {
-				if outp.preimage.is_some() {
-					PackageMalleability::Malleable(AggregationCluster::Unpinnable)
+			PackageSolvingData::HolderHTLCOutput(ref outp) => {
+				let free_htlcs = outp.channel_type_features.supports_anchors_zero_fee_htlc_tx();
+				let free_commits = outp.channel_type_features.supports_anchor_zero_fee_commitments();
+
+				if free_htlcs || free_commits {
+					if outp.preimage.is_some() {
+						PackageMalleability::Malleable(AggregationCluster::Unpinnable)
+					} else {
+						PackageMalleability::Malleable(AggregationCluster::Pinnable)
+					}
 				} else {
-					PackageMalleability::Malleable(AggregationCluster::Pinnable)
+					PackageMalleability::Untractable
 				}
 			},
-			PackageSolvingData::HolderHTLCOutput(..) => PackageMalleability::Untractable,
 			PackageSolvingData::HolderFundingOutput(..) => PackageMalleability::Untractable,
 		}
 	}
@@ -1030,7 +1047,10 @@ impl PackageTemplate {
 		for (previous_output, input) in &self.inputs {
 			match input {
 				PackageSolvingData::HolderHTLCOutput(ref outp) => {
-					debug_assert!(outp.channel_type_features.supports_anchors_zero_fee_htlc_tx());
+					let free_htlcs = outp.channel_type_features.supports_anchors_zero_fee_htlc_tx();
+					let free_commitments =
+						outp.channel_type_features.supports_anchor_zero_fee_commitments();
+					debug_assert!(free_htlcs || free_commitments);
 					onchain_handler.generate_external_htlc_claim(&previous_output, &outp.preimage).map(|htlc| {
 						htlcs.get_or_insert_with(|| Vec::with_capacity(self.inputs.len())).push(htlc);
 					});
@@ -1219,8 +1239,14 @@ impl PackageTemplate {
 	/// attached to help the spending transaction reach confirmation.
 	pub(crate) fn requires_external_funding(&self) -> bool {
 		self.inputs.iter().find(|input| match input.1 {
-			PackageSolvingData::HolderFundingOutput(ref outp) => outp.channel_type_features.supports_anchors_zero_fee_htlc_tx(),
-			PackageSolvingData::HolderHTLCOutput(ref outp) => outp.channel_type_features.supports_anchors_zero_fee_htlc_tx(),
+			PackageSolvingData::HolderFundingOutput(ref outp) => {
+				outp.channel_type_features.supports_anchors_zero_fee_htlc_tx()
+					|| outp.channel_type_features.supports_anchor_zero_fee_commitments()
+			},
+			PackageSolvingData::HolderHTLCOutput(ref outp) => {
+				outp.channel_type_features.supports_anchors_zero_fee_htlc_tx()
+					|| outp.channel_type_features.supports_anchor_zero_fee_commitments()
+			},
 			_ => false,
 		}).is_some()
 	}
