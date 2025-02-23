@@ -17,7 +17,6 @@ use core::ops::Deref;
 use crate::chain::chaininterface::{BroadcasterInterface, fee_for_weight};
 use crate::chain::ClaimId;
 use crate::io_extras::sink;
-use crate::ln::channel::ANCHOR_OUTPUT_VALUE_SATOSHI;
 use crate::ln::types::ChannelId;
 use crate::ln::chan_utils;
 use crate::ln::chan_utils::{
@@ -56,6 +55,8 @@ pub struct AnchorDescriptor {
 	/// The transaction input's outpoint corresponding to the commitment transaction's anchor
 	/// output.
 	pub outpoint: OutPoint,
+	/// Zero-fee-commitment anchors have variable value, which is tracked here.
+	pub value: Amount,
 }
 
 impl AnchorDescriptor {
@@ -73,7 +74,7 @@ impl AnchorDescriptor {
 			};
 		TxOut {
 			script_pubkey,
-			value: Amount::from_sat(ANCHOR_OUTPUT_VALUE_SATOSHI),
+			value: self.value,
 		}
 	}
 
@@ -855,6 +856,7 @@ mod tests {
 	use super::*;
 
 	use crate::io::Cursor;
+	use crate::ln::channel::ANCHOR_OUTPUT_VALUE_SATOSHI;
 	use crate::ln::chan_utils::ChannelTransactionParameters;
 	use crate::util::ser::Readable;
 	use crate::util::test_utils::{TestBroadcaster, TestLogger};
@@ -962,6 +964,7 @@ mod tests {
 					transaction_parameters,
 				},
 				outpoint: OutPoint { txid: Txid::from_byte_array([42; 32]), vout: 0 },
+				value: Amount::from_sat(ANCHOR_OUTPUT_VALUE_SATOSHI),
 			},
 			pending_htlcs: Vec::new(),
 		});
