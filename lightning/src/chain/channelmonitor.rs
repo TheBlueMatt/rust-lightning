@@ -3618,7 +3618,7 @@ panic!("TESTME");
 			// First, process non-htlc outputs (to_holder & to_counterparty)
 			for (idx, outp) in tx.output.iter().enumerate() {
 				if outp.script_pubkey == revokeable_p2wsh {
-					let revk_outp = RevokedOutput::build(per_commitment_point, self.counterparty_commitment_params.counterparty_delayed_payment_base_key, self.counterparty_commitment_params.counterparty_htlc_base_key, per_commitment_key, outp.value, self.counterparty_commitment_params.on_counterparty_tx_csv, self.onchain_tx_handler.channel_type_features().supports_anchors_zero_fee_htlc_tx());
+					let revk_outp = RevokedOutput::build(per_commitment_point, self.counterparty_commitment_params.counterparty_delayed_payment_base_key, self.counterparty_commitment_params.counterparty_htlc_base_key, per_commitment_key, outp.value, self.counterparty_commitment_params.on_counterparty_tx_csv);
 					let justice_package = PackageTemplate::build_package(
 						commitment_txid, idx as u32,
 						PackageSolvingData::RevokedOutput(revk_outp),
@@ -3812,7 +3812,6 @@ panic!("TESTME");
 					per_commitment_point, self.counterparty_commitment_params.counterparty_delayed_payment_base_key,
 					self.counterparty_commitment_params.counterparty_htlc_base_key, per_commitment_key,
 					tx.output[idx].value, self.counterparty_commitment_params.on_counterparty_tx_csv,
-					false
 				);
 				let justice_package = PackageTemplate::build_package(
 					htlc_txid, idx as u32, PackageSolvingData::RevokedOutput(revk_outp),

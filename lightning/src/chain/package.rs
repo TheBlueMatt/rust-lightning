@@ -132,11 +132,10 @@ pub(crate) struct RevokedOutput {
 	weight: u64,
 	amount: Amount,
 	on_counterparty_tx_csv: u16,
-	is_counterparty_balance_on_anchors: Option<()>,
 }
 
 impl RevokedOutput {
-	pub(crate) fn build(per_commitment_point: PublicKey, counterparty_delayed_payment_base_key: DelayedPaymentBasepoint, counterparty_htlc_base_key: HtlcBasepoint, per_commitment_key: SecretKey, amount: Amount, on_counterparty_tx_csv: u16, is_counterparty_balance_on_anchors: bool) -> Self {
+	pub(crate) fn build(per_commitment_point: PublicKey, counterparty_delayed_payment_base_key: DelayedPaymentBasepoint, counterparty_htlc_base_key: HtlcBasepoint, per_commitment_key: SecretKey, amount: Amount, on_counterparty_tx_csv: u16) -> Self {
 		RevokedOutput {
 			per_commitment_point,
 			counterparty_delayed_payment_base_key,
@@ -145,7 +144,6 @@ impl RevokedOutput {
 			weight: WEIGHT_REVOKED_OUTPUT,
 			amount,
 			on_counterparty_tx_csv,
-			is_counterparty_balance_on_anchors: if is_counterparty_balance_on_anchors { Some(()) } else { None }
 		}
 	}
 }
@@ -158,7 +156,7 @@ impl_writeable_tlv_based!(RevokedOutput, {
 	(8, weight, required),
 	(10, amount, required),
 	(12, on_counterparty_tx_csv, required),
-	(14, is_counterparty_balance_on_anchors, option)
+	(14, is_counterparty_balance_on_anchors, (legacy, (), |_| Some(()))),
 });
 
 /// A struct to describe a revoked offered output and corresponding information to generate a
@@ -1466,12 +1464,12 @@ mod tests {
 	}
 
 	macro_rules! dumb_revk_output {
-		($is_counterparty_balance_on_anchors: expr) => {
+		() => {
 			{
 				let secp_ctx = Secp256k1::new();
 				let dumb_scalar = SecretKey::from_slice(&<Vec<u8>>::from_hex("0101010101010101010101010101010101010101010101010101010101010101").unwrap()[..]).unwrap();
 				let dumb_point = PublicKey::from_secret_key(&secp_ctx, &dumb_scalar);
-				PackageSolvingData::RevokedOutput(RevokedOutput::build(dumb_point, DelayedPaymentBasepoint::from(dumb_point), HtlcBasepoint::from(dumb_point), dumb_scalar, Amount::ZERO, 0, $is_counterparty_balance_on_anchors))
+				PackageSolvingData::RevokedOutput(RevokedOutput::build(dumb_point, DelayedPaymentBasepoint::from(dumb_point), HtlcBasepoint::from(dumb_point), dumb_scalar, Amount::ZERO, 0))
 			}
 		}
 	}
@@ -1685,9 +1683,9 @@ mod tests {
 
 	#[test]
 	fn test_package_split_malleable() {
-		let revk_outp_one = dumb_revk_output!(false);
-		let revk_outp_two = dumb_revk_output!(false);
-		let revk_outp_three = dumb_revk_output!(false);
+		let revk_outp_one = dumb_revk_output!();
+		let revk_outp_two = dumb_revk_output!();
+		let revk_outp_three = dumb_revk_output!();
 
 		let mut package_one = PackageTemplate::build_package(fake_txid(1), 0, revk_outp_one, 1100);
 		let package_two = PackageTemplate::build_package(fake_txid(1), 1, revk_outp_two, 1100);
@@ -1718,7 +1716,7 @@ mod tests {
 
 	#[test]
 	fn test_package_timer() {
-		let revk_outp = dumb_revk_output!(false);
+		let revk_outp = dumb_revk_output!();
 
 		let mut package = PackageTemplate::build_package(fake_txid(1), 0, revk_outp, 1000);
 		assert_eq!(package.timer(), 0);
@@ -1740,7 +1738,7 @@ mod tests {
 		let weight_sans_output = (4 + 4 + 1 + 36 + 4 + 1 + 1 + 8 + 1) * WITNESS_SCALE_FACTOR as u64 + 2;
 
 		{
-			let revk_outp = dumb_revk_output!(false);
+			let revk_outp = dumb_revk_output!();
 			let package = PackageTemplate::build_package(fake_txid(1), 0, revk_outp, 0);
 			assert_eq!(package.package_weight(&ScriptBuf::new()),  weight_sans_output + WEIGHT_REVOKED_OUTPUT);
 		}
