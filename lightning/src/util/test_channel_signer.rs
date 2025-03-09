@@ -372,7 +372,9 @@ impl EcdsaChannelSigner for TestChannelSigner {
 			let channel_parameters =
 				&htlc_descriptor.channel_derivation_parameters.transaction_parameters;
 			let channel_type_features = &channel_parameters.channel_type_features;
-			let sighash_type = if channel_type_features.supports_anchors_zero_fee_htlc_tx() {
+			let free_htlcs = channel_type_features.supports_anchors_zero_fee_htlc_tx();
+			let free_commits = channel_type_features.supports_anchor_zero_fee_commitments();
+			let sighash_type = if free_htlcs || free_commits {
 				EcdsaSighashType::SinglePlusAnyoneCanPay
 			} else {
 				EcdsaSighashType::All
