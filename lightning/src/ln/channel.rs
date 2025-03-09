@@ -4254,6 +4254,7 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider {
 			remaining_msat_below_dust_exposure_limit =
 				Some(max_dust_htlc_exposure_msat.saturating_sub(htlc_stats.on_counterparty_tx_dust_exposure_msat));
 			dust_exposure_dust_limit_msat = cmp::max(dust_exposure_dust_limit_msat, htlc_success_dust_limit * 1000);
+eprintln!("setting exposure limit to success dust limit ({}) because on-counterparty exposure is {} and htlc dust limit ({}) sum to more than max exposure {}", htlc_success_dust_limit * 1000, htlc_stats.on_counterparty_tx_dust_exposure_msat, htlc_success_dust_limit * 1000, max_dust_htlc_exposure_msat.saturating_add(1));
 		}
 
 		if htlc_stats.on_holder_tx_dust_exposure_msat as i64 + htlc_timeout_dust_limit as i64 * 1000 - 1 > max_dust_htlc_exposure_msat.try_into().unwrap_or(i64::max_value()) {
@@ -4261,12 +4262,14 @@ impl<SP: Deref> ChannelContext<SP> where SP::Target: SignerProvider {
 				remaining_msat_below_dust_exposure_limit.unwrap_or(u64::max_value()),
 				max_dust_htlc_exposure_msat.saturating_sub(htlc_stats.on_holder_tx_dust_exposure_msat)));
 			dust_exposure_dust_limit_msat = cmp::max(dust_exposure_dust_limit_msat, htlc_timeout_dust_limit * 1000);
+eprintln!("max-ing exposure limit to success dust limit ({}) because on-holder exposure is {} and htlc dust limit ({}) sum to more than max exposure {}", htlc_timeout_dust_limit * 1000, htlc_stats.on_holder_tx_dust_exposure_msat, htlc_timeout_dust_limit * 1000, max_dust_htlc_exposure_msat);
 		}
 
 		if let Some(remaining_limit_msat) = remaining_msat_below_dust_exposure_limit {
 			if available_capacity_msat < dust_exposure_dust_limit_msat {
 				available_capacity_msat = cmp::min(available_capacity_msat, remaining_limit_msat);
 			} else {
+eprintln!("outbound htlc min is max of htlc-min {} and dust-exposure limit {}", next_outbound_htlc_minimum_msat, dust_exposure_dust_limit_msat);
 				next_outbound_htlc_minimum_msat = cmp::max(next_outbound_htlc_minimum_msat, dust_exposure_dust_limit_msat);
 			}
 		}

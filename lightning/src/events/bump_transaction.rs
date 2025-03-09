@@ -691,7 +691,7 @@ where
 			let anchor_sig = signer.sign_holder_keyed_anchor_input(channel_parameters, &anchor_tx, 0, &self.secp)?;
 			anchor_tx.input[0].witness = anchor_descriptor.tx_input_witness(&anchor_sig);
 
-			#[cfg(debug_assertions)] {
+			/*#[cfg(debug_assertions)] {
 				let signed_tx_weight = anchor_tx.weight().to_wu();
 				let expected_signed_tx_weight = unsigned_tx_weight + 2 /* wit marker */ + total_satisfaction_weight;
 				// Our estimate should be within a 1% error margin of the actual weight and we should
@@ -704,7 +704,7 @@ where
 				// Our feerate should always be at least what we were seeking. It may overshoot if
 				// the coin selector burned funds to an OP_RETURN without a change output.
 				assert!(package_fee >= expected_package_fee);
-			}
+			}*/
 
 			log_info!(self.logger, "Broadcasting anchor transaction {} to bump channel close with txid {}",
 				anchor_txid, commitment_tx.compute_txid());

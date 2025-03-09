@@ -1669,7 +1669,7 @@ impl CommitmentTransaction {
 			let value_in_outputs = txouts.iter().map(|(txout, _)| txout.value.to_sat()).sum();
 			let funding_value = 1000000u64; // XXX: need this passed in via ChannelTransactionParameters
 			let total_dust = funding_value.saturating_sub(value_in_outputs);
-			const MAX_ANCHOR_VALUE: u64 = 42; // XXX the dust threshold
+			const MAX_ANCHOR_VALUE: u64 = 420; // XXX the dust threshold
 			let script_pubkey = shared_anchor_script_pubkey();
 			debug_assert!(MAX_ANCHOR_VALUE >= script_pubkey.minimal_non_dust().to_sat());
 			txouts.push((

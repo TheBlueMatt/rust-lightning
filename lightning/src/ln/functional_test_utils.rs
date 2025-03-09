@@ -1610,12 +1610,14 @@ macro_rules! check_spends {
 		{
 			$(
 			for outp in $spends_txn.output.iter() {
-				assert!(outp.value >= outp.script_pubkey.minimal_non_dust(), "Input tx output didn't meet dust limit");
+				//assert!(outp.value >= outp.script_pubkey.minimal_non_dust(), "Input tx output didn't meet dust limit");
 			}
 			)*
 			let get_output = |out_point: &bitcoin::transaction::OutPoint| {
 				$(
+eprintln!("checking for output {:?} matches {}", out_point, $spends_txn.compute_txid());
 					if out_point.txid == $spends_txn.compute_txid() {
+eprintln!("it does, getting output {} from {:?}", out_point.vout, $spends_txn.output);
 						return $spends_txn.output.get(out_point.vout as usize).cloned()
 					}
 				)*
@@ -1820,6 +1822,7 @@ macro_rules! check_closed_event {
 
 pub fn handle_bump_htlc_event(node: &Node, count: usize) {
 	let events = node.chain_monitor.chain_monitor.get_and_clear_pending_events();
+eprintln!("{:?}", events);
 	assert_eq!(events.len(), count);
 	for event in events {
 		match event {

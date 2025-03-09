@@ -3169,7 +3169,6 @@ impl<Signer: EcdsaChannelSigner> ChannelMonitorImpl<Signer> {
 				watch_outputs.push((self.current_holder_commitment_tx.txid.clone(), new_outputs));
 			}
 			claimable_outpoints.append(&mut new_outpoints);
-panic!("TESTME");
 		}
 		(claimable_outpoints, watch_outputs)
 	}
