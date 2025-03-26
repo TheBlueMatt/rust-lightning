@@ -984,6 +984,27 @@ pub(super) fn process_onion_failure_inner<T: secp256k1::Signing, L: Deref>(
 where
 	L::Target: Logger,
 {
+	// Check that there is at least enough data for an hmac, otherwise none of the checking that we may do makes sense.
+	// Also prevent slice out of bounds further down.
+	if encrypted_packet.data.len() < 32 {
+		log_warn!(
+			logger,
+			"Non-attributable failure encountered on route {}",
+			path.hops.iter().map(|h| h.pubkey.to_string()).collect::<Vec<_>>().join("->")
+		);
+
+		return DecodedOnionFailure {
+			network_update: None,
+			short_channel_id: None,
+			payment_failed_permanently: true,
+			failed_within_blinded_path: false,
+			#[cfg(any(test, feature = "_test_utils"))]
+			onion_error_code: None,
+			#[cfg(any(test, feature = "_test_utils"))]
+			onion_error_data: None,
+		};
+	}
+
 	// Learnings from the HTLC failure to inform future payment retries and scoring.
 	struct FailureLearnings {
 		network_update: Option<NetworkUpdate>,
