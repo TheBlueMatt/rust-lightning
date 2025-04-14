@@ -150,9 +150,15 @@ impl MessageRouter for FuzzRouter {
 	}
 }
 
-pub struct TestBroadcaster {}
+pub struct TestBroadcaster {
+	txn_broadcasted: RefCell<Vec<Transaction>>,
+}
 impl BroadcasterInterface for TestBroadcaster {
-	fn broadcast_transactions(&self, _txs: &[&Transaction]) {}
+	fn broadcast_transactions(&self, txs: &[&Transaction]) {
+		for tx in txs {
+			self.txn_broadcasted.borrow_mut().push((*tx).clone());
+		}
+	}
 }
 
 pub struct VecWriter(pub Vec<u8>);
@@ -266,7 +272,7 @@ impl chain::Watch<TestChannelSigner> for TestChainMonitor {
 		deserialized_monitor
 			.update_monitor(
 				update,
-				&&TestBroadcaster {},
+				&&TestBroadcaster { txn_broadcasted: RefCell::new(Vec::new()) },
 				&&FuzzEstimator { ret_val: atomic::AtomicU32::new(253) },
 				&self.logger,
 			)
@@ -588,7 +594,9 @@ fn send_hop_payment(
 #[inline]
 pub fn do_test<Out: Output>(data: &[u8], underlying_out: Out, anchors: bool) {
 	let out = SearchingOutput::new(underlying_out);
-	let broadcast = Arc::new(TestBroadcaster {});
+	let broadcast = Arc::new(TestBroadcaster {
+		txn_broadcasted: RefCell::new(Vec::new()),
+	});
 	let router = FuzzRouter {};
 
 	macro_rules! make_node {
@@ -945,8 +953,16 @@ pub fn do_test<Out: Output>(data: &[u8], underlying_out: Out, anchors: bool) {
 
 	let mut nodes = [node_a, node_b, node_c];
 
+	let empty_node_a_ser = nodes[0].encode();
+	let empty_node_b_ser = nodes[1].encode();
+	let empty_node_c_ser = nodes[2].encode();
+
 	let chan_1_id = make_channel!(nodes[0], nodes[1], keys_manager_b, 0);
 	let chan_2_id = make_channel!(nodes[1], nodes[2], keys_manager_c, 1);
+
+	// Wipe the transactions-broadcasted set to make sure we don't broadcast any transactions
+	// during normal operation in `test_return`.
+	broadcast.txn_broadcasted.borrow_mut().clear();
 
 	for node in nodes.iter() {
 		confirm_txn!(node);
@@ -972,11 +988,88 @@ pub fn do_test<Out: Output>(data: &[u8], underlying_out: Out, anchors: bool) {
 	let mut node_b_ser = nodes[1].encode();
 	let mut node_c_ser = nodes[2].encode();
 
+	let pending_payments = RefCell::new([Vec::new(), Vec::new(), Vec::new()]);
+	let resolved_payments = RefCell::new([Vec::new(), Vec::new(), Vec::new()]);
+
 	macro_rules! test_return {
 		() => {{
+			// At this point, we should still have all our channels operational
 			assert_eq!(nodes[0].list_channels().len(), 1);
 			assert_eq!(nodes[1].list_channels().len(), 2);
 			assert_eq!(nodes[2].list_channels().len(), 1);
+
+			// At no point should we have broadcasted any transactions after the initial channel
+			// opens.
+			assert!(broadcast.txn_broadcasted.borrow().is_empty());
+
+			// However, we also want to test what happens if we restart at this point with an empty
+			// ChannelManager (simulating a ill-timed crash), ensuring that the set of pending
+			// payments makes sense. Specifically, no payment should appear in the pending payments
+			// list that is already resolved, and all payments which were pending should either
+			// remain pending or get a success/failure event.
+			//
+			// We also want to test that the funds haven't been lost. Specifically, this means that
+			// after we reload with an empty ChannelManager and the relevant force-closure
+			// transactions are confirmed, claim transactions are created for any HTLCs which were
+			// previously marked as sent (and the remaining balance at least satisfies all other
+			// sent HTLCs).
+			let (node_a, monitor_a) =
+				reload_node(&empty_node_a_ser, 0, &monitor_a, 0, &keys_manager_a, &fee_est_a);
+			assert!(node_a.list_channels().is_empty());
+			let node_a_txn = broadcast.txn_broadcasted.borrow_mut().split_off(0);
+
+			let (node_b, monitor_b) =
+				reload_node(&empty_node_b_ser, 1, &monitor_b, 0, &keys_manager_b, &fee_est_b);
+			assert!(node_b.list_channels().is_empty());
+			let node_b_txn = broadcast.txn_broadcasted.borrow_mut().split_off(0);
+
+			let (node_c, monitor_c) =
+				reload_node(&empty_node_c_ser, 1, &monitor_c, 0, &keys_manager_c, &fee_est_c);
+			assert!(node_c.list_channels().is_empty());
+			let node_c_txn = broadcast.txn_broadcasted.borrow_mut().split_off(0);
+
+			let resolved_payments = resolved_payments.borrow();
+			let pending_payments = pending_payments.borrow();
+
+			let test_no_resolved_payments = |node: &ChanMan<'_>, idx: usize| {
+				let recent_payments = node.list_recent_payments();
+				for recent_payment in recent_payments.iter() {
+					match recent_payment {
+						RecentPaymentDetails::AwaitingInvoice { payment_id }|
+							RecentPaymentDetails::Pending { payment_id, .. } => {
+								assert!(resolved_payments[idx].iter().all(|resolved_id| {
+									payment_id != resolved_id
+								}));
+						},
+						RecentPaymentDetails::Fulfilled { .. }
+							| RecentPaymentDetails::Abandoned { .. } => {},
+					}
+				}
+			};
+			test_no_resolved_payments(&node_a, 0);
+			test_no_resolved_payments(&node_b, 1);
+			test_no_resolved_payments(&node_c, 2);
+
+			let test_pending_payments = |node: &ChanMan<'_>, idx: usize| {
+				let recent_payments = node.list_recent_payments();
+				for pending_payment in pending_payments[idx].iter() {
+					assert!(recent_payments.iter().any(|payment| {
+						match payment {
+							// We don't (currently) test BOLT 12 payments
+							RecentPaymentDetails::AwaitingInvoice { .. } => panic!("BOLT 12?"),
+							RecentPaymentDetails::Pending { payment_id, .. }
+								| RecentPaymentDetails::Fulfilled { payment_id, .. }
+								| RecentPaymentDetails::Abandoned { payment_id, .. } => {
+								payment_id == pending_payment
+							},
+						}
+					}));
+				}
+			};
+			test_pending_payments(&node_a, 0);
+			test_pending_payments(&node_b, 1);
+			test_pending_payments(&node_c, 2);
+
 			return;
 		}};
 	}
@@ -992,9 +1085,6 @@ pub fn do_test<Out: Output>(data: &[u8], underlying_out: Out, anchors: bool) {
 			&data[read_pos - slice_len..read_pos]
 		}};
 	}
-
-	let pending_payments = RefCell::new([Vec::new(), Vec::new(), Vec::new()]);
-	let resolved_payments = RefCell::new([Vec::new(), Vec::new(), Vec::new()]);
 
 	loop {
 		// Push any events from Node B onto ba_events and bc_events
