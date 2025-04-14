@@ -3488,7 +3488,7 @@ macro_rules! handle_new_monitor_update {
 	};
 	(
 		$self: ident, $funding_txo: expr, $update: expr, $peer_state: expr, $logger: expr,
-		$chan_id: expr, $counterparty_node_id: expr, $in_flight_updates: ident, $update_idx: ident,
+		$chan_id: expr, $counterparty_node_id: expr, $in_flight_updates: ident,
 		_internal_outer, $completed: expr
 	) => { {
 		$in_flight_updates = &mut $peer_state.in_flight_monitor_updates.entry($chan_id)
@@ -3496,14 +3496,18 @@ macro_rules! handle_new_monitor_update {
 		// During startup, we push monitor updates as background events through to here in
 		// order to replay updates that were in-flight when we shut down. Thus, we have to
 		// filter for uniqueness here.
-		$update_idx = $in_flight_updates.iter().position(|upd| upd == &$update)
+		let update_idx = $in_flight_updates.iter().position(|upd| upd == &$update)
 			.unwrap_or_else(|| {
 				$in_flight_updates.push($update);
 				$in_flight_updates.len() - 1
 			});
 		if $self.background_events_processed_since_startup.load(Ordering::Acquire) {
-			let update_res = $self.chain_monitor.update_channel($chan_id, &$in_flight_updates[$update_idx]);
-			handle_new_monitor_update!($self, update_res, $logger, $chan_id, _internal, $completed)
+			let update_res = $self.chain_monitor.update_channel($chan_id, &$in_flight_updates[update_idx]);
+			handle_new_monitor_update!($self, update_res, $logger, $chan_id, _internal,
+				{
+					let _ = $in_flight_updates.remove(update_idx);
+					$completed
+				})
 		} else {
 			// We blindly assume that the ChannelMonitorUpdate will be regenerated on startup if we
 			// fail to persist it. This is a fairly safe assumption, however, since anything we do
@@ -3512,7 +3516,7 @@ macro_rules! handle_new_monitor_update {
 				counterparty_node_id: $counterparty_node_id,
 				funding_txo: $funding_txo,
 				channel_id: $chan_id,
-				update: $in_flight_updates[$update_idx].clone(),
+				update: $in_flight_updates[update_idx].clone(),
 			};
 			// We want to track the in-flight update both in `in_flight_monitor_updates` and in
 			// `pending_background_events` to avoid a race condition during
@@ -3534,12 +3538,8 @@ macro_rules! handle_new_monitor_update {
 		let chan_id = $chan_context.channel_id();
 		let counterparty_node_id = $chan_context.get_counterparty_node_id();
 		let in_flight_updates;
-		let idx;
 		handle_new_monitor_update!($self, $funding_txo, $update, $peer_state, logger, chan_id,
-			counterparty_node_id, in_flight_updates, idx, _internal_outer,
-			{
-				let _ = in_flight_updates.remove(idx);
-			})
+			counterparty_node_id, in_flight_updates, _internal_outer, {})
 	} };
 	(
 		$self: ident, $funding_txo: expr, $update: expr, $peer_state_lock: expr, $peer_state: expr,
@@ -3547,11 +3547,8 @@ macro_rules! handle_new_monitor_update {
 	) => { {
 		let logger = WithContext::from(&$self.logger, Some($counterparty_node_id), Some($channel_id), None);
 		let in_flight_updates;
-		let idx;
 		handle_new_monitor_update!($self, $funding_txo, $update, $peer_state, logger,
-			$channel_id, $counterparty_node_id, in_flight_updates, idx, _internal_outer,
-			{
-				let _ = in_flight_updates.remove(idx);
+			$channel_id, $counterparty_node_id, in_flight_updates, _internal_outer,
 				if in_flight_updates.is_empty() {
 					let update_actions = $peer_state.monitor_update_blocked_actions
 						.remove(&$channel_id).unwrap_or(Vec::new());
@@ -3560,8 +3557,7 @@ macro_rules! handle_new_monitor_update {
 					mem::drop($per_peer_state_lock);
 
 					$self.handle_monitor_update_completion_actions(update_actions);
-				}
-			})
+				})
 	} };
 	(
 		$self: ident, $funding_txo: expr, $update: expr, $peer_state_lock: expr, $peer_state: expr,
@@ -3571,15 +3567,11 @@ macro_rules! handle_new_monitor_update {
 		let chan_id = $chan.context.channel_id();
 		let counterparty_node_id = $chan.context.get_counterparty_node_id();
 		let in_flight_updates;
-		let idx;
 		handle_new_monitor_update!($self, $funding_txo, $update, $peer_state, logger, chan_id,
-			counterparty_node_id, in_flight_updates, idx, _internal_outer,
-			{
-				let _ = in_flight_updates.remove(idx);
+			counterparty_node_id, in_flight_updates, _internal_outer,
 				if in_flight_updates.is_empty() && $chan.blocked_monitor_updates_pending() == 0 {
 					handle_monitor_update_completion!($self, $peer_state_lock, $peer_state, $per_peer_state_lock, $chan);
-				}
-			})
+				})
 	} };
 }
 
