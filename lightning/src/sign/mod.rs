@@ -68,6 +68,7 @@ use crate::sign::taproot::TaprootChannelSigner;
 use crate::util::atomic_counter::AtomicCounter;
 use core::convert::TryInto;
 use core::future::Future;
+use core::ops::Deref;
 use core::pin::Pin;
 use core::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(taproot)]
@@ -1006,6 +1007,13 @@ pub trait ChangeDestinationSourceSync {
 
 /// A wrapper around [`ChangeDestinationSource`] to allow for async calls.
 pub struct ChangeDestinationSourceSyncWrapper<T>(T) where T: ChangeDestinationSourceSync;
+
+impl<T: ChangeDestinationSourceSync> ChangeDestinationSourceSyncWrapper<T> {
+	/// Creates a new [`ChangeDestinationSourceSyncWrapper`].
+	pub fn new(source: T) -> Self {
+		Self(source)
+	}
+}
 
 impl<T: ChangeDestinationSourceSync> ChangeDestinationSource for ChangeDestinationSourceSyncWrapper<T> {
 	fn get_change_destination_script<'a>(&self) -> AsyncGetChangeDestinationScriptResult<'a, ScriptBuf> {

@@ -15,7 +15,7 @@ use crate::io;
 use crate::ln::msgs::DecodeError;
 use crate::ln::types::ChannelId;
 use crate::prelude::*;
-use crate::sign::{ChangeDestinationSource, OutputSpender, SpendableOutputDescriptor};
+use crate::sign::{ChangeDestinationSource, ChangeDestinationSourceSync, ChangeDestinationSourceSyncWrapper, OutputSpender, SpendableOutputDescriptor};
 use crate::sync::Mutex;
 use crate::util::logger::Logger;
 use crate::util::persist::{
@@ -33,6 +33,7 @@ use bitcoin::{BlockHash, ScriptBuf, Transaction, Txid};
 use core::future::Future;
 use core::ops::Deref;
 use core::task;
+use std::sync::Arc;
 
 use super::async_poll::dummy_waker;
 
@@ -356,6 +357,60 @@ where
 	logger: L,
 }
 
+pub struct OutputSweeperSync<B: Deref, D: Deref, E: Deref, F: Deref, K: Deref, L: Deref, O: Deref>
+where
+	B::Target: BroadcasterInterface,
+	D::Target: ChangeDestinationSource,
+	E::Target: FeeEstimator,
+	F::Target: Filter + Sync + Send,
+	K::Target: KVStore,
+	L::Target: Logger,
+	O::Target: OutputSpender,
+{
+	sweeper: OutputSweeper<B, D, E, F, K, L, O>,
+}
+
+impl<B: Deref, D: Deref, E: Deref, F: Deref, K: Deref, L: Deref, O: Deref>
+OutputSweeperSync<B, D, E, F, K, L, O>
+where
+	B::Target: BroadcasterInterface,
+	D::Target: ChangeDestinationSource,
+	E::Target: FeeEstimator,
+	F::Target: Filter + Sync + Send,
+	K::Target: KVStore,
+	L::Target: Logger,
+	O::Target: OutputSpender,
+{
+	fn new<DA: ChangeDestinationSourceSync>(
+		best_block: BestBlock, broadcaster: B, fee_estimator: E, chain_data_source: Option<F>,
+		output_spender: O, change_destination_source: DA, kv_store: K, logger: L,
+	) -> Self {
+		let change_destination_source = Arc::new(ChangeDestinationSourceSyncWrapper::new(change_destination_source));
+
+		let sweeper = OutputSweeper::new(
+			best_block, broadcaster, fee_estimator, chain_data_source, output_spender,
+			change_destination_source, kv_store, logger,
+		);
+		Self { sweeper }
+	}
+
+	/// Regenerates and broadcasts the spending transaction for any outputs that are pending
+	pub fn regenerate_and_broadcast_spend_if_necessary(&self) -> Result<(), ()> {
+		let mut fut = Box::pin(self.sweeper.regenerate_and_broadcast_spend_if_necessary_async());
+		let mut waker = dummy_waker();
+		let mut ctx = task::Context::from_waker(&mut waker);
+		match fut.as_mut().poll(&mut ctx) {
+			task::Poll::Ready(result) => {
+				result
+			},
+			task::Poll::Pending => {
+				// In a sync context, we can't wait for the future to complete.
+				panic!("task not ready");
+			},
+		}
+	}
+}
+
 impl<B: Deref, D: Deref, E: Deref, F: Deref, K: Deref, L: Deref, O: Deref>
 	OutputSweeper<B, D, E, F, K, L, O>
 where
@@ -451,22 +506,6 @@ where
 	/// [`Confirm`] interfaces.
 	pub fn current_best_block(&self) -> BestBlock {
 		self.sweeper_state.lock().unwrap().best_block
-	}
-
-	/// Regenerates and broadcasts the spending transaction for any outputs that are pending
-	pub fn regenerate_and_broadcast_spend_if_necessary(&self) -> Result<(), ()> {
-		let mut fut = Box::pin(self.regenerate_and_broadcast_spend_if_necessary_async());
-		let mut waker = dummy_waker();
-		let mut ctx = task::Context::from_waker(&mut waker);
-		match fut.as_mut().poll(&mut ctx) {
-			task::Poll::Ready(result) => {
-				result
-			},
-			task::Poll::Pending => {
-				// In a sync context, we can't wait for the future to complete.
-				panic!("task not ready");
-			},
-		}
 	}
 
 	/// Regenerates and broadcasts the spending transaction for any outputs that are pending
