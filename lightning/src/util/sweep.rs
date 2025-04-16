@@ -28,9 +28,13 @@ use crate::{impl_writeable_tlv_based, log_debug, log_error};
 use bitcoin::block::Header;
 use bitcoin::locktime::absolute::LockTime;
 use bitcoin::secp256k1::Secp256k1;
-use bitcoin::{BlockHash, Transaction, Txid};
+use bitcoin::{BlockHash, ScriptBuf, Transaction, Txid};
 
+use core::future::Future;
 use core::ops::Deref;
+use core::task;
+
+use super::async_poll::dummy_waker;
 
 /// The number of blocks we wait before we prune the tracked spendable outputs.
 pub const PRUNE_DELAY_BLOCKS: u32 = ARCHIVAL_DELAY_BLOCKS + ANTI_REORG_DELAY;
@@ -372,7 +376,7 @@ where
 		output_spender: O, change_destination_source: D, kv_store: K, logger: L,
 	) -> Self {
 		let outputs = Vec::new();
-		let sweeper_state = Mutex::new(SweeperState { outputs, best_block });
+		let sweeper_state = Mutex::new(SweeperState { outputs, best_block, sweep_pending: false });
 		Self {
 			sweeper_state,
 			broadcaster,
@@ -450,15 +454,88 @@ where
 	}
 
 	/// Regenerates and broadcasts the spending transaction for any outputs that are pending
-	pub fn regenerate_and_broadcast_spend_if_necessary_locked(&self) -> Result<(), ()> {
-		let mut sweeper_state = self.sweeper_state.lock().unwrap();
-		self.regenerate_and_broadcast_spend_if_necessary(&mut *sweeper_state)
+	pub fn regenerate_and_broadcast_spend_if_necessary(&self) -> Result<(), ()> {
+		let mut fut = Box::pin(self.regenerate_and_broadcast_spend_if_necessary_async());
+		let mut waker = dummy_waker();
+		let mut ctx = task::Context::from_waker(&mut waker);
+		match fut.as_mut().poll(&mut ctx) {
+			task::Poll::Ready(result) => {
+				result
+			},
+			task::Poll::Pending => {
+				// In a sync context, we can't wait for the future to complete.
+				panic!("task not ready");
+			},
+		}
 	}
 
-	fn regenerate_and_broadcast_spend_if_necessary(
-		&self, sweeper_state: &mut SweeperState,
+	/// Regenerates and broadcasts the spending transaction for any outputs that are pending
+	pub async fn regenerate_and_broadcast_spend_if_necessary_async(&self) -> Result<(), ()> {
+		// Collect spendable output descriptors.
+		let respend_descriptors_clones: Vec<SpendableOutputDescriptor>;
+		let respend_descriptors: Vec<&SpendableOutputDescriptor>;
+		{
+			let mut sweeper_state = self.sweeper_state.lock().unwrap();
+
+			// Prevent concurrent sweeping.
+			if sweeper_state.sweep_pending {
+				return Ok(());
+			}
+
+			let cur_height = sweeper_state.best_block.height;
+			let filter_fn = |o: &TrackedSpendableOutput| {
+				if o.status.is_confirmed() {
+					// Don't rebroadcast confirmed txs.
+					return false;
+				}
+
+				if o.status.is_delayed(cur_height) {
+					// Don't generate and broadcast if still delayed
+					return false;
+				}
+
+				if o.status.latest_broadcast_height() >= Some(cur_height) {
+					// Only broadcast once per block height.
+					return false;
+				}
+
+				true
+			};
+
+			// Clone first, otherwise we can't take references that outlive the lock.
+			respend_descriptors_clones =
+				sweeper_state.outputs.iter().filter(|o| filter_fn(*o)).map(|o| o.descriptor.clone()).collect();
+
+			respend_descriptors = respend_descriptors_clones.iter().collect();
+
+			if respend_descriptors.is_empty() {
+				// Nothing to do.
+				return Ok(());
+			}
+
+			// There is something to sweep. Block concurrent sweeps.
+			sweeper_state.sweep_pending = true;
+		}
+
+		// Request a new change address outside of the mutex to avoid the mutex crossing await.
+		let change_destination_script_result = self.change_destination_source.get_change_destination_script().await;
+
+		// Sweep the outputs.
+		{
+			let mut sweeper_state = self.sweeper_state.lock().unwrap();
+
+			// Always allow a new sweep after this spend.
+			sweeper_state.sweep_pending = false;
+
+			let change_destination_script = change_destination_script_result?;
+			self.internal_regenerate_and_broadcast_spend_if_necessary(&mut *sweeper_state, respend_descriptors, change_destination_script)
+		}
+	}
+
+	fn internal_regenerate_and_broadcast_spend_if_necessary(
+		&self, sweeper_state: &mut SweeperState, respend_descriptors: Vec<&SpendableOutputDescriptor>, change_destination_script: ScriptBuf,
 	) -> Result<(), ()> {
-		let spending_tx_opt = self.regenerate_spend_if_necessary(sweeper_state);
+		let spending_tx_opt = self.regenerate_spend_if_necessary(sweeper_state, respend_descriptors, change_destination_script);
 		if let Some(spending_tx) = spending_tx_opt {
 			self.persist_state(&*sweeper_state).map_err(|e| {
 				log_error!(self.logger, "Error persisting OutputSweeper: {:?}", e);
@@ -472,37 +549,12 @@ where
 
 	fn regenerate_spend_if_necessary(
 		&self, sweeper_state: &mut SweeperState,
+		respend_descriptors: Vec<&SpendableOutputDescriptor>, change_destination_script: ScriptBuf,
 	) -> Option<Transaction> {
 		let cur_height = sweeper_state.best_block.height;
 		let cur_hash = sweeper_state.best_block.block_hash;
-		let filter_fn = |o: &TrackedSpendableOutput| {
-			if o.status.is_confirmed() {
-				// Don't rebroadcast confirmed txs.
-				return false;
-			}
 
-			if o.status.is_delayed(cur_height) {
-				// Don't generate and broadcast if still delayed
-				return false;
-			}
-
-			if o.status.latest_broadcast_height() >= Some(cur_height) {
-				// Only broadcast once per block height.
-				return false;
-			}
-
-			true
-		};
-
-		let respend_descriptors: Vec<&SpendableOutputDescriptor> =
-			sweeper_state.outputs.iter().filter(|o| filter_fn(*o)).map(|o| &o.descriptor).collect();
-
-		if respend_descriptors.is_empty() {
-			// Nothing to do.
-			return None;
-		}
-
-		let spending_tx = match self.spend_outputs(&*sweeper_state, respend_descriptors) {
+		let spending_tx = match self.spend_outputs(&*sweeper_state, &respend_descriptors, change_destination_script) {
 			Ok(spending_tx) => {
 				log_debug!(
 					self.logger,
@@ -517,10 +569,17 @@ where
 			},
 		};
 
-		// As we didn't modify the state so far, the same filter_fn yields the same elements as
-		// above.
-		let respend_outputs = sweeper_state.outputs.iter_mut().filter(|o| filter_fn(&**o));
-		for output_info in respend_outputs {
+		// Watch outputs and update status.
+		for output_info in respend_descriptors {
+			let output_info =
+				match sweeper_state.outputs.iter_mut().find(|o| o.descriptor == *output_info) {
+					Some(output_info) => output_info,
+					None => {
+						// Output was already removed from the state.
+						continue;
+					},
+				};
+
 			if let Some(filter) = self.chain_data_source.as_ref() {
 				let watched_output = output_info.to_watched_output(cur_hash);
 				filter.register_output(watched_output);
@@ -574,16 +633,14 @@ where
 	}
 
 	fn spend_outputs(
-		&self, sweeper_state: &SweeperState, descriptors: Vec<&SpendableOutputDescriptor>,
+		&self, sweeper_state: &SweeperState, descriptors: &Vec<&SpendableOutputDescriptor>, change_destination_script: ScriptBuf,
 	) -> Result<Transaction, ()> {
 		let tx_feerate =
 			self.fee_estimator.get_est_sat_per_1000_weight(ConfirmationTarget::OutputSpendingFee);
-		let change_destination_script =
-			self.change_destination_source.get_change_destination_script()?;
 		let cur_height = sweeper_state.best_block.height;
 		let locktime = Some(LockTime::from_height(cur_height).unwrap_or(LockTime::ZERO));
 		self.output_spender.spend_spendable_outputs(
-			&descriptors,
+			descriptors,
 			Vec::new(),
 			change_destination_script,
 			tx_feerate,
@@ -746,11 +803,15 @@ where
 struct SweeperState {
 	outputs: Vec<TrackedSpendableOutput>,
 	best_block: BestBlock,
+	sweep_pending: bool,
 }
 
 impl_writeable_tlv_based!(SweeperState, {
 	(0, outputs, required_vec),
 	(2, best_block, required),
+
+	// TODO: Do not persist this field.
+	(4, sweep_pending, required),
 });
 
 /// A `enum` signalling to the [`OutputSweeper`] that it should delay spending an output until a

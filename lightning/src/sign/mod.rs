@@ -67,6 +67,8 @@ use crate::sign::ecdsa::EcdsaChannelSigner;
 use crate::sign::taproot::TaprootChannelSigner;
 use crate::util::atomic_counter::AtomicCounter;
 use core::convert::TryInto;
+use core::future::Future;
+use core::pin::Pin;
 use core::sync::atomic::{AtomicUsize, Ordering};
 #[cfg(taproot)]
 use musig2::types::{PartialSignature, PublicNonce};
@@ -975,6 +977,14 @@ pub trait SignerProvider {
 	fn get_shutdown_scriptpubkey(&self) -> Result<ShutdownScript, ()>;
 }
 
+
+/// Result type for `BlockSource` requests.
+pub type GetChangeDestinationScriptResult<T> = Result<T, ()>;
+
+/// A type alias for a future that returns a [`GetChangeDestinationScriptResult`].
+pub type AsyncGetChangeDestinationScriptResult<'a, T> =
+	Pin<Box<dyn Future<Output = GetChangeDestinationScriptResult<T>> + 'a + Send>>;
+
 /// A helper trait that describes an on-chain wallet capable of returning a (change) destination
 /// script.
 pub trait ChangeDestinationSource {
@@ -983,7 +993,25 @@ pub trait ChangeDestinationSource {
 	///
 	/// This method should return a different value each time it is called, to avoid linking
 	/// on-chain funds controlled to the same user.
+	fn get_change_destination_script<'a>(&self) -> AsyncGetChangeDestinationScriptResult<'a, ScriptBuf>;
+}
+
+
+/// A synchronous helper trait that describes an on-chain wallet capable of returning a (change) destination script.
+pub trait ChangeDestinationSourceSync {
+	/// This method should return a different value each time it is called, to avoid linking
+	/// on-chain funds controlled to the same user.
 	fn get_change_destination_script(&self) -> Result<ScriptBuf, ()>;
+}
+
+/// A wrapper around [`ChangeDestinationSource`] to allow for async calls.
+pub struct ChangeDestinationSourceSyncWrapper<T>(T) where T: ChangeDestinationSourceSync;
+
+impl<T: ChangeDestinationSourceSync> ChangeDestinationSource for ChangeDestinationSourceSyncWrapper<T> {
+	fn get_change_destination_script<'a>(&self) -> AsyncGetChangeDestinationScriptResult<'a, ScriptBuf> {
+		let script = self.0.get_change_destination_script();
+		Box::pin(async move { script })
+	}
 }
 
 mod sealed {
