@@ -357,33 +357,32 @@ where
 	logger: L,
 }
 
-pub struct OutputSweeperSync<B: Deref, D: Deref, E: Deref, F: Deref, K: Deref, L: Deref, O: Deref>
+/// XXX
+pub struct OutputSweeperSync<B: Deref, D: ChangeDestinationSourceSync, E: Deref, F: Deref, K: Deref, L: Deref, O: Deref>
 where
 	B::Target: BroadcasterInterface,
-	D::Target: ChangeDestinationSource,
 	E::Target: FeeEstimator,
 	F::Target: Filter + Sync + Send,
 	K::Target: KVStore,
 	L::Target: Logger,
 	O::Target: OutputSpender,
 {
-	sweeper: OutputSweeper<B, D, E, F, K, L, O>,
+	sweeper: OutputSweeper<B, Arc<ChangeDestinationSourceSyncWrapper<D>>, E, F, K, L, O>,
 }
 
-impl<B: Deref, D: Deref, E: Deref, F: Deref, K: Deref, L: Deref, O: Deref>
+impl<B: Deref, D: ChangeDestinationSourceSync, E: Deref, F: Deref, K: Deref, L: Deref, O: Deref>
 OutputSweeperSync<B, D, E, F, K, L, O>
 where
 	B::Target: BroadcasterInterface,
-	D::Target: ChangeDestinationSource,
 	E::Target: FeeEstimator,
 	F::Target: Filter + Sync + Send,
 	K::Target: KVStore,
 	L::Target: Logger,
 	O::Target: OutputSpender,
 {
-	fn new<DA: ChangeDestinationSourceSync>(
+	fn new(
 		best_block: BestBlock, broadcaster: B, fee_estimator: E, chain_data_source: Option<F>,
-		output_spender: O, change_destination_source: DA, kv_store: K, logger: L,
+		output_spender: O, change_destination_source: D, kv_store: K, logger: L,
 	) -> Self {
 		let change_destination_source = Arc::new(ChangeDestinationSourceSyncWrapper::new(change_destination_source));
 
