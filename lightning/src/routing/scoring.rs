@@ -80,6 +80,8 @@ pub static NO_DATA_PENALTY: core::sync::atomic::AtomicU64 = core::sync::atomic::
 pub static POW: core::sync::atomic::AtomicU8 = core::sync::atomic::AtomicU8::new(9);
 /// lulz
 pub static ADDL: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(unsafe { core::mem::transmute(0.00390625f64) });
+/// loltastic
+pub static REWEIGHT_POINTS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(unsafe { core::mem::transmute(4.0f64) });
 
 /// We define Score ever-so-slightly differently based on whether we are being built for C bindings
 /// or not. For users, `LockableScore` must somehow be writeable to disk. For Rust users, this is
@@ -2239,7 +2241,8 @@ mod bucketed_history {
 
 		#[rustfmt::skip]
 		fn recalculate_valid_point_count(&mut self) {
-			let mut total_valid_points_tracked = 0u128;
+			let mut total_valid_points_tracked = 0.0;
+let reweight_points: f64 = unsafe { core::mem::transmute(super::REWEIGHT_POINTS.load(core::sync::atomic::Ordering::Acquire)) };
 			for (min_idx, min_bucket) in self.min_liquidity_offset_history.buckets.iter().enumerate() {
 				for max_bucket in self.max_liquidity_offset_history.buckets.iter().take(32 - min_idx) {
 					// In testing, raising the weights of buckets to a high power led to better
@@ -2248,11 +2251,10 @@ mod bucketed_history {
 					// bucket_weight having at max 64 bits, which means we have to do our summation
 					// in 128-bit math.
 					let mut bucket_weight = (*min_bucket as u64) * (*max_bucket as u64);
-					bucket_weight *= bucket_weight;
-					total_valid_points_tracked += bucket_weight as u128;
+					total_valid_points_tracked += (bucket_weight as f64).sqrt().powf(reweight_points);
 				}
 			}
-			self.total_valid_points_tracked = total_valid_points_tracked as f64;
+			self.total_valid_points_tracked = total_valid_points_tracked;
 		}
 
 		pub(super) fn writeable_min_offset_history(&self) -> &HistoricalBucketRangeTracker {
@@ -2346,24 +2348,25 @@ mod bucketed_history {
 			let max_liquidity_offset_history_buckets =
 				self.max_liquidity_offset_history_buckets();
 
+let reweight_points: f64 = unsafe { core::mem::transmute(super::REWEIGHT_POINTS.load(core::sync::atomic::Ordering::Acquire)) };
+let mut sum_pts_chk = 0.0;
 			let total_valid_points_tracked = self.tracker.total_valid_points_tracked;
 			#[cfg(debug_assertions)] {
-				let mut actual_valid_points_tracked = 0u128;
+				let mut actual_valid_points_tracked = 0.0;
 				for (min_idx, min_bucket) in min_liquidity_offset_history_buckets.iter().enumerate() {
 					for max_bucket in max_liquidity_offset_history_buckets.iter().take(32 - min_idx) {
 						let mut bucket_weight = (*min_bucket as u64) * (*max_bucket as u64);
-						bucket_weight *= bucket_weight;
-						actual_valid_points_tracked += bucket_weight as u128;
+						actual_valid_points_tracked += (bucket_weight as f64).sqrt().powf(reweight_points);
 					}
 				}
-				assert_eq!(total_valid_points_tracked, actual_valid_points_tracked as f64);
+				assert!(total_valid_points_tracked >= actual_valid_points_tracked * 0.999999999, "{} {}", total_valid_points_tracked, actual_valid_points_tracked);
+				assert!(total_valid_points_tracked <= actual_valid_points_tracked / 0.999999999, "{} {}", total_valid_points_tracked, actual_valid_points_tracked);
 			}
 
 			// If the total valid points is smaller than 1.0 (i.e. 32 in our fixed-point scheme),
 			// treat it as if we were fully decayed.
-			const FULLY_DECAYED: f64 = BUCKET_FIXED_POINT_ONE as f64 * BUCKET_FIXED_POINT_ONE as f64 *
-				BUCKET_FIXED_POINT_ONE as f64 * BUCKET_FIXED_POINT_ONE as f64;
-			if total_valid_points_tracked < FULLY_DECAYED.into() {
+			let fully_decayed: f64 = (BUCKET_FIXED_POINT_ONE as f64).powf(reweight_points);
+			if total_valid_points_tracked < fully_decayed.into() {
 				return None;
 			}
 
@@ -2380,7 +2383,7 @@ mod bucketed_history {
 				// max-bucket with at least BUCKET_FIXED_POINT_ONE.
 				let mut highest_max_bucket_with_points = 0;
 				let mut highest_max_bucket_with_full_points = None;
-				let mut total_weight = 0u128;
+				let mut total_weight = 0.0f64;
 				for (max_idx, max_bucket) in max_liquidity_offset_history_buckets.iter().enumerate() {
 					if *max_bucket >= BUCKET_FIXED_POINT_ONE {
 						highest_max_bucket_with_full_points = Some(cmp::max(highest_max_bucket_with_full_points.unwrap_or(0), max_idx));
@@ -2393,9 +2396,10 @@ mod bucketed_history {
 					// squaring the result of multiplying the weights), matching the logic in
 					// `recalculate_valid_point_count`.
 					let bucket_weight = (*max_bucket as u64) * (min_liquidity_offset_history_buckets[0] as u64);
-					total_weight += (bucket_weight * bucket_weight) as u128;
+					total_weight += (bucket_weight as f64).sqrt().powf(reweight_points);
 				}
-				debug_assert!(total_weight as f64 <= total_valid_points_tracked);
+				debug_assert!(total_weight <= total_valid_points_tracked);
+sum_pts_chk += total_weight;
 				// Use the highest max-bucket with at least BUCKET_FIXED_POINT_ONE, but if none is
 				// available use the highest max-bucket with any non-zero value. This ensures that
 				// if we have substantially decayed data we don't end up thinking the highest
@@ -2403,10 +2407,11 @@ mod bucketed_history {
 				// have points elsewhere.
 				let selected_max = highest_max_bucket_with_full_points.unwrap_or(highest_max_bucket_with_points);
 				let max_bucket_end_pos = BUCKET_START_POS[32 - selected_max] - 1;
+
 				if payment_pos < max_bucket_end_pos {
 					let (numerator, denominator) = success_probability_float(payment_pos as u64, 0,
 						max_bucket_end_pos as u64, POSITION_TICKS as u64 - 1, params, true);
-					let bucket_prob = total_weight as f64 / total_valid_points_tracked;
+					let bucket_prob = total_weight / total_valid_points_tracked;
 					cumulative_success_prob += bucket_prob * numerator / denominator;
 				}
 			}
@@ -2417,7 +2422,7 @@ mod bucketed_history {
 					let max_bucket_end_pos = BUCKET_START_POS[32 - max_idx] - 1;
 					if payment_pos >= max_bucket_end_pos {
 						// Success probability 0, the payment amount may be above the max liquidity
-						break;
+						//break;
 					}
 
 					// In testing, raising the weights of buckets to a high power led to better
@@ -2425,11 +2430,13 @@ mod bucketed_history {
 					// squaring the result of multiplying the weights), matching the logic in
 					// `recalculate_valid_point_count`.
 					let mut bucket_weight = (*min_bucket as u64) * (*max_bucket as u64);
-					bucket_weight *= bucket_weight;
-					debug_assert!(bucket_weight as f64 <= total_valid_points_tracked);
-					let bucket_prob = bucket_weight as f64 / total_valid_points_tracked;
+					//debug_assert!(bucket_weight as f64 <= total_valid_points_tracked);
+					let bucket_prob = (bucket_weight as f64).sqrt().powf(reweight_points) / total_valid_points_tracked;
+sum_pts_chk += (bucket_weight as f64).sqrt().powf(reweight_points);
 
-					if payment_pos < min_bucket_start_pos {
+					if payment_pos >= max_bucket_end_pos {
+						// Just counting the probability weights
+					} else if payment_pos < min_bucket_start_pos {
 						cumulative_success_prob += bucket_prob;
 					} else {
 						let (numerator, denominator) = success_probability_float(payment_pos as u64,
@@ -2439,6 +2446,8 @@ mod bucketed_history {
 					}
 				}
 			}
+assert!(sum_pts_chk >= total_valid_points_tracked * 0.999999999, "{:?} {:?}", min_liquidity_offset_history_buckets, max_liquidity_offset_history_buckets);
+assert!(sum_pts_chk <= total_valid_points_tracked / 0.999999999, "{:?} {:?}", min_liquidity_offset_history_buckets, max_liquidity_offset_history_buckets);
 
 			Some((cumulative_success_prob * (1024.0 * 1024.0 * 1024.0)) as u64)
 		}
