@@ -1445,7 +1445,7 @@ fn success_probability_float(
 	min_zero_implies_no_successes: bool,
 ) -> (f64, f64) {
 	debug_assert!(min_liquidity_msat <= total_inflight_amount_msat);
-	debug_assert!(total_inflight_amount_msat < max_liquidity_msat);
+	debug_assert!(total_inflight_amount_msat < max_liquidity_msat, "{} < {}", total_inflight_amount_msat, max_liquidity_msat);
 	debug_assert!(max_liquidity_msat <= capacity_msat);
 
 let pow = POW.load(core::sync::atomic::Ordering::Acquire);
