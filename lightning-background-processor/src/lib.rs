@@ -745,7 +745,6 @@ where
 			last_forwards_processing_call = sleeper(cur_batch_delay);
 		}
 		if should_break {
-			log_trace!(logger, "Terminating background processor.");
 			break;
 		}
 		let mut await_start = None;
@@ -800,7 +799,6 @@ where
 			false
 		};
 		if should_break {
-			log_trace!(logger, "Terminating background processor.");
 			break;
 		}
 		if channel_manager.get_cm().get_and_clear_needs_persistence() {
@@ -993,6 +991,8 @@ where
 			last_sweeper_call = sleeper(SWEEPER_TIMER);
 		}
 	}
+	log_trace!(logger, "Terminating background processor.");
+
 	kv_store
 		.write(
 			CHANNEL_MANAGER_PERSISTENCE_PRIMARY_NAMESPACE,
