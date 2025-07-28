@@ -15,16 +15,21 @@ use core::marker::Unpin;
 use core::pin::Pin;
 use core::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 
-pub(crate) enum ResultFuture<F: Future<Output = Result<(), E>>, E: Unpin> {
+/// A future that can be in a pending or ready state, where the ready state contains a `Result`.
+pub enum ResultFuture<F: Future<Output = Result<(), E>>, E: Unpin> {
+	/// The future is still pending and needs to be polled again.
 	Pending(F),
+	/// The future has completed and contains a result.
 	Ready(Result<(), E>),
 }
 
-pub(crate) struct MultiResultFuturePoller<F: Future<Output = Result<(), E>> + Unpin, E: Unpin> {
+/// A utility to poll multiple futures that return results, collecting their results into a vector.
+pub struct MultiResultFuturePoller<F: Future<Output = Result<(), E>> + Unpin, E: Unpin> {
 	futures_state: Vec<ResultFuture<F, E>>,
 }
 
 impl<F: Future<Output = Result<(), E>> + Unpin, E: Unpin> MultiResultFuturePoller<F, E> {
+	/// Creates a new `MultiResultFuturePoller` with the given futures.
 	pub fn new(futures_state: Vec<ResultFuture<F, E>>) -> Self {
 		Self { futures_state }
 	}
@@ -95,21 +100,24 @@ pub(crate) fn dummy_waker() -> Waker {
 #[cfg(feature = "std")]
 pub type AsyncResult<'a, T> = Pin<Box<dyn Future<Output = Result<T, ()>> + 'a + Send>>;
 #[cfg(not(feature = "std"))]
+/// A type alias for a future that returns a result of type T.
 pub type AsyncResult<'a, T> = Pin<Box<dyn Future<Output = Result<T, ()>> + 'a>>;
 
-// Marker trait to optionally implement `Sync` under std.
+/// Marker trait to optionally implement `Sync` under std.
 #[cfg(feature = "std")]
 pub use core::marker::Sync as MaybeSync;
 
 #[cfg(not(feature = "std"))]
+/// Marker trait to optionally implement `Sync` under std.
 pub trait MaybeSync {}
 #[cfg(not(feature = "std"))]
 impl<T> MaybeSync for T where T: ?Sized {}
 
-// Marker trait to optionally implement `Send` under std.
+/// Marker trait to optionally implement `Send` under std.
 #[cfg(feature = "std")]
 pub use core::marker::Send as MaybeSend;
 #[cfg(not(feature = "std"))]
+/// Marker trait to optionally implement `Send` under std.
 pub trait MaybeSend {}
 #[cfg(not(feature = "std"))]
 impl<T> MaybeSend for T where T: ?Sized {}

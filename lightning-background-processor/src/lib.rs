@@ -21,6 +21,10 @@ extern crate core;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::format;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 #[macro_use]
 extern crate lightning;
@@ -70,8 +74,12 @@ use lightning_rapid_gossip_sync::RapidGossipSync;
 
 use lightning_liquidity::ALiquidityManager;
 
+use core::future::Future;
 use core::ops::Deref;
+use core::pin::Pin;
 use core::time::Duration;
+
+use lightning::util::async_poll::{MaybeSync, MultiResultFuturePoller, ResultFuture};
 
 #[cfg(feature = "std")]
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -617,11 +625,11 @@ use futures_util::{dummy_waker, OptionalSelector, Selector, SelectorOutput};
 pub async fn process_events_async<
 	'a,
 	UL: 'static + Deref,
-	CF: 'static + Deref,
-	T: 'static + Deref,
-	F: 'static + Deref,
+	CF: 'static + Deref + Send + Sync,
+	T: 'static + Deref + Send + Sync,
+	F: 'static + Deref + Send + Sync,
 	G: 'static + Deref<Target = NetworkGraph<L>>,
-	L: 'static + Deref,
+	L: 'static + Deref + Send + Sync,
 	P: 'static + Deref,
 	EventHandlerFuture: core::future::Future<Output = Result<(), ReplayEvent>>,
 	EventHandler: Fn(Event) -> EventHandlerFuture,
@@ -636,10 +644,10 @@ pub async fn process_events_async<
 	RGS: 'static + Deref<Target = RapidGossipSync<G, L>>,
 	PM: 'static + Deref,
 	LM: 'static + Deref,
-	D: 'static + Deref,
-	O: 'static + Deref,
-	K: 'static + Deref,
-	OS: 'static + Deref<Target = OutputSweeper<T, D, F, CF, K, L, O>>,
+	D: 'static + Deref + Send + Sync,
+	O: 'static + Deref + Send + Sync,
+	K: 'static + Deref + Send + Sync,
+	OS: 'static + Deref<Target = OutputSweeper<T, D, F, CF, K, L, O>> + Clone + Send,
 	S: 'static + Deref<Target = SC> + Send + Sync,
 	SC: for<'b> WriteableScore<'b>,
 	SleepFuture: core::future::Future<Output = bool> + core::marker::Unpin,
@@ -664,7 +672,7 @@ where
 	PM::Target: APeerManager,
 	LM::Target: ALiquidityManager,
 	O::Target: 'static + OutputSpender,
-	D::Target: 'static + ChangeDestinationSource,
+	D::Target: 'static + ChangeDestinationSource + MaybeSync,
 	K::Target: 'static + KVStore,
 {
 	let async_event_handler = |event| {
@@ -808,17 +816,24 @@ where
 			None => {},
 		}
 
+		let mut futures = Vec::new();
+
 		// Persist channel manager.
 		if channel_manager.get_cm().get_and_clear_needs_persistence() {
 			log_trace!(logger, "Persisting ChannelManager...");
-			kv_store
-				.write(
-					CHANNEL_MANAGER_PERSISTENCE_PRIMARY_NAMESPACE,
-					CHANNEL_MANAGER_PERSISTENCE_SECONDARY_NAMESPACE,
-					CHANNEL_MANAGER_PERSISTENCE_KEY,
-					&channel_manager.get_cm().encode(),
-				)
-				.await?;
+			let res = kv_store.write(
+				CHANNEL_MANAGER_PERSISTENCE_PRIMARY_NAMESPACE,
+				CHANNEL_MANAGER_PERSISTENCE_SECONDARY_NAMESPACE,
+				CHANNEL_MANAGER_PERSISTENCE_KEY,
+				&channel_manager.get_cm().encode(),
+			);
+
+			let fut: Pin<
+				Box<dyn Future<Output = Result<(), (lightning::io::Error, bool)>> + Send + 'static>,
+			> = Box::pin(async move { res.await.map_err(|e| (e, true)) });
+
+			futures.push(ResultFuture::Pending(fut));
+
 			log_trace!(logger, "Done persisting ChannelManager.");
 		}
 
@@ -846,17 +861,29 @@ where
 					log_warn!(logger, "Not pruning network graph, consider implementing the fetch_time argument or calling remove_stale_channels_and_tracking_with_time manually.");
 					log_trace!(logger, "Persisting network graph.");
 				}
-				if let Err(e) = kv_store
-					.write(
-						NETWORK_GRAPH_PERSISTENCE_PRIMARY_NAMESPACE,
-						NETWORK_GRAPH_PERSISTENCE_SECONDARY_NAMESPACE,
-						NETWORK_GRAPH_PERSISTENCE_KEY,
-						&network_graph.encode(),
-					)
-					.await
-				{
-					log_error!(logger, "Error: Failed to persist network graph, check your disk and permissions {}",e);
-				}
+				let res = kv_store.write(
+					NETWORK_GRAPH_PERSISTENCE_PRIMARY_NAMESPACE,
+					NETWORK_GRAPH_PERSISTENCE_SECONDARY_NAMESPACE,
+					NETWORK_GRAPH_PERSISTENCE_KEY,
+					&network_graph.encode(),
+				);
+				let fut: Pin<
+					Box<
+						dyn Future<Output = Result<(), (lightning::io::Error, bool)>>
+							+ Send
+							+ 'static,
+					>,
+				> = Box::pin(async move {
+					res.await.map_err(|e| {
+						(lightning::io::Error::new(
+							lightning::io::ErrorKind::Other,
+							format!("failed to persist network graph, check your disk and permissions {}", e)),
+						 false)
+					})
+				});
+
+				futures.push(ResultFuture::Pending(fut));
+
 				have_pruned = true;
 			}
 			let prune_timer =
@@ -883,21 +910,28 @@ where
 					} else {
 						log_trace!(logger, "Persisting scorer");
 					}
-					if let Err(e) = kv_store
-						.write(
-							SCORER_PERSISTENCE_PRIMARY_NAMESPACE,
-							SCORER_PERSISTENCE_SECONDARY_NAMESPACE,
-							SCORER_PERSISTENCE_KEY,
-							&scorer.encode(),
-						)
-						.await
-					{
-						log_error!(
-							logger,
-							"Error: Failed to persist scorer, check your disk and permissions {}",
-							e
-						);
-					}
+					let res = kv_store.write(
+						SCORER_PERSISTENCE_PRIMARY_NAMESPACE,
+						SCORER_PERSISTENCE_SECONDARY_NAMESPACE,
+						SCORER_PERSISTENCE_KEY,
+						&scorer.encode(),
+					);
+					let fut: Pin<
+						Box<
+							dyn Future<Output = Result<(), (lightning::io::Error, bool)>>
+								+ Send
+								+ 'static,
+						>,
+					> = Box::pin(async move {
+						res.await.map_err(|e| {
+							(lightning::io::Error::new(
+							lightning::io::ErrorKind::Other,
+							format!("failed to persist scorer, check your disk and permissions {}", e)),
+						 false)
+						})
+					});
+
+					futures.push(ResultFuture::Pending(fut));
 				}
 				last_scorer_persist_call = sleeper(SCORER_PERSIST_TIMER);
 			},
@@ -910,12 +944,44 @@ where
 			Some(false) => {
 				log_trace!(logger, "Regenerating sweeper spends if necessary");
 				if let Some(ref sweeper) = sweeper {
-					let _ = sweeper.regenerate_and_broadcast_spend_if_necessary().await;
+					let sweeper = sweeper.clone();
+					let fut: Pin<
+						Box<
+							dyn Future<Output = Result<(), (lightning::io::Error, bool)>>
+								+ Send
+								+ 'static,
+						>,
+					> = Box::pin(async move {
+						sweeper.regenerate_and_broadcast_spend_if_necessary().await.map_err(|_| {
+							(
+								lightning::io::Error::new(
+									lightning::io::ErrorKind::Other,
+									"failed to persist sweeper, check your disk and permissions",
+								),
+								false,
+							)
+						})
+					});
+
+					futures.push(ResultFuture::Pending(fut));
 				}
 				last_sweeper_call = sleeper(SWEEPER_TIMER);
 			},
 			Some(true) => break,
 			None => {},
+		}
+
+		// Run persistence tasks in parallel.
+		let multi_res = MultiResultFuturePoller::new(futures).await;
+		for res in multi_res {
+			if let Err((e, exit)) = res {
+				log_error!(logger, "Error: {}", e);
+
+				if exit {
+					log_error!(logger, "Exiting background processor");
+					return Err(e);
+				}
+			}
 		}
 
 		// Onion messenger timer tick.
@@ -1007,9 +1073,9 @@ fn check_sleeper<SleepFuture: core::future::Future<Output = bool> + core::marker
 /// synchronous background persistence.
 pub async fn process_events_async_with_kv_store_sync<
 	UL: 'static + Deref,
-	CF: 'static + Deref,
-	T: 'static + Deref,
-	F: 'static + Deref,
+	CF: 'static + Deref + Send + Sync,
+	T: 'static + Deref + Send + Sync,
+	F: 'static + Deref + Send + Sync,
 	G: 'static + Deref<Target = NetworkGraph<L>>,
 	L: 'static + Deref + Send + Sync,
 	P: 'static + Deref,
@@ -1026,10 +1092,13 @@ pub async fn process_events_async_with_kv_store_sync<
 	RGS: 'static + Deref<Target = RapidGossipSync<G, L>>,
 	PM: 'static + Deref,
 	LM: 'static + Deref,
-	D: 'static + Deref,
-	O: 'static + Deref,
-	K: 'static + Deref,
-	OS: 'static + Deref<Target = OutputSweeper<T, D, F, CF, KVStoreSyncWrapper<K>, L, O>>,
+	D: 'static + Deref + Send + Sync,
+	O: 'static + Deref + Send + Sync,
+	K: 'static + Deref + Send + Sync,
+	OS: 'static
+		+ Deref<Target = OutputSweeper<T, D, F, CF, KVStoreSyncWrapper<K>, L, O>>
+		+ Clone
+		+ Send,
 	S: 'static + Deref<Target = SC> + Send + Sync,
 	SC: for<'b> WriteableScore<'b>,
 	SleepFuture: core::future::Future<Output = bool> + core::marker::Unpin,
@@ -1054,7 +1123,7 @@ where
 	PM::Target: APeerManager,
 	LM::Target: ALiquidityManager,
 	O::Target: 'static + OutputSpender,
-	D::Target: 'static + ChangeDestinationSource,
+	D::Target: 'static + ChangeDestinationSource + MaybeSync,
 	K::Target: 'static + KVStoreSync,
 {
 	let kv_store = KVStoreSyncWrapper(kv_store);
