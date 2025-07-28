@@ -667,7 +667,6 @@ where
 	D::Target: 'static + ChangeDestinationSource,
 	K::Target: 'static + KVStore,
 {
-	let mut should_break = false;
 	let async_event_handler = |event| {
 		let network_graph = gossip_sync.network_graph();
 		let event_handler = &event_handler;
@@ -722,35 +721,36 @@ where
 	let mut cur_batch_delay = batch_delay.get();
 	let mut last_forwards_processing_call = sleeper(cur_batch_delay);
 	loop {
+		// Handle channel manager events.
 		channel_manager.get_cm().process_pending_events_async(async_event_handler).await;
+
+		// Handle chain monitor events.
 		chain_monitor.process_pending_events_async(async_event_handler).await;
+
+		// Handle onion messenger events.
 		if let Some(om) = &onion_messenger {
 			om.get_om().process_pending_events_async(async_event_handler).await
 		}
+
+		// Handle peer manager events.
 		peer_manager.as_ref().process_events();
-		if (|fut: &mut SleepFuture| {
-			let mut waker = dummy_waker();
-			let mut ctx = task::Context::from_waker(&mut waker);
-			match core::pin::Pin::new(fut).poll(&mut ctx) {
-				task::Poll::Ready(exit) => {
-					should_break = exit;
-					true
-				},
-				task::Poll::Pending => false,
-			}
-		})(&mut last_forwards_processing_call)
-		{
-			channel_manager.get_cm().process_pending_htlc_forwards();
-			cur_batch_delay = batch_delay.next();
-			last_forwards_processing_call = sleeper(cur_batch_delay);
+		match check_sleeper(&mut last_forwards_processing_call) {
+			Some(false) => {
+				channel_manager.get_cm().process_pending_htlc_forwards();
+				cur_batch_delay = batch_delay.next();
+				last_forwards_processing_call = sleeper(cur_batch_delay);
+			},
+			Some(true) => break,
+			None => {},
 		}
-		if should_break {
-			break;
-		}
+
+		// Start mobile interruptable platform check timer.
 		let mut await_start = None;
 		if mobile_interruptable_platform {
 			await_start = Some(sleeper(Duration::from_secs(1)));
 		}
+
+		// Wait for events or timeouts.
 		let om_fut = if let Some(om) = onion_messenger.as_ref() {
 			let fut = om.get_om().get_update_future();
 			OptionalSelector { optional_future: Some(fut) }
@@ -780,27 +780,24 @@ where
 		match fut.await {
 			SelectorOutput::A | SelectorOutput::B | SelectorOutput::C | SelectorOutput::D => {},
 			SelectorOutput::E(exit) => {
-				should_break = exit;
+				if exit {
+					break;
+				}
 			},
 		}
+
+		// Check to see if we were interrupted on a mobile platform.
 		let await_slow = if mobile_interruptable_platform {
-			(|fut: &mut SleepFuture| {
-				let mut waker = dummy_waker();
-				let mut ctx = task::Context::from_waker(&mut waker);
-				match core::pin::Pin::new(fut).poll(&mut ctx) {
-					task::Poll::Ready(exit) => {
-						should_break = exit;
-						true
-					},
-					task::Poll::Pending => false,
-				}
-			})(&mut await_start.unwrap())
+			match check_sleeper(&mut await_start.unwrap()) {
+				Some(true) => break,
+				Some(false) => true,
+				None => false,
+			}
 		} else {
 			false
 		};
-		if should_break {
-			break;
-		}
+
+		// Persist channel manager.
 		if channel_manager.get_cm().get_and_clear_needs_persistence() {
 			log_trace!(logger, "Persisting ChannelManager...");
 			kv_store
@@ -813,71 +810,57 @@ where
 				.await?;
 			log_trace!(logger, "Done persisting ChannelManager.");
 		}
-		if (|fut: &mut SleepFuture| {
-			let mut waker = dummy_waker();
-			let mut ctx = task::Context::from_waker(&mut waker);
-			match core::pin::Pin::new(fut).poll(&mut ctx) {
-				task::Poll::Ready(exit) => {
-					should_break = exit;
-					true
-				},
-				task::Poll::Pending => false,
-			}
-		})(&mut last_freshness_call)
-		{
-			log_trace!(logger, "Calling ChannelManager's timer_tick_occurred");
-			channel_manager.get_cm().timer_tick_occurred();
-			last_freshness_call = sleeper(FRESHNESS_TIMER);
+
+		// Channel manager timer tick.
+		match check_sleeper(&mut last_freshness_call) {
+			Some(false) => {
+				log_trace!(logger, "Calling ChannelManager's timer_tick_occurred");
+				channel_manager.get_cm().timer_tick_occurred();
+				last_freshness_call = sleeper(FRESHNESS_TIMER);
+			},
+			Some(true) => break,
+			None => {},
 		}
-		if (|fut: &mut SleepFuture| {
-			let mut waker = dummy_waker();
-			let mut ctx = task::Context::from_waker(&mut waker);
-			match core::pin::Pin::new(fut).poll(&mut ctx) {
-				task::Poll::Ready(exit) => {
-					should_break = exit;
-					true
-				},
-				task::Poll::Pending => false,
-			}
-		})(&mut last_onion_message_handler_call)
-		{
-			if let Some(om) = &onion_messenger {
-				log_trace!(logger, "Calling OnionMessageHandler's timer_tick_occurred");
-				om.get_om().timer_tick_occurred();
-			}
-			last_onion_message_handler_call = sleeper(ONION_MESSAGE_HANDLER_TIMER);
+
+		// Onion messenger timer tick.
+		match check_sleeper(&mut last_onion_message_handler_call) {
+			Some(false) => {
+				if let Some(om) = &onion_messenger {
+					log_trace!(logger, "Calling OnionMessageHandler's timer_tick_occurred");
+					om.get_om().timer_tick_occurred();
+				}
+				last_onion_message_handler_call = sleeper(ONION_MESSAGE_HANDLER_TIMER);
+			},
+			Some(true) => break,
+			None => {},
 		}
+
+		// Peer manager timer tick. If we were interrupted on a mobile platform, we disconnect all peers.
 		if await_slow {
 			log_trace!(logger, "100ms sleep took more than a second, disconnecting peers.");
 			peer_manager.as_ref().disconnect_all_peers();
 			last_ping_call = sleeper(PING_TIMER);
-		} else if (|fut: &mut SleepFuture| {
-			let mut waker = dummy_waker();
-			let mut ctx = task::Context::from_waker(&mut waker);
-			match core::pin::Pin::new(fut).poll(&mut ctx) {
-				task::Poll::Ready(exit) => {
-					should_break = exit;
-					true
+		} else {
+			match check_sleeper(&mut last_ping_call) {
+				Some(false) => {
+					log_trace!(logger, "Calling PeerManager's timer_tick_occurred");
+					peer_manager.as_ref().timer_tick_occurred();
+					last_ping_call = sleeper(PING_TIMER);
 				},
-				task::Poll::Pending => false,
+				Some(true) => break,
+				_ => {},
 			}
-		})(&mut last_ping_call)
-		{
-			log_trace!(logger, "Calling PeerManager's timer_tick_occurred");
-			peer_manager.as_ref().timer_tick_occurred();
-			last_ping_call = sleeper(PING_TIMER);
 		}
-		let prune_timer_elapsed = (|fut: &mut SleepFuture| {
-			let mut waker = dummy_waker();
-			let mut ctx = task::Context::from_waker(&mut waker);
-			match core::pin::Pin::new(fut).poll(&mut ctx) {
-				task::Poll::Ready(exit) => {
-					should_break = exit;
-					true
-				},
-				task::Poll::Pending => false,
+
+		// Prune and persist the network graph if necessary.
+		let prune_timer_elapsed = {
+			match check_sleeper(&mut last_prune_call) {
+				Some(false) => true,
+				Some(true) => break,
+				None => false,
 			}
-		})(&mut last_prune_call);
+		};
+
 		let should_prune = match gossip_sync {
 			GossipSync::Rapid(_) => !have_pruned || prune_timer_elapsed,
 			_ => prune_timer_elapsed,
@@ -910,6 +893,8 @@ where
 				if have_pruned { NETWORK_PRUNE_TIMER } else { FIRST_NETWORK_PRUNE_TIMER };
 			last_prune_call = sleeper(prune_timer);
 		}
+
+		// Decay and persist the scorer if necessary.
 		if !have_decayed_scorer {
 			if let Some(ref scorer) = scorer {
 				if let Some(duration_since_epoch) = fetch_time() {
@@ -919,76 +904,59 @@ where
 			}
 			have_decayed_scorer = true;
 		}
-		if (|fut: &mut SleepFuture| {
-			let mut waker = dummy_waker();
-			let mut ctx = task::Context::from_waker(&mut waker);
-			match core::pin::Pin::new(fut).poll(&mut ctx) {
-				task::Poll::Ready(exit) => {
-					should_break = exit;
-					true
-				},
-				task::Poll::Pending => false,
-			}
-		})(&mut last_scorer_persist_call)
-		{
-			if let Some(ref scorer) = scorer {
-				if let Some(duration_since_epoch) = fetch_time() {
-					log_trace!(logger, "Calling time_passed and persisting scorer");
-					scorer.write_lock().time_passed(duration_since_epoch);
-				} else {
-					log_trace!(logger, "Persisting scorer");
+		match check_sleeper(&mut last_scorer_persist_call) {
+			Some(false) => {
+				if let Some(ref scorer) = scorer {
+					if let Some(duration_since_epoch) = fetch_time() {
+						log_trace!(logger, "Calling time_passed and persisting scorer");
+						scorer.write_lock().time_passed(duration_since_epoch);
+					} else {
+						log_trace!(logger, "Persisting scorer");
+					}
+					if let Err(e) = kv_store
+						.write(
+							SCORER_PERSISTENCE_PRIMARY_NAMESPACE,
+							SCORER_PERSISTENCE_SECONDARY_NAMESPACE,
+							SCORER_PERSISTENCE_KEY,
+							&scorer.encode(),
+						)
+						.await
+					{
+						log_error!(
+							logger,
+							"Error: Failed to persist scorer, check your disk and permissions {}",
+							e
+						);
+					}
 				}
-				if let Err(e) = kv_store
-					.write(
-						SCORER_PERSISTENCE_PRIMARY_NAMESPACE,
-						SCORER_PERSISTENCE_SECONDARY_NAMESPACE,
-						SCORER_PERSISTENCE_KEY,
-						&scorer.encode(),
-					)
-					.await
-				{
-					log_error!(
-						logger,
-						"Error: Failed to persist scorer, check your disk and permissions {}",
-						e
-					);
+				last_scorer_persist_call = sleeper(SCORER_PERSIST_TIMER);
+			},
+			Some(true) => break,
+			None => {},
+		}
+
+		// Rebroadcast pending claims.
+		match check_sleeper(&mut last_rebroadcast_call) {
+			Some(false) => {
+				log_trace!(logger, "Rebroadcasting monitor's pending claims");
+				chain_monitor.rebroadcast_pending_claims();
+				last_rebroadcast_call = sleeper(REBROADCAST_TIMER);
+			},
+			Some(true) => break,
+			None => {},
+		}
+
+		// Sweeper regeneration and broadcast.
+		match check_sleeper(&mut last_sweeper_call) {
+			Some(false) => {
+				log_trace!(logger, "Regenerating sweeper spends if necessary");
+				if let Some(ref sweeper) = sweeper {
+					let _ = sweeper.regenerate_and_broadcast_spend_if_necessary().await;
 				}
-			}
-			last_scorer_persist_call = sleeper(SCORER_PERSIST_TIMER);
-		}
-		if (|fut: &mut SleepFuture| {
-			let mut waker = dummy_waker();
-			let mut ctx = task::Context::from_waker(&mut waker);
-			match core::pin::Pin::new(fut).poll(&mut ctx) {
-				task::Poll::Ready(exit) => {
-					should_break = exit;
-					true
-				},
-				task::Poll::Pending => false,
-			}
-		})(&mut last_rebroadcast_call)
-		{
-			log_trace!(logger, "Rebroadcasting monitor's pending claims");
-			chain_monitor.rebroadcast_pending_claims();
-			last_rebroadcast_call = sleeper(REBROADCAST_TIMER);
-		}
-		if (|fut: &mut SleepFuture| {
-			let mut waker = dummy_waker();
-			let mut ctx = task::Context::from_waker(&mut waker);
-			match core::pin::Pin::new(fut).poll(&mut ctx) {
-				task::Poll::Ready(exit) => {
-					should_break = exit;
-					true
-				},
-				task::Poll::Pending => false,
-			}
-		})(&mut last_sweeper_call)
-		{
-			log_trace!(logger, "Regenerating sweeper spends if necessary");
-			if let Some(ref sweeper) = sweeper {
-				let _ = sweeper.regenerate_and_broadcast_spend_if_necessary().await;
-			}
-			last_sweeper_call = sleeper(SWEEPER_TIMER);
+				last_sweeper_call = sleeper(SWEEPER_TIMER);
+			},
+			Some(true) => break,
+			None => {},
 		}
 	}
 	log_trace!(logger, "Terminating background processor.");
@@ -1022,6 +990,17 @@ where
 			.await?;
 	}
 	Ok(())
+}
+
+fn check_sleeper<SleepFuture: core::future::Future<Output = bool> + core::marker::Unpin>(
+	fut: &mut SleepFuture,
+) -> Option<bool> {
+	let mut waker = dummy_waker();
+	let mut ctx = task::Context::from_waker(&mut waker);
+	match core::pin::Pin::new(fut).poll(&mut ctx) {
+		task::Poll::Ready(exit) => Some(exit),
+		task::Poll::Pending => None,
+	}
 }
 
 /// Async events processor that is based on [`process_events_async`] but allows for [`KVStoreSync`] to be used for
