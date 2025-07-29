@@ -797,6 +797,17 @@ where
 			false
 		};
 
+		// Channel manager timer tick.
+		match check_sleeper(&mut last_freshness_call) {
+			Some(false) => {
+				log_trace!(logger, "Calling ChannelManager's timer_tick_occurred");
+				channel_manager.get_cm().timer_tick_occurred();
+				last_freshness_call = sleeper(FRESHNESS_TIMER);
+			},
+			Some(true) => break,
+			None => {},
+		}
+
 		// Persist channel manager.
 		if channel_manager.get_cm().get_and_clear_needs_persistence() {
 			log_trace!(logger, "Persisting ChannelManager...");
@@ -809,47 +820,6 @@ where
 				)
 				.await?;
 			log_trace!(logger, "Done persisting ChannelManager.");
-		}
-
-		// Channel manager timer tick.
-		match check_sleeper(&mut last_freshness_call) {
-			Some(false) => {
-				log_trace!(logger, "Calling ChannelManager's timer_tick_occurred");
-				channel_manager.get_cm().timer_tick_occurred();
-				last_freshness_call = sleeper(FRESHNESS_TIMER);
-			},
-			Some(true) => break,
-			None => {},
-		}
-
-		// Onion messenger timer tick.
-		match check_sleeper(&mut last_onion_message_handler_call) {
-			Some(false) => {
-				if let Some(om) = &onion_messenger {
-					log_trace!(logger, "Calling OnionMessageHandler's timer_tick_occurred");
-					om.get_om().timer_tick_occurred();
-				}
-				last_onion_message_handler_call = sleeper(ONION_MESSAGE_HANDLER_TIMER);
-			},
-			Some(true) => break,
-			None => {},
-		}
-
-		// Peer manager timer tick. If we were interrupted on a mobile platform, we disconnect all peers.
-		if await_slow {
-			log_trace!(logger, "100ms sleep took more than a second, disconnecting peers.");
-			peer_manager.as_ref().disconnect_all_peers();
-			last_ping_call = sleeper(PING_TIMER);
-		} else {
-			match check_sleeper(&mut last_ping_call) {
-				Some(false) => {
-					log_trace!(logger, "Calling PeerManager's timer_tick_occurred");
-					peer_manager.as_ref().timer_tick_occurred();
-					last_ping_call = sleeper(PING_TIMER);
-				},
-				Some(true) => break,
-				_ => {},
-			}
 		}
 
 		// Prune and persist the network graph if necessary.
@@ -935,17 +905,6 @@ where
 			None => {},
 		}
 
-		// Rebroadcast pending claims.
-		match check_sleeper(&mut last_rebroadcast_call) {
-			Some(false) => {
-				log_trace!(logger, "Rebroadcasting monitor's pending claims");
-				chain_monitor.rebroadcast_pending_claims();
-				last_rebroadcast_call = sleeper(REBROADCAST_TIMER);
-			},
-			Some(true) => break,
-			None => {},
-		}
-
 		// Sweeper regeneration and broadcast.
 		match check_sleeper(&mut last_sweeper_call) {
 			Some(false) => {
@@ -954,6 +913,47 @@ where
 					let _ = sweeper.regenerate_and_broadcast_spend_if_necessary().await;
 				}
 				last_sweeper_call = sleeper(SWEEPER_TIMER);
+			},
+			Some(true) => break,
+			None => {},
+		}
+
+		// Onion messenger timer tick.
+		match check_sleeper(&mut last_onion_message_handler_call) {
+			Some(false) => {
+				if let Some(om) = &onion_messenger {
+					log_trace!(logger, "Calling OnionMessageHandler's timer_tick_occurred");
+					om.get_om().timer_tick_occurred();
+				}
+				last_onion_message_handler_call = sleeper(ONION_MESSAGE_HANDLER_TIMER);
+			},
+			Some(true) => break,
+			None => {},
+		}
+
+		// Peer manager timer tick. If we were interrupted on a mobile platform, we disconnect all peers.
+		if await_slow {
+			log_trace!(logger, "100ms sleep took more than a second, disconnecting peers.");
+			peer_manager.as_ref().disconnect_all_peers();
+			last_ping_call = sleeper(PING_TIMER);
+		} else {
+			match check_sleeper(&mut last_ping_call) {
+				Some(false) => {
+					log_trace!(logger, "Calling PeerManager's timer_tick_occurred");
+					peer_manager.as_ref().timer_tick_occurred();
+					last_ping_call = sleeper(PING_TIMER);
+				},
+				Some(true) => break,
+				_ => {},
+			}
+		}
+
+		// Rebroadcast pending claims.
+		match check_sleeper(&mut last_rebroadcast_call) {
+			Some(false) => {
+				log_trace!(logger, "Rebroadcasting monitor's pending claims");
+				chain_monitor.rebroadcast_pending_claims();
+				last_rebroadcast_call = sleeper(REBROADCAST_TIMER);
 			},
 			Some(true) => break,
 			None => {},
