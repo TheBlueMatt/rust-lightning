@@ -74,12 +74,8 @@ use lightning_rapid_gossip_sync::RapidGossipSync;
 
 use lightning_liquidity::ALiquidityManager;
 
-use core::future::Future;
 use core::ops::Deref;
-use core::pin::Pin;
 use core::time::Duration;
-
-use lightning::util::async_poll::{MaybeSync, MultiResultFuturePoller, ResultFuture};
 
 #[cfg(feature = "std")]
 use core::sync::atomic::{AtomicBool, Ordering};
@@ -451,9 +447,118 @@ pub(crate) mod futures_util {
 	pub(crate) fn dummy_waker() -> Waker {
 		unsafe { Waker::from_raw(RawWaker::new(core::ptr::null(), &DUMMY_WAKER_VTABLE)) }
 	}
+
+	enum JoinerResult<E, F: Future<Output = Result<(), E>> + Unpin> {
+		Pending(Option<F>),
+		Ready(Result<(), E>),
+	}
+
+	pub(crate) struct Joiner<
+		E,
+		A: Future<Output = Result<(), E>> + Unpin,
+		B: Future<Output = Result<(), E>> + Unpin,
+		C: Future<Output = Result<(), E>> + Unpin,
+		D: Future<Output = Result<(), E>> + Unpin,
+	> {
+		a: JoinerResult<E, A>,
+		b: JoinerResult<E, B>,
+		c: JoinerResult<E, C>,
+		d: JoinerResult<E, D>,
+	}
+
+	impl<
+			E,
+			A: Future<Output = Result<(), E>> + Unpin,
+			B: Future<Output = Result<(), E>> + Unpin,
+			C: Future<Output = Result<(), E>> + Unpin,
+			D: Future<Output = Result<(), E>> + Unpin,
+		> Joiner<E, A, B, C, D>
+	{
+		pub(crate) fn new() -> Self {
+			Self {
+				a: JoinerResult::Pending(None),
+				b: JoinerResult::Pending(None),
+				c: JoinerResult::Pending(None),
+				d: JoinerResult::Pending(None),
+			}
+		}
+
+		pub(crate) fn set_a(&mut self, fut: A) {
+			self.a = JoinerResult::Pending(Some(fut));
+		}
+		pub(crate) fn set_b(&mut self, fut: B) {
+			self.b = JoinerResult::Pending(Some(fut));
+		}
+		pub(crate) fn set_c(&mut self, fut: C) {
+			self.c = JoinerResult::Pending(Some(fut));
+		}
+		pub(crate) fn set_d(&mut self, fut: D) {
+			self.d = JoinerResult::Pending(Some(fut));
+		}
+	}
+
+	impl<
+			E,
+			A: Future<Output = Result<(), E>> + Unpin,
+			B: Future<Output = Result<(), E>> + Unpin,
+			C: Future<Output = Result<(), E>> + Unpin,
+			D: Future<Output = Result<(), E>> + Unpin,
+		> Future for Joiner<E, A, B, C, D>
+			where Joiner<E, A, B, C, D>: Unpin
+	{
+		type Output = [Result<(), E>; 4];
+		fn poll(
+			mut self: Pin<&mut Self>, ctx: &mut core::task::Context<'_>,
+		) -> Poll<Self::Output> {
+			let mut all_complete = true;
+			macro_rules! handle {
+				($val: ident) => {
+					match &mut (self.$val) {
+						JoinerResult::Pending(None) => {
+							self.$val = JoinerResult::Ready(Ok(()));
+						},
+						JoinerResult::<E, _>::Pending(Some(ref mut val)) => {
+							match Pin::new(val).poll(ctx) {
+								Poll::Ready(res) => {
+									self.$val = JoinerResult::Ready(res);
+								},
+								Poll::Pending => {
+									all_complete = false;
+								},
+							}
+						},
+						JoinerResult::Ready(_) => {},
+					}
+				}
+			}
+			handle!(a);
+			handle!(b);
+			handle!(c);
+			handle!(d);
+
+			if all_complete {
+				let mut res = [Ok(()), Ok(()), Ok(()), Ok(())];
+				if let JoinerResult::Ready(ref mut val) = &mut self.a {
+					core::mem::swap(&mut res[0], val);
+				}
+				if let JoinerResult::Ready(ref mut val) = &mut self.b {
+					core::mem::swap(&mut res[1], val);
+				}
+				if let JoinerResult::Ready(ref mut val) = &mut self.c {
+					core::mem::swap(&mut res[2], val);
+				}
+				if let JoinerResult::Ready(ref mut val) = &mut self.d {
+					core::mem::swap(&mut res[3], val);
+				}
+				Poll::Ready(res)
+			} else {
+				Poll::Pending
+			}
+		}
+	}
 }
 use core::task;
-use futures_util::{dummy_waker, OptionalSelector, Selector, SelectorOutput};
+use futures_util::{dummy_waker, OptionalSelector, Selector, SelectorOutput, Joiner};
 
 /// Processes background events in a future.
 ///
@@ -625,11 +730,11 @@ use futures_util::{dummy_waker, OptionalSelector, Selector, SelectorOutput};
 pub async fn process_events_async<
 	'a,
 	UL: 'static + Deref,
-	CF: 'static + Deref + Send + Sync,
-	T: 'static + Deref + Send + Sync,
-	F: 'static + Deref + Send + Sync,
+	CF: 'static + Deref,
+	T: 'static + Deref,
+	F: 'static + Deref,
 	G: 'static + Deref<Target = NetworkGraph<L>>,
-	L: 'static + Deref + Send + Sync,
+	L: 'static + Deref,
 	P: 'static + Deref,
 	EventHandlerFuture: core::future::Future<Output = Result<(), ReplayEvent>>,
 	EventHandler: Fn(Event) -> EventHandlerFuture,
@@ -644,10 +749,10 @@ pub async fn process_events_async<
 	RGS: 'static + Deref<Target = RapidGossipSync<G, L>>,
 	PM: 'static + Deref,
 	LM: 'static + Deref,
-	D: 'static + Deref + Send + Sync,
-	O: 'static + Deref + Send + Sync,
-	K: 'static + Deref + Send + Sync,
-	OS: 'static + Deref<Target = OutputSweeper<T, D, F, CF, K, L, O>> + Clone + Send,
+	D: 'static + Deref,
+	O: 'static + Deref,
+	K: 'static + Deref,
+	OS: 'static + Deref<Target = OutputSweeper<T, D, F, CF, K, L, O>>,
 	S: 'static + Deref<Target = SC> + Send + Sync,
 	SC: for<'b> WriteableScore<'b>,
 	SleepFuture: core::future::Future<Output = bool> + core::marker::Unpin,
@@ -672,7 +777,7 @@ where
 	PM::Target: APeerManager,
 	LM::Target: ALiquidityManager,
 	O::Target: 'static + OutputSpender,
-	D::Target: 'static + ChangeDestinationSource + MaybeSync,
+	D::Target: 'static + ChangeDestinationSource,
 	K::Target: 'static + KVStore,
 {
 	let async_event_handler = |event| {
@@ -816,7 +921,7 @@ where
 			None => {},
 		}
 
-		let mut futures = Vec::new();
+		let mut futures = Joiner::new();
 
 		// Persist channel manager.
 		if channel_manager.get_cm().get_and_clear_needs_persistence() {
@@ -828,11 +933,9 @@ where
 				&channel_manager.get_cm().encode(),
 			);
 
-			let fut: Pin<
-				Box<dyn Future<Output = Result<(), (lightning::io::Error, bool)>> + Send + 'static>,
-			> = Box::pin(async move { res.await.map_err(|e| (e, true)) });
-
-			futures.push(ResultFuture::Pending(fut));
+			let fut = async move { res.await.map_err(|e| (format!("Failed to persist ChannelManager: {e}"), Some(e))) };
+			// TODO: Once our MSRV is 1.68 we should be able to drop the Box
+			futures.set_a(Box::pin(fut));
 
 			log_trace!(logger, "Done persisting ChannelManager.");
 		}
@@ -867,22 +970,15 @@ where
 					NETWORK_GRAPH_PERSISTENCE_KEY,
 					&network_graph.encode(),
 				);
-				let fut: Pin<
-					Box<
-						dyn Future<Output = Result<(), (lightning::io::Error, bool)>>
-							+ Send
-							+ 'static,
-					>,
-				> = Box::pin(async move {
+				let fut = async move {
 					res.await.map_err(|e| {
-						(lightning::io::Error::new(
-							lightning::io::ErrorKind::Other,
-							format!("failed to persist network graph, check your disk and permissions {}", e)),
-						 false)
+						(format!("failed to persist network graph, check your disk and permissions {e}"),
+						 None)
 					})
-				});
+				};
 
-				futures.push(ResultFuture::Pending(fut));
+				// TODO: Once our MSRV is 1.68 we should be able to drop the Box
+				futures.set_b(Box::pin(fut));
 
 				have_pruned = true;
 			}
@@ -916,22 +1012,15 @@ where
 						SCORER_PERSISTENCE_KEY,
 						&scorer.encode(),
 					);
-					let fut: Pin<
-						Box<
-							dyn Future<Output = Result<(), (lightning::io::Error, bool)>>
-								+ Send
-								+ 'static,
-						>,
-					> = Box::pin(async move {
+					let fut = async move {
 						res.await.map_err(|e| {
-							(lightning::io::Error::new(
-							lightning::io::ErrorKind::Other,
-							format!("failed to persist scorer, check your disk and permissions {}", e)),
-						 false)
+							(format!("failed to persist scorer, check your disk and permissions {e}"),
+						 None)
 						})
-					});
+					};
 
-					futures.push(ResultFuture::Pending(fut));
+					// TODO: Once our MSRV is 1.68 we should be able to drop the Box
+					futures.set_c(Box::pin(fut));
 				}
 				last_scorer_persist_call = sleeper(SCORER_PERSIST_TIMER);
 			},
@@ -945,25 +1034,15 @@ where
 				log_trace!(logger, "Regenerating sweeper spends if necessary");
 				if let Some(ref sweeper) = sweeper {
 					let sweeper = sweeper.clone();
-					let fut: Pin<
-						Box<
-							dyn Future<Output = Result<(), (lightning::io::Error, bool)>>
-								+ Send
-								+ 'static,
-						>,
-					> = Box::pin(async move {
-						sweeper.regenerate_and_broadcast_spend_if_necessary().await.map_err(|_| {
-							(
-								lightning::io::Error::new(
-									lightning::io::ErrorKind::Other,
-									"failed to persist sweeper, check your disk and permissions",
-								),
-								false,
-							)
+					let fut = async move {
+						sweeper.regenerate_and_broadcast_spend_if_necessary().await.map_err(|()| {
+							(format!("failed to persist sweeper, check your disk and permissions"),
+							 None)
 						})
-					});
+					};
 
-					futures.push(ResultFuture::Pending(fut));
+					// TODO: Once our MSRV is 1.68 we should be able to drop the Box
+					futures.set_d(Box::pin(fut));
 				}
 				last_sweeper_call = sleeper(SWEEPER_TIMER);
 			},
@@ -972,12 +1051,12 @@ where
 		}
 
 		// Run persistence tasks in parallel.
-		let multi_res = MultiResultFuturePoller::new(futures).await;
+		let multi_res = futures.await;
 		for res in multi_res {
-			if let Err((e, exit)) = res {
-				log_error!(logger, "Error: {}", e);
+			if let Err((msg, exit)) = res {
+				log_error!(logger, "Error: {msg}");
 
-				if exit {
+				if let Some(e) = exit {
 					log_error!(logger, "Exiting background processor");
 					return Err(e);
 				}
@@ -1073,9 +1152,9 @@ fn check_sleeper<SleepFuture: core::future::Future<Output = bool> + core::marker
 /// synchronous background persistence.
 pub async fn process_events_async_with_kv_store_sync<
 	UL: 'static + Deref,
-	CF: 'static + Deref + Send + Sync,
-	T: 'static + Deref + Send + Sync,
-	F: 'static + Deref + Send + Sync,
+	CF: 'static + Deref,
+	T: 'static + Deref,
+	F: 'static + Deref,
 	G: 'static + Deref<Target = NetworkGraph<L>>,
 	L: 'static + Deref + Send + Sync,
 	P: 'static + Deref,
@@ -1092,13 +1171,10 @@ pub async fn process_events_async_with_kv_store_sync<
 	RGS: 'static + Deref<Target = RapidGossipSync<G, L>>,
 	PM: 'static + Deref,
 	LM: 'static + Deref,
-	D: 'static + Deref + Send + Sync,
-	O: 'static + Deref + Send + Sync,
-	K: 'static + Deref + Send + Sync,
-	OS: 'static
-		+ Deref<Target = OutputSweeper<T, D, F, CF, KVStoreSyncWrapper<K>, L, O>>
-		+ Clone
-		+ Send,
+	D: 'static + Deref,
+	O: 'static + Deref,
+	K: 'static + Deref,
+	OS: 'static + Deref<Target = OutputSweeper<T, D, F, CF, KVStoreSyncWrapper<K>, L, O>>,
 	S: 'static + Deref<Target = SC> + Send + Sync,
 	SC: for<'b> WriteableScore<'b>,
 	SleepFuture: core::future::Future<Output = bool> + core::marker::Unpin,
@@ -1123,7 +1199,7 @@ where
 	PM::Target: APeerManager,
 	LM::Target: ALiquidityManager,
 	O::Target: 'static + OutputSpender,
-	D::Target: 'static + ChangeDestinationSource + MaybeSync,
+	D::Target: 'static + ChangeDestinationSource,
 	K::Target: 'static + KVStoreSync,
 {
 	let kv_store = KVStoreSyncWrapper(kv_store);
