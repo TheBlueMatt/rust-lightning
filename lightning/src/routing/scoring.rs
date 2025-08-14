@@ -1418,6 +1418,7 @@ let addl: f64 = unsafe { core::mem::transmute(ADDL.load(core::sync::atomic::Orde
 	let (max_v, min_v, amt_v) = (max_pow + max_norm * addl, min_pow + min_norm * addl, amt_pow + amt_norm * addl);
 	let mut denominator = max_v - min_v;
 	let numerator = max_v - amt_v;
+	assert!(numerator <= denominator, "max {}, max-p {}. amt {}, amt-p {}. min {}, min-p {}. {}/{}", max, max_pow, amount, amt_pow, min, min_pow, numerator, denominator);
 
 	if min_zero_implies_no_successes && min_liquidity_msat == 0 {
 		denominator = denominator * (NO_DATA_PENALTY.load(core::sync::atomic::Ordering::Acquire) as f64) / 64.0;
