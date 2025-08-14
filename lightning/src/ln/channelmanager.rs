@@ -5563,6 +5563,7 @@ where
 	fn send_payment_for_verified_bolt12_invoice(
 		&self, invoice: &Bolt12Invoice, payment_id: PaymentId,
 	) -> Result<(), Bolt12PaymentError> {
+panic!();
 		let best_block_height = self.best_block.read().unwrap().height;
 		let _persistence_guard = PersistenceNotifierGuard::notify_on_drop(self);
 		let features = self.bolt12_invoice_features();

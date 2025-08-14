@@ -1010,6 +1010,7 @@ pub fn do_test(mut data: &[u8], logger: &Arc<dyn Logger>) {
 					.get_slice((inv_len & 0x7fff) as usize)
 					.and_then(|slice| Bolt12Invoice::try_from(slice.to_vec()).ok());
 				let inv = if let Some(inv) = inv_opt { inv } else { return };
+panic!();
 				let context = if let Ok(c) = Readable::read(&mut &*input) { c } else { return };
 				if inv_len & 0x8000 != 0 {
 					let _ = channelmanager.send_payment_for_bolt12_invoice(&inv, Some(&context));
@@ -1027,6 +1028,7 @@ pub fn do_test(mut data: &[u8], logger: &Arc<dyn Logger>) {
 				let context = if let Ok(c) = Readable::read(&mut &*input) { c } else { return };
 				let response_path =
 					if let Ok(p) = Readable::read(&mut &*input) { Some(p) } else { return };
+panic!();
 				let msg = OffersMessage::InvoiceRequest(invreq);
 				let _ = channelmanager.handle_message(msg, context, response_path);
 			},
