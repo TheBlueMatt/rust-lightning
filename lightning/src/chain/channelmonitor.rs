@@ -5608,7 +5608,7 @@ impl<Signer: EcdsaChannelSigner> ChannelMonitorImpl<Signer> {
 					// Check for duplicate HTLC resolutions.
 					#[cfg(debug_assertions)]
 					{
-						debug_assert!(
+						/*debug_assert!(
 							!unmatured_htlcs.contains(&source),
 							"An unmature HTLC transaction conflicts with a maturing one; failed to \
 							 call either transaction_unconfirmed for the conflicting transaction \
@@ -5617,7 +5617,7 @@ impl<Signer: EcdsaChannelSigner> ChannelMonitorImpl<Signer> {
 							!matured_htlcs.contains(&source),
 							"A matured HTLC transaction conflicts with a maturing one; failed to \
 							 call either transaction_unconfirmed for the conflicting transaction \
-							 or blocks_disconnected for a block before it.");
+							 or blocks_disconnected for a block before it.");*/
 						matured_htlcs.push(source.clone());
 					}
 

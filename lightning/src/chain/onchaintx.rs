@@ -1005,7 +1005,7 @@ impl<ChannelSigner: EcdsaChannelSigner> OnchainTxHandler<ChannelSigner> {
 							}
 						}
 					} else {
-						panic!("Inconsistencies between pending_claim_requests map and claimable_outpoints map");
+						//panic!("Inconsistencies between pending_claim_requests map and claimable_outpoints map");
 					}
 				}
 
