@@ -144,7 +144,7 @@ pub const DEFAULT_EXPIRY_TIME: u64 = 3600;
 /// Note that this is *not* the same value as rust-lightning's minimum CLTV expiry.
 ///
 /// [BOLT 11]: https://github.com/lightning/bolts/blob/master/11-payment-encoding.md
-pub const DEFAULT_MIN_FINAL_CLTV_EXPIRY_DELTA: u64 = 18;
+pub const DEFAULT_MIN_FINAL_CLTV_EXPIRY_DELTA: u16 = 18;
 
 /// lightning-invoice will reject BOLT11 invoices that are longer than 7089 bytes.
 ///
@@ -567,7 +567,7 @@ pub struct ExpiryTime(Duration);
 
 /// `min_final_cltv_expiry_delta` to use for the last HTLC in the route
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd)]
-pub struct MinFinalCltvExpiryDelta(pub u64);
+pub struct MinFinalCltvExpiryDelta(pub u16);
 
 /// Fallback address in case no LN payment is possible
 #[allow(missing_docs)]
@@ -839,7 +839,7 @@ impl<D: tb::Bool, H: tb::Bool, T: tb::Bool, S: tb::Bool, M: tb::Bool>
 {
 	/// Sets `min_final_cltv_expiry_delta`.
 	pub fn min_final_cltv_expiry_delta(
-		mut self, min_final_cltv_expiry_delta: u64,
+		mut self, min_final_cltv_expiry_delta: u16,
 	) -> InvoiceBuilder<D, H, T, tb::True, S, M> {
 		self.tagged_fields.push(TaggedField::MinFinalCltvExpiryDelta(MinFinalCltvExpiryDelta(
 			min_final_cltv_expiry_delta,
@@ -1564,7 +1564,7 @@ impl Bolt11Invoice {
 
 	/// Returns the invoice's `min_final_cltv_expiry_delta` time, if present, otherwise
 	/// [`DEFAULT_MIN_FINAL_CLTV_EXPIRY_DELTA`].
-	pub fn min_final_cltv_expiry_delta(&self) -> u64 {
+	pub fn min_final_cltv_expiry_delta(&self) -> u16 {
 		self.signed_invoice
 			.min_final_cltv_expiry_delta()
 			.map(|x| x.0)

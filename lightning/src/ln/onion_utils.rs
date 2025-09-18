@@ -134,7 +134,7 @@ trait PathHop {
 	type HopId;
 	fn hop_id(&self) -> Self::HopId;
 	fn fee_msat(&self) -> u64;
-	fn cltv_expiry_delta(&self) -> u32;
+	fn cltv_expiry_delta(&self) -> u16;
 }
 
 impl HopInfo for RouteHop {
@@ -154,7 +154,7 @@ impl<'a> PathHop for &'a RouteHop {
 		self.fee_msat
 	}
 
-	fn cltv_expiry_delta(&self) -> u32 {
+	fn cltv_expiry_delta(&self) -> u16 {
 		self.cltv_expiry_delta
 	}
 }
@@ -176,7 +176,7 @@ impl<'a> PathHop for &'a TrampolineHop {
 		self.fee_msat
 	}
 
-	fn cltv_expiry_delta(&self) -> u32 {
+	fn cltv_expiry_delta(&self) -> u16 {
 		self.cltv_expiry_delta
 	}
 }
@@ -483,7 +483,7 @@ enum BlindedTailDetails<'a, I: Iterator<Item = &'a BlindedHop>> {
 		hops: I,
 		blinding_point: PublicKey,
 		final_value_msat: u64,
-		excess_final_cltv_expiry_delta: u32,
+		excess_final_cltv_expiry_delta: u16,
 	},
 	TrampolineEntry {
 		trampoline_packet: msgs::TrampolineOnionPacket,
@@ -517,7 +517,7 @@ where
 		// the intended recipient).
 		let value_msat = if cur_value_msat == 0 { hop.fee_msat() } else { cur_value_msat };
 		let cltv = if cur_cltv == starting_htlc_offset {
-			hop.cltv_expiry_delta().saturating_add(starting_htlc_offset)
+			u32::from(hop.cltv_expiry_delta()).saturating_add(starting_htlc_offset)
 		} else {
 			cur_cltv
 		};
@@ -540,7 +540,7 @@ where
 								OP::new_blinded_receive(
 									final_value_msat,
 									total_msat,
-									cur_cltv + excess_final_cltv_expiry_delta,
+									cur_cltv + u32::from(excess_final_cltv_expiry_delta),
 									&blinded_hop.encrypted_payload,
 									blinding_point.take(),
 									*keysend_preimage,
@@ -622,7 +622,7 @@ pub(crate) fn set_max_path_length(
 	let unblinded_intermed_payload_len = msgs::OutboundOnionPayload::Forward {
 		short_channel_id: 42,
 		amt_to_forward: TOTAL_BITCOIN_SUPPLY_SATOSHIS,
-		outgoing_cltv_value: route_params.payment_params.max_total_cltv_expiry_delta,
+		outgoing_cltv_value: route_params.payment_params.max_total_cltv_expiry_delta.into(),
 	}
 	.serialized_length()
 	.saturating_add(PAYLOAD_HMAC_LEN);
@@ -647,7 +647,7 @@ pub(crate) fn set_max_path_length(
 		});
 
 	let cltv_expiry_delta =
-		core::cmp::min(route_params.payment_params.max_total_cltv_expiry_delta, 0x1000_0000);
+		core::cmp::min(route_params.payment_params.max_total_cltv_expiry_delta, u16::MAX);
 	let unblinded_route_hop = RouteHop {
 		pubkey: PublicKey::from_slice(&[2; 33]).unwrap(),
 		node_features: NodeFeatures::empty(),

@@ -318,13 +318,13 @@ impl Base32Len for ExpiryTime {
 
 impl Base32Iterable for MinFinalCltvExpiryDelta {
 	fn fe_iter<'s>(&'s self) -> Box<dyn Iterator<Item = Fe32> + 's> {
-		Box::new(encode_int_be_base32(self.0))
+		Box::new(encode_int_be_base32(self.0.into()))
 	}
 }
 
 impl Base32Len for MinFinalCltvExpiryDelta {
 	fn base32_len(&self) -> usize {
-		encoded_int_be_base32_size(self.0)
+		encoded_int_be_base32_size(self.0.into())
 	}
 }
 

@@ -5156,8 +5156,8 @@ where
 		let route_params = route.route_params.clone().unwrap_or_else(|| {
 			// Create a dummy route params since they're a required parameter but unused in this case
 			let (payee_node_id, cltv_delta) = route.paths.first()
-				.and_then(|path| path.hops.last().map(|hop| (hop.pubkey, hop.cltv_expiry_delta as u32)))
-				.unwrap_or_else(|| (PublicKey::from_slice(&[2; 32]).unwrap(), MIN_FINAL_CLTV_EXPIRY_DELTA as u32));
+				.and_then(|path| path.hops.last().map(|hop| (hop.pubkey, hop.cltv_expiry_delta)))
+				.unwrap_or_else(|| (PublicKey::from_slice(&[2; 32]).unwrap(), MIN_FINAL_CLTV_EXPIRY_DELTA));
 			let dummy_payment_params = PaymentParameters::from_node_id(payee_node_id, cltv_delta);
 			RouteParameters::from_payment_params_and_value(dummy_payment_params, route.get_total_amount())
 		});
@@ -5651,7 +5651,7 @@ where
 	///
 	/// See [`ChannelManager::send_preflight_probes`] for more information.
 	pub fn send_spontaneous_preflight_probes(
-		&self, node_id: PublicKey, amount_msat: u64, final_cltv_expiry_delta: u32,
+		&self, node_id: PublicKey, amount_msat: u64, final_cltv_expiry_delta: u16,
 		liquidity_limit_multiplier: Option<u64>,
 	) -> Result<Vec<(PaymentHash, PaymentId)>, ProbeSendFailure> {
 		let payment_params = PaymentParameters::from_node_id(node_id, final_cltv_expiry_delta);

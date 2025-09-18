@@ -639,7 +639,8 @@ impl FromBase32 for MinFinalCltvExpiryDelta {
 	fn from_base32(field_data: &[Fe32]) -> Result<MinFinalCltvExpiryDelta, Bolt11ParseError> {
 		let expiry = parse_u64_be(field_data);
 		if let Some(expiry) = expiry {
-			Ok(MinFinalCltvExpiryDelta(expiry))
+			let expiry_u16 = expiry.try_into().map_err(|_| Bolt11ParseError::IntegerOverflowError)?;
+			Ok(MinFinalCltvExpiryDelta(expiry_u16))
 		} else {
 			Err(Bolt11ParseError::IntegerOverflowError)
 		}
@@ -1350,7 +1351,7 @@ mod test {
 					Description(crate::Description::new(description).unwrap()).into(),
 					PayeePubKey(crate::PayeePubKey(payee_pk)).into(),
 					ExpiryTime(crate::ExpiryTime(std::time::Duration::from_secs(u64::MAX))).into(),
-					MinFinalCltvExpiryDelta(crate::MinFinalCltvExpiryDelta(u64::MAX)).into(),
+					MinFinalCltvExpiryDelta(crate::MinFinalCltvExpiryDelta(u16::MAX)).into(),
 					Fallback(fallback_addr).into(),
 					PrivateRoute(crate::PrivateRoute(RouteHint(route_hints))).into(),
 					PaymentSecret(crate::PaymentSecret([17; 32])).into(),

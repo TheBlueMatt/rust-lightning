@@ -3919,7 +3919,7 @@ pub fn route_payment<'a, 'b, 'c>(
 ) -> (PaymentPreimage, PaymentHash, PaymentSecret, PaymentId) {
 	let payment_params = PaymentParameters::from_node_id(
 		expected_route.last().unwrap().node.get_our_node_id(),
-		TEST_FINAL_CLTV,
+		u16::try_from(TEST_FINAL_CLTV).unwrap(),
 	)
 	.with_bolt11_features(expected_route.last().unwrap().node.bolt11_invoice_features())
 	.unwrap();
