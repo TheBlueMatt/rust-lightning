@@ -526,7 +526,9 @@ pub trait MessageRouter {
 ///
 /// [`DefaultMessageRouter`] constructs compact [`BlindedMessagePath`]s on a best-effort basis.
 /// That is, if appropriate SCID information is available for the intermediate peers, it will
-/// default to creating compact paths.
+/// default to creating compact paths. When no such SCID information is available, it will assume
+/// that space is rather unconstrained and use additional space for hop padding to make the
+/// generated paths appear uniform in length.
 ///
 /// # Compact Blinded Paths
 ///
@@ -545,7 +547,8 @@ pub trait MessageRouter {
 /// Creating [`BlindedMessagePath`]s may affect privacy since, if a suitable path cannot be found,
 /// it will create a one-hop path using the recipient as the introduction node if it is an announced
 /// node. Otherwise, there is no way to find a path to the introduction node in order to send a
-/// message, and thus an `Err` is returned.
+/// message, and thus an `Err` is returned. The impact of this may be somewhat muted when
+/// additional padding is added to the blinded path, but this protection is not complete.
 pub struct DefaultMessageRouter<G: Deref<Target = NetworkGraph<L>>, L: Deref, ES: Deref>
 where
 	L::Target: Logger,
@@ -574,12 +577,11 @@ where
 	}
 
 	pub(crate) fn create_blinded_paths_from_iter<
-		I: ExactSizeIterator<Item = MessageForwardNode>,
+		I: ExactSizeIterator<Item = MessageForwardNode> + Clone,
 		T: secp256k1::Signing + secp256k1::Verification,
 	>(
 		network_graph: &G, recipient: PublicKey, local_node_receive_key: ReceiveAuthKey,
 		context: MessageContext, peers: I, entropy_source: &ES, secp_ctx: &Secp256k1<T>,
-		compact_paths: bool,
 	) -> Result<Vec<BlindedMessagePath>, ()> {
 		// Limit the number of blinded paths that are computed.
 		const MAX_PATHS: usize = 3;
@@ -591,6 +593,8 @@ where
 		let network_graph = network_graph.deref().read_only();
 		let is_recipient_announced =
 			network_graph.nodes().contains_key(&NodeId::from_pubkey(&recipient));
+
+		let compact_paths = peers.clone().any(|node| node.short_channel_id.is_some());
 
 		let has_one_peer = peers.len() == 1;
 		let mut peer_info = peers
@@ -740,13 +744,13 @@ where
 			peers.into_iter(),
 			&self.entropy_source,
 			secp_ctx,
-			true,
 		)
 	}
 }
 
 /// This message router is similar to [`DefaultMessageRouter`], but it always creates
-/// full-length blinded paths, using the peer's [`NodeId`].
+/// full-length blinded paths, using the peer's [`NodeId`], and always pads created blinded paths
+/// to a uniform length.
 ///
 /// This message router can only route to a directly connected [`Destination`].
 ///
@@ -755,7 +759,8 @@ where
 /// Creating [`BlindedMessagePath`]s may affect privacy since, if a suitable path cannot be found,
 /// it will create a one-hop path using the recipient as the introduction node if it is an announced
 /// node. Otherwise, there is no way to find a path to the introduction node in order to send a
-/// message, and thus an `Err` is returned.
+/// message, and thus an `Err` is returned. The impact of this may be somewhat muted when
+/// additional padding is added to the blinded path, but this protection is not complete.
 pub struct NodeIdMessageRouter<G: Deref<Target = NetworkGraph<L>>, L: Deref, ES: Deref>
 where
 	L::Target: Logger,
@@ -790,8 +795,11 @@ where
 
 	fn create_blinded_paths<T: secp256k1::Signing + secp256k1::Verification>(
 		&self, recipient: PublicKey, local_node_receive_key: ReceiveAuthKey,
-		context: MessageContext, peers: Vec<MessageForwardNode>, secp_ctx: &Secp256k1<T>,
+		context: MessageContext, mut peers: Vec<MessageForwardNode>, secp_ctx: &Secp256k1<T>,
 	) -> Result<Vec<BlindedMessagePath>, ()> {
+		for peer in peers.iter_mut() {
+			peer.short_channel_id = None;
+		}
 		DefaultMessageRouter::create_blinded_paths_from_iter(
 			&self.network_graph,
 			recipient,
@@ -800,7 +808,6 @@ where
 			peers.into_iter(),
 			&self.entropy_source,
 			secp_ctx,
-			false,
 		)
 	}
 }
