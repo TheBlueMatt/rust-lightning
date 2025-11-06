@@ -163,6 +163,16 @@ fn check_compact_path_introduction_node<'a, 'b, 'c>(
 		&& matches!(path.introduction_node(), IntroductionNode::DirectedShortChannelId(..))
 }
 
+fn check_padded_path_length<'a, 'b, 'c>(
+	path: &BlindedMessagePath,
+	lookup_node: &Node<'a, 'b, 'c>,
+	expected_introduction_node: PublicKey,
+) -> bool {
+	let introduction_node_id = resolve_introduction_node(lookup_node, path);
+	introduction_node_id == expected_introduction_node
+		&& path.blinded_hops().len() == PADDED_PATH_LENGTH
+}
+
 fn route_bolt12_payment<'a, 'b, 'c>(
 	node: &Node<'a, 'b, 'c>, path: &[&Node<'a, 'b, 'c>], invoice: &Bolt12Invoice
 ) {
