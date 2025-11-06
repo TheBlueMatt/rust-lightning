@@ -1114,6 +1114,7 @@ pub struct PeerManager<
 	gossip_processing_backlog_lifted: AtomicBool,
 
 	node_signer: NS,
+	our_node_id: NodeId,
 
 	logger: L,
 	secp_ctx: Secp256k1<secp256k1::SignOnly>,
@@ -1328,6 +1329,9 @@ where
 		let ephemeral_hash = Sha256::from_engine(ephemeral_key_midstate.clone()).to_byte_array();
 		secp_ctx.seeded_randomize(&ephemeral_hash);
 
+		let our_node_pubkey =
+			node_signer.get_node_id(Recipient::Node).expect("node_id must be available");
+
 		PeerManager {
 			message_handler,
 			peers: FairRwLock::new(new_hash_map()),
@@ -1339,6 +1343,7 @@ where
 			gossip_processing_backlog_lifted: AtomicBool::new(false),
 			last_node_announcement_serial: AtomicU32::new(current_time),
 			logger,
+			our_node_id: NodeId::from_pubkey(&our_node_pubkey),
 			node_signer,
 			secp_ctx,
 		}
@@ -2667,12 +2672,16 @@ where
 			BroadcastGossipMessage::ChannelAnnouncement(ref msg) => {
 				log_gossip!(self.logger, "Sending message to all peers except {:?} or the announced channel's counterparties: {:?}", except_node, msg);
 				let encoded_msg = encode_msg!(msg);
+				let our_channel = self.our_node_id == msg.contents.node_id_1
+					|| self.our_node_id == msg.contents.node_id_2;
 
 				for (_, peer_mutex) in peers.iter() {
 					let mut peer = peer_mutex.lock().unwrap();
-					if !peer.handshake_complete()
-						|| !peer.should_forward_channel_announcement(msg.contents.short_channel_id)
-					{
+					if !peer.handshake_complete() {
+						continue;
+					}
+					let scid = msg.contents.short_channel_id;
+					if !our_channel && !peer.should_forward_channel_announcement(scid) {
 						continue;
 					}
 					debug_assert!(peer.their_node_id.is_some());
@@ -2711,12 +2720,15 @@ where
 					msg
 				);
 				let encoded_msg = encode_msg!(msg);
+				let our_announcement = self.our_node_id == msg.contents.node_id;
 
 				for (_, peer_mutex) in peers.iter() {
 					let mut peer = peer_mutex.lock().unwrap();
-					if !peer.handshake_complete()
-						|| !peer.should_forward_node_announcement(msg.contents.node_id)
-					{
+					if !peer.handshake_complete() {
+						continue;
+					}
+					let node_id = msg.contents.node_id;
+					if !our_announcement && !peer.should_forward_node_announcement(node_id) {
 						continue;
 					}
 					debug_assert!(peer.their_node_id.is_some());
@@ -2745,7 +2757,7 @@ where
 					peer.gossip_broadcast_buffer.push_back(encoded_message);
 				}
 			},
-			BroadcastGossipMessage::ChannelUpdate { msg, node_id_1: _, node_id_2: _ } => {
+			BroadcastGossipMessage::ChannelUpdate { msg, node_id_1, node_id_2 } => {
 				log_gossip!(
 					self.logger,
 					"Sending message to all peers except {:?}: {:?}",
@@ -2753,12 +2765,15 @@ where
 					msg
 				);
 				let encoded_msg = encode_msg!(msg);
+				let our_channel = self.our_node_id == *node_id_1 || self.our_node_id == *node_id_2;
 
 				for (_, peer_mutex) in peers.iter() {
 					let mut peer = peer_mutex.lock().unwrap();
-					if !peer.handshake_complete()
-						|| !peer.should_forward_channel_announcement(msg.contents.short_channel_id)
-					{
+					if !peer.handshake_complete() {
+						continue;
+					}
+					let scid = msg.contents.short_channel_id;
+					if !our_channel && !peer.should_forward_channel_announcement(scid) {
 						continue;
 					}
 					debug_assert!(peer.their_node_id.is_some());
