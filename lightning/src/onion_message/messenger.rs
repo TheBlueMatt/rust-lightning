@@ -558,13 +558,16 @@ where
 	entropy_source: ES,
 }
 
-// Target total length (in hops) for non-compact blinded paths.
-// We pad with dummy hops until the path reaches this length,
-// obscuring the recipient's true position.
+// Target total length (in hops) for blinded paths used outside of QR codes.
 //
-// Compact paths are optimized for minimal size, so we avoid
-// adding dummy hops to them.
+// We pad with dummy hops until the path reaches this length (including the recipient).
 pub(crate) const PADDED_PATH_LENGTH: usize = 4;
+
+// Target total length (in hops) for blinded paths which are included in objects which may appear
+// in a QR code.
+//
+// We pad with dummy hops until the path reaches this length (including the recipient).
+pub(crate) const QR_CODED_PADDED_PATH_LENGTH: usize = 2;
 
 impl<G: Deref<Target = NetworkGraph<L>>, L: Deref, ES: Deref> DefaultMessageRouter<G, L, ES>
 where
@@ -594,7 +597,28 @@ where
 		let is_recipient_announced =
 			network_graph.nodes().contains_key(&NodeId::from_pubkey(&recipient));
 
-		let compact_paths = peers.clone().any(|node| node.short_channel_id.is_some());
+		let (compact_paths, padded_path_len) = match &context {
+			MessageContext::Offers(OffersContext::InvoiceRequest { .. })
+			|MessageContext::Offers(OffersContext::OutboundPayment { .. }) => {
+				// When embeding blinded paths within BOLT 12 objects which are generally embedded
+				// in QR codes, we sadly need to be conservative about size, especially if the QR
+				// code ultimately also includes an on-chain address.
+				(true, QR_CODED_PADDED_PATH_LENGTH)
+			},
+			MessageContext::Offers(OffersContext::StaticInvoiceRequested { .. }) => {
+				// Async Payments aggressively embeds the entire `InvoiceRequest` in the payment
+				// onion. In a future version it should likely move to embedding only the
+				// `InvoiceRequest`-specific fields instead, but until then we have to be
+				// incredibly strict in the size of the blinded path we include in a static payment
+				// `Offer`.
+				(true, 0)
+			},
+			_ => {
+				// If there's no need to be small, pad the path more and never use SCID-based
+				// next-hops as they carry additional expiry risk.
+				(false, PADDED_PATH_LENGTH)
+			},
+		};
 
 		let has_one_peer = peers.len() == 1;
 		let mut peer_info = peers
@@ -623,12 +647,8 @@ where
 		});
 
 		let build_path = |intermediate_hops: &[MessageForwardNode]| {
-			let dummy_hops_count = if compact_paths {
-				0
-			} else {
-				// Add one for the final recipient TLV
-				PADDED_PATH_LENGTH.saturating_sub(intermediate_hops.len() + 1)
-			};
+			// Calculate the dummy hops given the total hop count target (including the recipient).
+			let dummy_hops_count = padded_path_len.saturating_sub(intermediate_hops.len() + 1);
 
 			BlindedMessagePath::new_with_dummy_hops(
 				intermediate_hops,
@@ -653,12 +673,6 @@ where
 			} else {
 				return Err(());
 			}
-		}
-
-		// Sanity check: Ones the paths are created for the non-compact case, ensure
-		// each of them are of the length `PADDED_PATH_LENGTH`.
-		if !compact_paths {
-			debug_assert!(paths.iter().all(|path| path.blinded_hops().len() == PADDED_PATH_LENGTH));
 		}
 
 		if compact_paths {
