@@ -4906,6 +4906,130 @@ mod tests {
 	}
 
 	#[test]
+	fn test_forward_gossip_for_our_channels_ignores_peer_filter() {
+		// Tests that gossip for channels where we are one of the endpoints is forwarded to all
+		// peers, regardless of any gossip filters they may have set. This ensures that updates
+		// for our own channels always propagate to all connected peers.
+		//
+		// The test has two nearly identical cases that differ only in the message being sent
+		// and the expected outcome:
+		// 1. Negative case: unrelated channel update should NOT be forwarded to peer without filter
+		// 2. Positive case: our channel update SHOULD be forwarded to peer without filter
+
+		let cfgs = create_peermgr_cfgs(1);
+		let peers = create_network(1, &cfgs);
+
+		// Get peer 0's node_id (this is "our" node)
+		let our_node_pubkey = peers[0].node_signer.get_node_id(Recipient::Node).unwrap();
+		let our_node_id = NodeId::from_pubkey(&our_node_pubkey);
+
+		// Create a peer that has NOT sent GossipTimestampFilter (i.e., no gossip filter set)
+		let id_0 = peers[0].node_signer.get_node_id(Recipient::Node).unwrap();
+		let addr_0 = SocketAddress::TcpIpV4 { addr: [127, 0, 0, 1], port: 1000 };
+		let addr_1 = SocketAddress::TcpIpV4 { addr: [127, 0, 0, 1], port: 1001 };
+
+		let cfgs_1 = create_peermgr_cfgs(1);
+		let mut peers_1 = create_network(1, &cfgs_1);
+		let peer_1 = peers_1.pop().unwrap();
+
+		static FD_COUNTER: AtomicUsize = AtomicUsize::new(1000);
+		let fd = FD_COUNTER.fetch_add(1, Ordering::Relaxed) as u16;
+		let mut fd_0_1 = FileDescriptor::new(fd);
+		let mut fd_1_0 = FileDescriptor::new(fd);
+
+		// Establish connection but prevent peer 0 from sending GossipTimestampFilter to peer 1
+		let initial_data =
+			peer_1.new_outbound_connection(id_0, fd_1_0.clone(), Some(addr_0.clone())).unwrap();
+		peers[0].new_inbound_connection(fd_0_1.clone(), Some(addr_1.clone())).unwrap();
+		peers[0].read_event(&mut fd_0_1, &initial_data).unwrap();
+
+		// Clear any GossipTimestampFilter events that would be sent to peer 1
+		cfgs[0]
+			.routing_handler
+			.pending_events
+			.lock()
+			.unwrap()
+			.retain(|ev| !matches!(ev, MessageSendEvent::SendGossipTimestampFilter { .. }));
+
+		peers[0].process_events();
+
+		let data_0_1 = fd_0_1.outbound_data.lock().unwrap().split_off(0);
+		peer_1.read_event(&mut fd_1_0, &data_0_1).unwrap();
+
+		peer_1.process_events();
+		let data_1_0 = fd_1_0.outbound_data.lock().unwrap().split_off(0);
+		peers[0].read_event(&mut fd_0_1, &data_1_0).unwrap();
+
+		peers[0].process_events();
+
+		// Helper function to test if a message was received by peer 1's routing handler
+		let mut check_message_received = |initial_count: usize, expected_received: bool, test_name: &str| {
+			// Process events on peer 0 to send any pending messages
+			peers[0].process_events();
+
+			// Read and deliver data from peer 0 to peer 1
+			let data_0_1 = fd_0_1.outbound_data.lock().unwrap().split_off(0);
+			peer_1.read_event(&mut fd_1_0, &data_0_1).unwrap();
+
+			// Process the received message on peer 1
+			peer_1.process_events();
+
+			// Check if peer 1's routing handler received the message
+			let final_count = cfgs_1[0].routing_handler.chan_upds_recvd.load(Ordering::Acquire);
+			let received = final_count > initial_count;
+
+			if expected_received {
+				assert!(received, "{}: expected message count {}, got {}", test_name, initial_count + 1, final_count);
+			} else {
+				assert!(!received, "{}: expected message count {}, got {}", test_name, initial_count, final_count);
+			}
+
+			final_count
+		};
+
+		// NEGATIVE CASE: Send a channel update for a completely unrelated channel
+		// (neither endpoint is peer 0). This should NOT be forwarded to peer 1
+		// because peer 1 has no gossip filter set.
+		let initial_count = cfgs_1[0].routing_handler.chan_upds_recvd.load(Ordering::Acquire);
+
+		let unrelated_node_1 = NodeId::from_slice(&[111; 33]).unwrap();
+		let unrelated_node_2 = NodeId::from_slice(&[222; 33]).unwrap();
+		let unrelated_msg = test_utils::get_dummy_channel_update(43);
+		let unrelated_msg_ev = MessageSendEvent::BroadcastChannelUpdate {
+			msg: unrelated_msg.clone(),
+			node_id_1: unrelated_node_1,
+			node_id_2: unrelated_node_2,
+		};
+
+		cfgs[0].routing_handler.pending_events.lock().unwrap().push(unrelated_msg_ev);
+
+		let count_after_unrelated = check_message_received(
+			initial_count,
+			false,
+			"Peer 1 should NOT have received the unrelated channel update (no gossip filter)",
+		);
+
+		// POSITIVE CASE: Send a channel update where peer 0 is one of the endpoints.
+		// This SHOULD be forwarded to peer 1 despite it having no gossip filter,
+		// because it's for "our" channel.
+		let other_node_id = NodeId::from_slice(&[99; 33]).unwrap();
+		let our_channel_msg = test_utils::get_dummy_channel_update(44);
+		let our_channel_msg_ev = MessageSendEvent::BroadcastChannelUpdate {
+			msg: our_channel_msg.clone(),
+			node_id_1: our_node_id,
+			node_id_2: other_node_id,
+		};
+
+		cfgs[0].routing_handler.pending_events.lock().unwrap().push(our_channel_msg_ev);
+
+		check_message_received(
+			count_after_unrelated,
+			true,
+			"Peer 1 SHOULD have received our channel update despite having no gossip filter",
+		);
+	}
+
+	#[test]
 	#[cfg(feature = "std")]
 	fn test_process_events_multithreaded() {
 		use std::time::{Duration, Instant};
