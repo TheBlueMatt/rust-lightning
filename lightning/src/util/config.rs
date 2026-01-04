@@ -855,6 +855,38 @@ impl crate::util::ser::Readable for LegacyChannelConfig {
 	}
 }
 
+/// XXX
+pub enum HTLCInterceptionFlags {
+	///  If this is set to `true`, LDK will intercept HTLCs that are attempting to be forwarded over
+	///  fake short channel ids generated via [`ChannelManager::get_intercept_scid`]. Upon HTLC
+	///  intercept, LDK will generate an [`Event::HTLCIntercepted`] which MUST be handled by the user.
+	///
+	///  Setting this to `true` may break backwards compatibility with LDK versions < 0.0.113.
+	///
+	///  Default value: `false`
+	///
+	/// [`ChannelManager::get_intercept_scid`]: crate::ln::channelmanager::ChannelManager::get_intercept_scid
+	/// [`Event::HTLCIntercepted`]: crate::events::Event::HTLCIntercepted
+	ToInterceptSCIDs = 1 << 0,
+	/// If this is set to `true`, any attempts to forward a payment to a private channel while the
+	/// channel counterparty is offline will instead generate an [`Event::HTLCIntercepted`] which
+	/// must be handled the same as any other intercepted HTLC.
+	ToOfflinePrivateChannels = 1 << 1,
+	/// XXX
+	ToOnlinePrivateChannels = 1 << 2,
+	/// XXX
+	ToPublicChannels = 1 << 3,
+	/// XXX
+	ToAllKnownSCIDs = Self::ToInterceptSCIDs as isize
+		| Self::ToOfflinePrivateChannels as isize
+		| Self::ToOnlinePrivateChannels as isize
+		| Self::ToPublicChannels as isize,
+	/// XXX
+	ToUnknownSCIDs = 1 << 4,
+	/// XXX
+	AllValidHTLCs = 0xff,
+}
+
 /// Top-level config which holds ChannelHandshakeLimits and ChannelConfig.
 ///
 /// `Default::default()` provides sane defaults for most configurations
@@ -907,17 +939,8 @@ pub struct UserConfig {
 	/// [`msgs::OpenChannel`]: crate::ln::msgs::OpenChannel
 	/// [`msgs::AcceptChannel`]: crate::ln::msgs::AcceptChannel
 	pub manually_accept_inbound_channels: bool,
-	///  If this is set to `true`, LDK will intercept HTLCs that are attempting to be forwarded over
-	///  fake short channel ids generated via [`ChannelManager::get_intercept_scid`]. Upon HTLC
-	///  intercept, LDK will generate an [`Event::HTLCIntercepted`] which MUST be handled by the user.
-	///
-	///  Setting this to `true` may break backwards compatibility with LDK versions < 0.0.113.
-	///
-	///  Default value: `false`
-	///
-	/// [`ChannelManager::get_intercept_scid`]: crate::ln::channelmanager::ChannelManager::get_intercept_scid
-	/// [`Event::HTLCIntercepted`]: crate::events::Event::HTLCIntercepted
-	pub accept_intercept_htlcs: bool,
+	/// XXX
+	pub htlc_interception_flags: u8,
 	/// If this is set to `true`, the user needs to manually pay [`Bolt12Invoice`]s when received.
 	///
 	/// When set to `true`, [`Event::InvoiceReceived`] will be generated for each received
@@ -984,7 +1007,7 @@ impl Default for UserConfig {
 			accept_forwards_to_priv_channels: false,
 			accept_inbound_channels: true,
 			manually_accept_inbound_channels: false,
-			accept_intercept_htlcs: false,
+			htlc_interception_flags: 0,
 			manually_handle_bolt12_invoices: false,
 			enable_dual_funded_channels: false,
 			enable_htlc_hold: false,
@@ -1007,7 +1030,7 @@ impl Readable for UserConfig {
 			accept_forwards_to_priv_channels: Readable::read(reader)?,
 			accept_inbound_channels: Readable::read(reader)?,
 			manually_accept_inbound_channels: Readable::read(reader)?,
-			accept_intercept_htlcs: Readable::read(reader)?,
+			htlc_interception_flags: Readable::read(reader)?,
 			manually_handle_bolt12_invoices: Readable::read(reader)?,
 			enable_dual_funded_channels: Readable::read(reader)?,
 			hold_outbound_htlcs_at_next_hop: Readable::read(reader)?,
