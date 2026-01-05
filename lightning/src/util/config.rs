@@ -884,7 +884,7 @@ pub enum HTLCInterceptionFlags {
 	/// XXX
 	ToUnknownSCIDs = 1 << 4,
 	/// XXX
-	AllValidHTLCs = 0xff,
+	AllValidHTLCs = Self::ToAllKnownSCIDs as isize | Self::ToUnknownSCIDs as isize,
 }
 
 /// Top-level config which holds ChannelHandshakeLimits and ChannelConfig.

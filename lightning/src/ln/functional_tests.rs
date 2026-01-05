@@ -51,7 +51,7 @@ use crate::sign::{EntropySource, OutputSpender, SignerProvider};
 use crate::types::features::{ChannelFeatures, ChannelTypeFeatures, NodeFeatures};
 use crate::types::payment::{PaymentHash, PaymentSecret};
 use crate::types::string::UntrustedString;
-use crate::util::config::{ChannelConfigUpdate, MaxDustHTLCExposure, UserConfig};
+use crate::util::config::{ChannelConfigUpdate, HTLCInterceptionFlags, MaxDustHTLCExposure, UserConfig};
 use crate::util::errors::APIError;
 use crate::util::ser::{ReadableArgs, Writeable};
 use crate::util::test_channel_signer::TestChannelSigner;
@@ -9898,4 +9898,167 @@ fn do_test_multi_post_event_actions(do_reload: bool) {
 pub fn test_multi_post_event_actions() {
 	do_test_multi_post_event_actions(true);
 	do_test_multi_post_event_actions(false);
+}
+
+fn do_test_htlc_interception_flags(flags_bitmask: u8, flag_bit: u8) {
+	// Tests that the `htlc_interception_flags` bitmask given by `flags_bitmask` correctly
+	// intercepts (or doesn't intercept) an HTLC which is of type `flag_bit`
+	let chanmon_cfgs = create_chanmon_cfgs(3);
+	let node_cfgs = create_node_cfgs(3, &chanmon_cfgs);
+
+	let mut intercept_config = test_default_channel_config();
+	intercept_config.htlc_interception_flags = flags_bitmask;
+	intercept_config.accept_forwards_to_priv_channels = true;
+
+	let node_chanmgrs = create_node_chanmgrs(3, &node_cfgs, &[None, Some(intercept_config), None]);
+	let nodes = create_network(3, &node_cfgs, &node_chanmgrs);
+
+	create_announced_chan_between_nodes(&nodes, 0, 1);
+
+	let node_0_id = nodes[0].node.get_our_node_id();
+	let node_1_id = nodes[1].node.get_our_node_id();
+	let node_2_id = nodes[2].node.get_our_node_id();
+
+	// First open the right type of channel (and get it in the right state) for the bit we're
+	// testing.
+	let (target_scid, target_chan_id) = match flag_bit {
+		1 | 2 => {
+			create_unannounced_chan_between_nodes_with_value(&nodes, 1, 2, 100000, 0);
+			let chan_id = nodes[2].node.list_channels()[0].channel_id;
+			let scid = nodes[2].node.list_channels()[0].short_channel_id.unwrap();
+			if (1 << flag_bit) == HTLCInterceptionFlags::ToOfflinePrivateChannels as u8 {
+				nodes[1].node.peer_disconnected(node_2_id);
+				nodes[2].node.peer_disconnected(node_1_id);
+			} else {
+				assert_eq!(
+					1 << flag_bit,
+					HTLCInterceptionFlags::ToOnlinePrivateChannels as u8,
+				);
+			}
+			(scid, chan_id)
+		},
+		0 | 3 | 4 => {
+			let (chan_upd, _, chan_id, _) = create_announced_chan_between_nodes(&nodes, 1, 2);
+			if (1 << flag_bit) == HTLCInterceptionFlags::ToInterceptSCIDs as u8 {
+				(nodes[1].node.get_intercept_scid(), chan_id)
+			} else if (1 << flag_bit) == HTLCInterceptionFlags::ToPublicChannels as u8 {
+				(chan_upd.contents.short_channel_id, chan_id)
+			} else if (1 << flag_bit) == HTLCInterceptionFlags::ToUnknownSCIDs as u8 {
+				(42424242, chan_id)
+			} else {
+				panic!();
+			}
+		},
+		_ => panic!("Invalid flag_bit: {}", flag_bit),
+	};
+
+	// Start every node on the same block height to ensure we don't hit spurious CLTV issues
+	connect_blocks(&nodes[0], 2 * CHAN_CONFIRM_DEPTH + 1 - nodes[0].best_block_info().1);
+	connect_blocks(&nodes[1], 2 * CHAN_CONFIRM_DEPTH + 1 - nodes[1].best_block_info().1);
+	connect_blocks(&nodes[2], 2 * CHAN_CONFIRM_DEPTH + 1 - nodes[2].best_block_info().1);
+
+	// Send the HTLC from nodes[0] to nodes[1] and process it to generate the interception (if
+	// we're set to intercept it).
+	let amt_msat = 100_000;
+	let bolt11 = nodes[2].node.create_bolt11_invoice(Default::default()).unwrap();
+	let pay_params = PaymentParameters::from_bolt11_invoice(&bolt11);
+	let (mut route, payment_hash, payment_preimage, payment_secret) =
+		get_route_and_payment_hash!(nodes[0], nodes[2], pay_params, amt_msat);
+	route.paths[0].hops[1].short_channel_id = target_scid;
+
+	let onion = RecipientOnionFields::secret_only(payment_secret);
+	let payment_id = PaymentId(payment_hash.0);
+	nodes[0].node.send_payment_with_route(route, payment_hash, onion, payment_id).unwrap();
+	check_added_monitors(&nodes[0], 1);
+
+	let payment_event = SendEvent::from_node(&nodes[0]);
+	nodes[1].node.handle_update_add_htlc(node_0_id, &payment_event.msgs[0]);
+	do_commitment_signed_dance(&nodes[1], &nodes[0], &payment_event.commitment_msg, false, true);
+	expect_and_process_pending_htlcs(&nodes[1], false);
+
+	if (flags_bitmask & (1 << flag_bit)) != 0 {
+		// If we were set to intercept, check that we got an interception event then
+		// forward the HTLC on to nodes[2] and claim the payment.
+		let intercept_id;
+		let events = nodes[1].node.get_and_clear_pending_events();
+		assert_eq!(events.len(), 1, "{events:?}");
+		if let Event::HTLCIntercepted { intercept_id: id, requested_next_hop_scid, .. } = &events[0] {
+			assert_eq!(*requested_next_hop_scid, target_scid,
+				"Bitmask {flags_bitmask:#x}: Expected interception for bit {flag_bit} to target SCID {target_scid}");
+			intercept_id = *id;
+		} else {
+			panic!("{events:?}");
+		}
+
+		if (1 << flag_bit) == HTLCInterceptionFlags::ToOfflinePrivateChannels as u8 {
+			let mut reconnect_args = ReconnectArgs::new(&nodes[1], &nodes[2]);
+			reconnect_args.send_channel_ready = (true, true);
+			reconnect_nodes(reconnect_args);
+		}
+
+		nodes[1].node.forward_intercepted_htlc(intercept_id, &target_chan_id, node_2_id, amt_msat).unwrap();
+		expect_and_process_pending_htlcs(&nodes[1], false);
+		check_added_monitors(&nodes[1], 1);
+
+		let forward_event = SendEvent::from_node(&nodes[1]);
+		nodes[2].node.handle_update_add_htlc(node_1_id, &forward_event.msgs[0]);
+		do_commitment_signed_dance(&nodes[2], &nodes[1], &forward_event.commitment_msg, false, true);
+
+		nodes[2].node.process_pending_htlc_forwards();
+		expect_payment_claimable!(nodes[2], payment_hash, payment_secret, amt_msat);
+		claim_payment(&nodes[0], &[&nodes[1], &nodes[2]], payment_preimage);
+	} else {
+		// If we were not set to intercept, check that the HTLC either failed or was
+		// automatically forwarded as appropriate.
+		match flag_bit {
+			0 | 1 | 4 => {
+				let events = nodes[1].node.get_and_clear_pending_events();
+				let failure_type =
+					if (1 << flag_bit) == HTLCInterceptionFlags::ToOfflinePrivateChannels as u8 {
+						HTLCHandlingFailureType::Forward { node_id: Some(node_2_id), channel_id: target_chan_id }
+					} else if (1 << flag_bit) == HTLCInterceptionFlags::ToInterceptSCIDs as u8 {
+						HTLCHandlingFailureType::InvalidForward { requested_forward_scid: target_scid }
+					} else if (1 << flag_bit) == HTLCInterceptionFlags::ToUnknownSCIDs as u8 {
+						HTLCHandlingFailureType::InvalidForward { requested_forward_scid: target_scid }
+					} else {
+						panic!();
+					};
+				expect_htlc_failure_conditions(events, &[failure_type]);
+
+				check_added_monitors(&nodes[1], 1);
+				let fail_updates = get_htlc_update_msgs(&nodes[1], &node_0_id);
+				nodes[0].node.handle_update_fail_htlc(node_1_id, &fail_updates.update_fail_htlcs[0]);
+				do_commitment_signed_dance(&nodes[0], &nodes[1], &fail_updates.commitment_signed, true, true);
+				expect_payment_failed!(nodes[0], payment_hash, false);
+			},
+			2 | 3 => {
+				check_added_monitors(&nodes[1], 1);
+
+				let forward_event = SendEvent::from_node(&nodes[1]);
+				assert_eq!(forward_event.node_id, node_2_id);
+				nodes[2].node.handle_update_add_htlc(node_1_id, &forward_event.msgs[0]);
+				do_commitment_signed_dance(&nodes[2], &nodes[1], &forward_event.commitment_msg, false, true);
+
+				nodes[2].node.process_pending_htlc_forwards();
+				expect_payment_claimable!(nodes[2], payment_hash, payment_secret, amt_msat);
+				claim_payment(&nodes[0], &[&nodes[1], &nodes[2]], payment_preimage);
+			},
+			_ => panic!("Invalid flag_bit: {}", flag_bit),
+		}
+	}
+}
+
+#[xtest(feature = "_externalize_tests")]
+pub fn test_htlc_interception_flags() {
+	// Test all 2^5 = 32 combinations of the HTLCInterceptionFlags bitmask
+	// For each combination, test 5 different HTLC forwards and verify correct interception behavior
+	let max_bitmask = HTLCInterceptionFlags::AllValidHTLCs as u8;
+	let max_flag = 4;
+	assert_eq!((1 << max_flag + 1) - 1, max_bitmask);
+
+	for flags_bitmask in 0..=max_bitmask {
+		for flag_bit in 0..=max_flag {
+			do_test_htlc_interception_flags(flags_bitmask, flag_bit);
+		}
+	}
 }
