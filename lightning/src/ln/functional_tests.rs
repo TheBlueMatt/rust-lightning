@@ -1631,9 +1631,9 @@ fn do_test_htlc_on_chain_timeout(connect_style: ConnectStyle) {
 	// timeout the HTLC backward accordingly. So here we test that ChannelManager is
 	// broadcasting the right event to other nodes in payment path.
 	// A ------------------> B ----------------------> C (timeout)
-	//    B's commitment tx 		C's commitment tx
-	//    	      \                                  \
-	//    	   B's HTLC timeout tx		     B's timeout tx
+	//	B's commitment tx 		C's commitment tx
+	//			  \								  \
+	//		   B's HTLC timeout tx			 B's timeout tx
 
 	let chanmon_cfgs = create_chanmon_cfgs(3);
 	let node_cfgs = create_node_cfgs(3, &chanmon_cfgs);
@@ -4029,7 +4029,7 @@ pub fn test_onchain_to_onchain_claim() {
 #[xtest(feature = "_externalize_tests")]
 pub fn test_duplicate_payment_hash_one_failure_one_success() {
 	// Topology : A --> B --> C --> D
-	//                          \-> E
+	//						  \-> E
 	// We route 2 payments with same hash between B and C, one we will time out on chain, the other
 	// successfully claim.
 	let chanmon_cfgs = create_chanmon_cfgs(5);
@@ -4275,9 +4275,9 @@ fn do_test_fail_backwards_unrevoked_remote_announce(deliver_last_raa: bool, anno
 	// use the same payment hashes.
 	// Thus, we use a six-node network:
 	//
-	// A \         / E
-	//    - C - D -
-	// B /         \ F
+	// A \		 / E
+	//	- C - D -
+	// B /		 \ F
 	// And test where C fails back to A/B when D announces its latest commitment transaction
 	let chanmon_cfgs = create_chanmon_cfgs(6);
 	let node_cfgs = create_node_cfgs(6, &chanmon_cfgs);
@@ -5049,7 +5049,7 @@ fn do_htlc_claim_previous_remote_commitment_only(use_dust: bool, check_revoke_no
 // Test that we close channels on-chain when broadcastable HTLCs reach their timeout window.
 // There are only a few cases to test here:
 //  * its not really normative behavior, but we test that below-dust HTLCs "included" in
-//    broadcastable commitment transactions result in channel closure,
+//	broadcastable commitment transactions result in channel closure,
 //  * its included in an unrevoked-but-previous remote commitment transaction,
 //  * its included in the latest remote or local commitment transactions.
 // We test each of the three possible commitment transactions individually and use both dust and
@@ -5462,7 +5462,7 @@ pub fn test_fail_holding_cell_htlc_upon_free_multihop() {
 #[xtest(feature = "_externalize_tests")]
 pub fn test_update_fulfill_htlc_bolt2_after_malformed_htlc_message_must_forward_update_fail_htlc() {
 	//BOLT 2 Requirement: a receiving node which has an outgoing HTLC canceled by update_fail_malformed_htlc:
-	//    * MUST return an error in the update_fail_htlc sent to the link which originally sent the HTLC, using the failure_code given and setting the data to sha256_of_onion.
+	//	* MUST return an error in the update_fail_htlc sent to the link which originally sent the HTLC, using the failure_code given and setting the data to sha256_of_onion.
 
 	let chanmon_cfgs = create_chanmon_cfgs(3);
 	let node_cfgs = create_node_cfgs(3, &chanmon_cfgs);
@@ -7622,7 +7622,7 @@ fn do_test_onchain_htlc_settlement_after_close(
 	// 3) If broadcast_alice is true, Alice force-closes her channel with Bob. Else Bob force closes.
 	// Steps 4 and 5 may be reordered depending on go_onchain_before_fulfill.
 	// 4) Bob sees the Alice's commitment on his chain or vice versa. An offered output is present
-	//    but can't be claimed as Bob doesn't have yet knowledge of the preimage.
+	//	but can't be claimed as Bob doesn't have yet knowledge of the preimage.
 	// 5) Carol release the preimage to Bob off-chain.
 	// 6) Bob claims the offered output on the broadcasted commitment.
 	let chanmon_cfgs = create_chanmon_cfgs(3);
@@ -9847,4 +9847,136 @@ fn do_test_multi_post_event_actions(do_reload: bool) {
 pub fn test_multi_post_event_actions() {
 	do_test_multi_post_event_actions(true);
 	do_test_multi_post_event_actions(false);
+}
+
+#[xtest(feature = "_externalize_tests")]
+pub fn test_dust_exposure_holding_cell_assertion() {
+	// Test that we hit the debug assertion in channel.rs:8879 when dust exposure causes
+	// HTLCs in the holding cell to fail to be added during revoke_and_ack processing.
+	//
+	// The scenario:
+	// 1. Build a channel B<->C that's close to being over-exposed to dust
+	// 2. Add one more HTLC from B to C but don't deliver the messages
+	// 3. Forward an HTLC from A through B to C (goes to holding cell on B<->C)
+	// 4. C sends an HTLC to B, making B over-exposed to dust
+	// 5. Deliver messages from step 2, triggering holding cell processing that fails
+
+	let chanmon_cfgs = create_chanmon_cfgs(3);
+	let node_cfgs = create_node_cfgs(3, &chanmon_cfgs);
+
+	// Configure nodes with specific dust limits
+	let mut config = test_default_channel_config();
+	// Use a fixed dust exposure limit to make the test deterministic
+	config.channel_config.max_dust_htlc_exposure = MaxDustHTLCExposure::FixedLimitMsat(5_000_000); // 5000 sats
+	config.channel_handshake_config.our_htlc_minimum_msat = 1;
+	config.channel_handshake_config.max_inbound_htlc_value_in_flight_percent_of_channel = 100;
+	let chan_ty = ChannelTypeFeatures::only_static_remote_key();
+	config.channel_handshake_limits.min_max_accepted_htlcs = chan_utils::max_htlcs(&chan_ty);
+	config.channel_handshake_config.our_max_accepted_htlcs = chan_utils::max_htlcs(&chan_ty);
+
+	let node_chanmgrs = create_node_chanmgrs(3, &node_cfgs, &[Some(config.clone()), Some(config.clone()), Some(config)]);
+	let nodes = create_network(3, &node_cfgs, &node_chanmgrs);
+
+	let node_a_id = nodes[0].node.get_our_node_id();
+	let node_b_id = nodes[1].node.get_our_node_id();
+	let node_c_id = nodes[2].node.get_our_node_id();
+
+	// Create channels: A <-> B <-> C
+	let _chan_ab = create_announced_chan_between_nodes(&nodes, 0, 1);
+	let _chan_bc = create_announced_chan_between_nodes(&nodes, 1, 2);
+	send_payment(&nodes[0], &[&nodes[1], &nodes[2]], 10_000_000);
+
+	// Step 1: Fill the B<->C channel close to the dust exposure limit on node B's side
+	// Use dust HTLCs (below 546 sats) to fill up the dust exposure
+	const DUST_HTLC_VALUE: u64 = 500_000; // 500 sats, below the dust limit
+
+	// Send multiple dust HTLCs from B to C to approach the dust limit (5000 sats / 500 = 10 HTLCs)
+	for _ in 0..4 {
+		route_payment(&nodes[1], &[&nodes[2]], DUST_HTLC_VALUE);
+	}
+
+	let bs_chans = nodes[1].node.list_channels();
+	let bc_chan =
+		bs_chans.iter().filter(|chan| chan.counterparty.node_id == node_c_id).next().unwrap();
+	assert_eq!(bc_chan.next_outbound_htlc_minimum_msat, 1);
+
+	// Step 2: Add one more HTLC from B to C, creating the messages but NOT delivering them
+	let (route_bc, payment_hash_bc, _payment_preimage_bc, payment_secret_bc) = get_route_and_payment_hash!(nodes[1], nodes[2], DUST_HTLC_VALUE);
+	let onion_bc = RecipientOnionFields::secret_only(payment_secret_bc);
+	nodes[1].node.send_payment_with_route(route_bc, payment_hash_bc, onion_bc, PaymentId(payment_hash_bc.0)).unwrap();
+	check_added_monitors(&nodes[1], 1);
+
+	let bs_chans = nodes[1].node.list_channels();
+	let bc_chan =
+		bs_chans.iter().filter(|chan| chan.counterparty.node_id == node_c_id).next().unwrap();
+	assert_eq!(bc_chan.next_outbound_htlc_minimum_msat, 1);
+
+	// Get the messages but don't deliver them yet
+	let events_b = nodes[1].node.get_and_clear_pending_msg_events();
+	assert_eq!(events_b.len(), 1);
+	let send_event_bc = SendEvent::from_event(events_b[0].clone());
+
+	// Step 3: Send an HTLC from A through B to C - this should go to the holding cell
+	// on the B<->C channel because B has sent messages to C that haven't been processed
+	let payment_params_ac = PaymentParameters::from_node_id(nodes[2].node.get_our_node_id(), TEST_FINAL_CLTV)
+		.with_bolt11_features(nodes[2].node.bolt11_invoice_features()).unwrap();
+	let (route_ac, payment_hash_ac, _payment_preimage_ac, payment_secret_ac) = get_route_and_payment_hash!(nodes[0], nodes[2], payment_params_ac, DUST_HTLC_VALUE);
+	let onion_ac = RecipientOnionFields::secret_only(payment_secret_ac);
+	nodes[0].node.send_payment_with_route(route_ac, payment_hash_ac, onion_ac, PaymentId(payment_hash_ac.0)).unwrap();
+	check_added_monitors(&nodes[0], 1);
+
+	// A sends to B
+	let send_event_ab = SendEvent::from_node(&nodes[0]);
+	nodes[1].node.handle_update_add_htlc(node_a_id, &send_event_ab.msgs[0]);
+	commitment_signed_dance!(nodes[1], nodes[0], send_event_ab.commitment_msg, false, true);
+
+	// B should try to forward to C, but it goes to the holding cell because
+	// B has uncommitted changes (the pending update_add_htlc from step 2)
+	expect_and_process_pending_htlcs(&nodes[1], false);
+	// No messages should be generated because the HTLC went to the holding cell
+	assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
+
+	let bs_chans = nodes[1].node.list_channels();
+	let bc_chan =
+		bs_chans.iter().filter(|chan| chan.counterparty.node_id == node_c_id).next().unwrap();
+	assert!(bc_chan.next_outbound_htlc_minimum_msat > DUST_HTLC_VALUE);
+
+	// Step 4: C sends an HTLC to B, making B over-exposed to dust
+	// This HTLC will push B over the dust exposure limit
+	let (route_cb, payment_hash_cb, _payment_preimage_cb, payment_secret_cb) = get_route_and_payment_hash!(nodes[2], nodes[1], DUST_HTLC_VALUE);
+	let onion_cb = RecipientOnionFields::secret_only(payment_secret_cb);
+	nodes[2].node.send_payment_with_route(route_cb, payment_hash_cb, onion_cb, PaymentId(payment_hash_cb.0)).unwrap();
+	check_added_monitors(&nodes[2], 1);
+
+	let send_event_cb = SendEvent::from_node(&nodes[2]);
+	nodes[1].node.handle_update_add_htlc(node_c_id, &send_event_cb.msgs[0]);
+	nodes[1].node.handle_commitment_signed_batch_test(node_c_id, &send_event_cb.commitment_msg);
+
+	nodes[2].node.handle_update_add_htlc(node_b_id, &send_event_bc.msgs[0]);
+	nodes[2].node.handle_commitment_signed_batch_test(node_b_id, &send_event_bc.commitment_msg);
+	let cs_raa = get_event_msg!(nodes[2], MessageSendEvent::SendRevokeAndACK, node_b_id);
+	nodes[1].node.handle_revoke_and_ack(node_c_id, &cs_raa);
+panic!();
+	commitment_signed_dance!(nodes[1], nodes[2], send_event_cb.commitment_msg, false);
+
+	// Step 5: Now deliver the messages from step 2 (B -> C)
+	// This should trigger the revoke_and_ack flow which will try to free the holding cell
+	// The HTLC from the holding cell will fail to be added due to dust exposure
+	// hitting the debug assertion at channel.rs:8879
+	nodes[2].node.handle_update_add_htlc(node_b_id, &send_event_bc.msgs[0]);
+	nodes[2].node.handle_commitment_signed_batch_test(node_b_id, &send_event_bc.commitment_msg);
+	check_added_monitors(&nodes[2], 1);
+
+	let (revoke_and_ack, _commitment_signed) = get_revoke_commit_msgs(&nodes[2], &node_b_id);
+	nodes[1].node.handle_revoke_and_ack(node_c_id, &revoke_and_ack);
+
+	// This is where the bug occurs - when processing the revoke_and_ack, node B will:
+	// 1. Try to free the holding cell HTLCs
+	// 2. The HTLC from A->B->C will fail to be added due to dust exposure
+	// 3. But require_commitment is true, so it builds a commitment
+	// 4. Then it checks can_generate_new_commitment() which returns false
+	// 5. The assertion at line 8879 fails because htlcs_to_fail is not empty
+
+	// This should trigger the assertion in debug builds
+	check_added_monitors(&nodes[1], 1);
 }
