@@ -299,6 +299,47 @@ where
 		self.create_blinded_paths(peers, context)
 	}
 
+	/// [`BlindedMessagePath`]s for XXX
+	pub fn blinded_paths_for_phantom_offer<ES: Deref>(
+		&self, entropy_source: ES, per_node_peers: Vec<(PublicKey, Vec<MessageForwardNode>)>,
+		path_count_limit: usize,
+	) -> Result<Vec<BlindedMessagePath>, ()>
+	where
+		ES::Target: EntropySource,
+	{
+		let nonce = Nonce::from_entropy_source(entropy_source);
+		let context = MessageContext::Offers(OffersContext::InvoiceRequest { nonce });
+
+		let receive_key = self.get_receive_auth_key();
+		let secp_ctx = &self.secp_ctx;
+
+		let mut per_node_paths: Vec<_> = per_node_peers
+			.into_iter()
+			.filter_map(|(recipient, peers)| {
+				self
+					.message_router
+					.create_blinded_paths(recipient, receive_key, context.clone(), peers, secp_ctx)
+					.ok()
+			})
+			.collect();
+
+		let mut res = Vec::new();
+		while res.len() < path_count_limit && !per_node_paths.is_empty() {
+			for node_paths in per_node_paths.iter_mut() {
+				if let Some(path) = node_paths.pop() {
+					res.push(path);
+				}
+			}
+			per_node_paths.retain(|node_paths| !node_paths.is_empty());
+		}
+
+		if res.is_empty() {
+			Err(())
+		} else {
+			Ok(res)
+		}
+	}
+
 	/// Creates a collection of blinded paths by delegating to
 	/// [`MessageRouter::create_blinded_paths`].
 	///

@@ -13925,6 +13925,18 @@ where
 		self.flow.blinded_paths_for_async_recipient(recipient_id, relative_expiry, peers)
 	}
 
+	/// [`BlindedMessagePath`]s for XXX
+	pub fn blinded_paths_for_phantom_offer(
+		&self, other_nodes_channels: Vec<(PublicKey, Vec<ChannelDetails>)>, path_count_limit: usize,
+	) -> Result<Vec<BlindedMessagePath>, ()> {
+		let mut peers = Vec::with_capacity(other_nodes_channels.len() + 1);
+		peers.push((self.get_our_node_id(), self.get_peers_for_blinded_path()));
+		for (node_id, peer_chans) in other_nodes_channels {
+			peers.push((node_id, Self::channel_details_to_forward_node(peer_chans)));
+		}
+		self.flow.blinded_paths_for_phantom_offer(&*self.entropy_source, peers, path_count_limit)
+	}
+
 	pub(super) fn duration_since_epoch(&self) -> Duration {
 		#[cfg(not(feature = "std"))]
 		let now = Duration::from_secs(self.highest_seen_timestamp.load(Ordering::Acquire) as u64);
@@ -13934,6 +13946,38 @@ where
 			.expect("SystemTime::now() should come after SystemTime::UNIX_EPOCH");
 
 		now
+	}
+
+	fn channel_details_to_forward_node(
+		mut channel_list: Vec<ChannelDetails>,
+	) -> Vec<MessageForwardNode> {
+		channel_list.sort_unstable_by_key(|chan| chan.counterparty.node_id);
+		let mut res = Vec::new();
+		// TODO: When MSRV reaches 1.77 use chunk_by
+		let mut start = 0;
+		while start < channel_list.len() {
+			let counterparty_node_id = channel_list[start].counterparty.node_id;
+			let end = channel_list[start..]
+				.iter()
+				.position(|chan| chan.counterparty.node_id != counterparty_node_id)
+				.unwrap_or(channel_list.len());
+
+			let peer_chans = &channel_list[start..end];
+			if peer_chans.iter().any(|chan| chan.is_usable)
+				&& peer_chans.iter().any(|c| c.counterparty.features.supports_onion_messages())
+			{
+				res.push(MessageForwardNode {
+					node_id: peer_chans[0].counterparty.node_id,
+					short_channel_id: peer_chans
+						.iter()
+						.filter(|chan| chan.is_usable)
+						.filter_map(|chan| chan.short_channel_id)
+						.min(),
+				})
+			}
+			start = end;
+		}
+		res
 	}
 
 	fn get_peers_for_blinded_path(&self) -> Vec<MessageForwardNode> {
