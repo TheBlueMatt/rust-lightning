@@ -299,6 +299,61 @@ where
 		self.create_blinded_paths(peers, context)
 	}
 
+	/// Creates an [`OfferBuilder`] for a phantom offer that can be paid to any one of multiple
+	/// nodes. The offer will be recognized by all nodes that share the same `phantom_node_id` and
+	/// `inbound_payment_key`, and any corresponding [`InvoiceRequest`] can be verified using
+	/// [`Self::verify_invoice_request`].
+	///
+	/// # Privacy
+	///
+	/// Uses [`MessageRouter`] to construct [`BlindedMessagePath`]s for each node. The paths are
+	/// distributed round-robin across nodes up to `path_count_limit`, providing redundancy and
+	/// allowing payment to any of the nodes.
+	///
+	/// Also uses a derived signing pubkey in the offer for recipient privacy.
+	///
+	/// # Parameters
+	///
+	/// * `phantom_node_id` - The shared node ID that all phantom nodes will use for this offer.
+	///   All nodes must be configured to handle offers for this node ID.
+	/// * `entropy_source` - Source of randomness for path creation
+	/// * `per_node_peers` - Vector of tuples containing (node_id, peers) for each phantom node
+	/// * `path_count_limit` - Maximum number of blinded paths to include in the offer
+	///
+	/// # Errors
+	///
+	/// Returns an error if unable to create any blinded paths for the offer.
+	///
+	/// This is not exported to bindings users as builder patterns don't map outside of move semantics.
+	///
+	/// [`InvoiceRequest`]: crate::offers::invoice_request::InvoiceRequest
+	pub fn create_phantom_offer_builder<ES: Deref>(
+		&self, phantom_node_id: PublicKey, entropy_source: ES,
+		per_node_peers: Vec<(PublicKey, Vec<MessageForwardNode>)>, path_count_limit: usize,
+	) -> Result<OfferBuilder<'_, DerivedMetadata, secp256k1::All>, Bolt12SemanticError>
+	where
+		ES::Target: EntropySource,
+	{
+		let paths = self.blinded_paths_for_phantom_offer(&*entropy_source, per_node_peers, path_count_limit)
+			.map_err(|_| Bolt12SemanticError::MissingPaths)?;
+
+		let expanded_key = &self.inbound_payment_key;
+		let entropy = entropy_source;
+		let secp_ctx = &self.secp_ctx;
+
+		let nonce = Nonce::from_entropy_source(entropy);
+
+		let mut builder =
+			OfferBuilder::deriving_signing_pubkey(phantom_node_id, expanded_key, nonce, secp_ctx)
+				.chain_hash(self.chain_hash);
+
+		for path in paths {
+			builder = builder.path(path)
+		}
+
+		Ok(builder.into())
+	}
+
 	/// [`BlindedMessagePath`]s for XXX
 	pub fn blinded_paths_for_phantom_offer<ES: Deref>(
 		&self, entropy_source: ES, per_node_peers: Vec<(PublicKey, Vec<MessageForwardNode>)>,

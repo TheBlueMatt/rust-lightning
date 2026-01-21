@@ -2532,3 +2532,144 @@ fn no_double_pay_with_stale_channelmanager() {
 	// generated in response to the duplicate invoice.
 	assert!(nodes[0].node.get_and_clear_pending_events().is_empty());
 }
+
+/// Checks that phantom offers can be created with blinded paths to multiple nodes, and that
+/// each node can fulfill payments when using their own node_id as the phantom node.
+///
+/// This demonstrates the phantom offer API and structure. In a production setup with true
+/// phantom functionality, all nodes would share the same `phantom_node_id` and `inbound_payment_key`
+/// to enable any node to fulfill payments for the shared offer.
+#[test]
+fn creates_and_pays_for_phantom_offer() {
+	let chanmon_cfgs = create_chanmon_cfgs(4);
+	let node_cfgs = create_node_cfgs(4, &chanmon_cfgs);
+	let node_chanmgrs = create_node_chanmgrs(4, &node_cfgs, &[None, None, None, None]);
+	let nodes = create_network(4, &node_cfgs, &node_chanmgrs);
+
+	// Create channels: Bob connects to Alice and Charlie, David connects to Charlie
+	create_announced_chan_between_nodes_with_value(&nodes, 1, 0, 10_000_000, 1_000_000_000);
+	create_announced_chan_between_nodes_with_value(&nodes, 1, 2, 10_000_000, 1_000_000_000);
+	create_announced_chan_between_nodes_with_value(&nodes, 3, 2, 10_000_000, 1_000_000_000);
+
+	let alice = &nodes[0];
+	let alice_id = alice.node.get_our_node_id();
+	let bob = &nodes[1];
+	let bob_id = bob.node.get_our_node_id();
+	let charlie = &nodes[2];
+	let charlie_id = charlie.node.get_our_node_id();
+
+	// Test 1: Alice creates a phantom offer using Alice's node_id as the phantom node.
+	// The offer has paths to both Alice and Charlie, demonstrating multi-path structure.
+	let charlie_channels = charlie.node.list_channels();
+	let offer = alice.node
+		.create_phantom_offer_builder(alice_id, vec![(charlie_id, charlie_channels)], 6)
+		.unwrap()
+		.amount_msats(10_000_000)
+		.build().unwrap();
+
+	// Verify the offer structure
+	assert_ne!(offer.issuer_signing_pubkey(), Some(alice_id), "Should use derived signing pubkey");
+	assert_ne!(offer.issuer_signing_pubkey(), Some(charlie_id));
+	assert!(offer.paths().len() > 1, "Should have multiple paths for redundancy");
+
+	// Verify paths point to both Alice and Charlie
+	let mut alice_path_count = 0;
+	let mut charlie_path_count = 0;
+	for path in offer.paths() {
+		if check_compact_path_introduction_node(&path, bob, alice_id) {
+			alice_path_count += 1;
+		}
+		if check_compact_path_introduction_node(&path, bob, charlie_id)
+			|| check_compact_path_introduction_node(&path, &nodes[3], charlie_id) {
+			charlie_path_count += 1;
+		}
+	}
+	assert!(alice_path_count > 0, "Should have at least one path to Alice");
+	assert!(charlie_path_count > 0, "Should have at least one path to Charlie");
+
+	// Pay for Alice's offer - since Alice created it with her node_id, only Alice can fulfill it
+	let payment_id = PaymentId([1; 32]);
+	bob.node.pay_for_offer(&offer, None, payment_id, Default::default()).unwrap();
+	expect_recent_payment!(bob, RecentPaymentDetails::AwaitingInvoice, payment_id);
+
+	let onion_message = bob.onion_messenger.next_onion_message_for_peer(alice_id).unwrap();
+	alice.onion_messenger.handle_onion_message(bob_id, &onion_message);
+
+	let (invoice_request, _) = extract_invoice_request(alice, &onion_message);
+	let payment_context = PaymentContext::Bolt12Offer(Bolt12OfferContext {
+		offer_id: offer.id(),
+		invoice_request: InvoiceRequestFields {
+			payer_signing_pubkey: invoice_request.payer_signing_pubkey(),
+			quantity: None,
+			payer_note_truncated: None,
+			human_readable_name: None,
+		},
+	});
+
+	let onion_message = alice.onion_messenger.next_onion_message_for_peer(bob_id).unwrap();
+	bob.onion_messenger.handle_onion_message(alice_id, &onion_message);
+
+	let (invoice, _) = extract_invoice(bob, &onion_message);
+	assert_eq!(invoice.amount_msats(), 10_000_000);
+	assert_ne!(invoice.signing_pubkey(), alice_id);
+
+	route_bolt12_payment(bob, &[alice], &invoice);
+	expect_recent_payment!(bob, RecentPaymentDetails::Pending, payment_id);
+
+	claim_bolt12_payment(bob, &[alice], payment_context, &invoice);
+	expect_recent_payment!(bob, RecentPaymentDetails::Fulfilled, payment_id);
+
+	// Test 2: Charlie creates a phantom offer using Charlie's node_id
+	// This demonstrates that different nodes can create phantom offers with multi-node paths
+	let alice_channels = alice.node.list_channels();
+	let charlie_offer = charlie.node
+		.create_phantom_offer_builder(charlie_id, vec![(alice_id, alice_channels)], 6)
+		.unwrap()
+		.amount_msats(20_000_000)
+		.build().unwrap();
+
+	// Verify Charlie's offer also has paths to both nodes
+	alice_path_count = 0;
+	charlie_path_count = 0;
+	for path in charlie_offer.paths() {
+		if check_compact_path_introduction_node(&path, bob, alice_id) {
+			alice_path_count += 1;
+		}
+		if check_compact_path_introduction_node(&path, bob, charlie_id)
+			|| check_compact_path_introduction_node(&path, &nodes[3], charlie_id) {
+			charlie_path_count += 1;
+		}
+	}
+	assert!(alice_path_count > 0 && charlie_path_count > 0, "Should have paths to both nodes");
+
+	// Pay for Charlie's offer - only Charlie can fulfill since he created it with his node_id
+	let payment_id2 = PaymentId([2; 32]);
+	bob.node.pay_for_offer(&charlie_offer, None, payment_id2, Default::default()).unwrap();
+	expect_recent_payment!(bob, RecentPaymentDetails::AwaitingInvoice, payment_id2);
+
+	let onion_message = bob.onion_messenger.next_onion_message_for_peer(charlie_id).unwrap();
+	charlie.onion_messenger.handle_onion_message(bob_id, &onion_message);
+
+	let (invoice_request, _) = extract_invoice_request(charlie, &onion_message);
+	let payment_context2 = PaymentContext::Bolt12Offer(Bolt12OfferContext {
+		offer_id: charlie_offer.id(),
+		invoice_request: InvoiceRequestFields {
+			payer_signing_pubkey: invoice_request.payer_signing_pubkey(),
+			quantity: None,
+			payer_note_truncated: None,
+			human_readable_name: None,
+		},
+	});
+
+	let onion_message = charlie.onion_messenger.next_onion_message_for_peer(bob_id).unwrap();
+	bob.onion_messenger.handle_onion_message(charlie_id, &onion_message);
+
+	let (invoice, _) = extract_invoice(bob, &onion_message);
+	assert_eq!(invoice.amount_msats(), 20_000_000);
+
+	route_bolt12_payment(bob, &[charlie], &invoice);
+	expect_recent_payment!(bob, RecentPaymentDetails::Pending, payment_id2);
+
+	claim_bolt12_payment(bob, &[charlie], payment_context2, &invoice);
+	expect_recent_payment!(bob, RecentPaymentDetails::Fulfilled, payment_id2);
+}

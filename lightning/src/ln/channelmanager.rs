@@ -13925,6 +13925,52 @@ where
 		self.flow.blinded_paths_for_async_recipient(recipient_id, relative_expiry, peers)
 	}
 
+	/// Creates an [`OfferBuilder`] for a phantom offer that can be paid to any one of multiple
+	/// nodes. The offer will be recognized by all nodes that share the same `phantom_node_id` and
+	/// `inbound_payment_key`.
+	///
+	/// A phantom offer allows multiple nodes to share the same offer, with payments being
+	/// fulfilled by whichever node is reachable. This is useful for high-availability setups
+	/// where multiple nodes should be able to receive payment for the same offer.
+	///
+	/// # Privacy
+	///
+	/// Uses [`MessageRouter`] to construct [`BlindedMessagePath`]s distributed across all nodes.
+	/// Also uses a derived signing pubkey in the offer for recipient privacy.
+	///
+	/// # Parameters
+	///
+	/// * `phantom_node_id` - The shared node ID that all phantom nodes will use for this offer.
+	///   All nodes must be configured to handle offers for this node ID and share the same
+	///   `inbound_payment_key`.
+	/// * `other_nodes_channels` - Vector of tuples containing (node_id, channels) for each
+	///   additional phantom node besides this one
+	/// * `path_count_limit` - Maximum number of blinded paths to include in the offer
+	///
+	/// # Errors
+	///
+	/// Returns an error if unable to create any blinded paths for the offer.
+	///
+	/// [`BlindedMessagePath`]: crate::blinded_path::message::BlindedMessagePath
+	/// [`Offer`]: crate::offers::offer::Offer
+	/// [`InvoiceRequest`]: crate::offers::invoice_request::InvoiceRequest
+	pub fn create_phantom_offer_builder(
+		&self, phantom_node_id: PublicKey, other_nodes_channels: Vec<(PublicKey, Vec<ChannelDetails>)>,
+		path_count_limit: usize,
+	) -> Result<OfferBuilder<DerivedMetadata, secp256k1::All>, Bolt12SemanticError> {
+		let mut peers = Vec::with_capacity(other_nodes_channels.len() + 1);
+		peers.push((self.get_our_node_id(), self.get_peers_for_blinded_path()));
+		for (node_id, peer_chans) in other_nodes_channels {
+			peers.push((node_id, Self::channel_details_to_forward_node(peer_chans)));
+		}
+
+		let builder = self.flow.create_phantom_offer_builder(
+			phantom_node_id, &*self.entropy_source, peers, path_count_limit
+		)?;
+
+		Ok(builder.into())
+	}
+
 	/// [`BlindedMessagePath`]s for XXX
 	pub fn blinded_paths_for_phantom_offer(
 		&self, other_nodes_channels: Vec<(PublicKey, Vec<ChannelDetails>)>, path_count_limit: usize,
