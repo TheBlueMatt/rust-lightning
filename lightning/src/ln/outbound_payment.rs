@@ -2914,7 +2914,7 @@ mod tests {
 			outbound_payments.add_new_pending_payment(PaymentHash([0; 32]), RecipientOnionFields::spontaneous_empty(),
 				PaymentId([0; 32]), None, &Route { paths: vec![], route_params: None },
 				Some(Retry::Attempts(1)), Some(expired_route_params.payment_params.clone()),
-				&&keys_manager, 0, None, &log).unwrap();
+				&&keys_manager, 0, None).unwrap();
 			outbound_payments.find_route_and_send_payment(
 				PaymentHash([0; 32]), PaymentId([0; 32]), expired_route_params, &&router, vec![],
 				&|| InFlightHtlcs::new(), &&keys_manager, &&keys_manager, 0, &pending_events,
@@ -2960,7 +2960,7 @@ mod tests {
 			outbound_payments.add_new_pending_payment(PaymentHash([0; 32]), RecipientOnionFields::spontaneous_empty(),
 				PaymentId([0; 32]), None, &Route { paths: vec![], route_params: None },
 				Some(Retry::Attempts(1)), Some(route_params.payment_params.clone()),
-				&&keys_manager, 0, None, &log).unwrap();
+				&&keys_manager, 0, None).unwrap();
 			outbound_payments.find_route_and_send_payment(
 				PaymentHash([0; 32]), PaymentId([0; 32]), route_params, &&router, vec![],
 				&|| InFlightHtlcs::new(), &&keys_manager, &&keys_manager, 0, &pending_events,
@@ -3075,26 +3075,26 @@ mod tests {
 		let tick_interval = 10;
 		let expiration = StaleExpiration::AbsoluteTimeout(Duration::from_secs(absolute_expiry));
 
-		assert!(!outbound_payments.has_pending_payments(&log));
+		assert!(!outbound_payments.has_pending_payments());
 		assert!(
 			outbound_payments.add_new_awaiting_invoice(
-				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None, &log,
+				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None,
 			).is_ok()
 		);
-		assert!(outbound_payments.has_pending_payments(&log));
+		assert!(outbound_payments.has_pending_payments());
 
 		for seconds_since_epoch in (0..absolute_expiry).step_by(tick_interval) {
 			let duration_since_epoch = Duration::from_secs(seconds_since_epoch);
-			outbound_payments.remove_stale_payments(duration_since_epoch, &pending_events, &log);
+			outbound_payments.remove_stale_payments(duration_since_epoch, &pending_events);
 
-			assert!(outbound_payments.has_pending_payments(&log));
+			assert!(outbound_payments.has_pending_payments());
 			assert!(pending_events.lock().unwrap().is_empty());
 		}
 
 		let duration_since_epoch = Duration::from_secs(absolute_expiry);
-		outbound_payments.remove_stale_payments(duration_since_epoch, &pending_events, &log);
+		outbound_payments.remove_stale_payments(duration_since_epoch, &pending_events);
 
-		assert!(!outbound_payments.has_pending_payments(&log));
+		assert!(!outbound_payments.has_pending_payments());
 		assert!(!pending_events.lock().unwrap().is_empty());
 		assert_eq!(
 			pending_events.lock().unwrap().pop_front(),
@@ -3108,14 +3108,14 @@ mod tests {
 
 		assert!(
 			outbound_payments.add_new_awaiting_invoice(
-				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None, &log,
+				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None,
 			).is_ok()
 		);
-		assert!(outbound_payments.has_pending_payments(&log));
+		assert!(outbound_payments.has_pending_payments());
 
 		assert!(
 			outbound_payments.add_new_awaiting_invoice(
-				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None, &log,
+				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None,
 			).is_err()
 		);
 	}
@@ -3132,26 +3132,26 @@ mod tests {
 		let timer_ticks = 3;
 		let expiration = StaleExpiration::TimerTicks(timer_ticks);
 
-		assert!(!outbound_payments.has_pending_payments(&log));
+		assert!(!outbound_payments.has_pending_payments());
 		assert!(
 			outbound_payments.add_new_awaiting_invoice(
-				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None, &log,
+				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None,
 			).is_ok()
 		);
-		assert!(outbound_payments.has_pending_payments(&log));
+		assert!(outbound_payments.has_pending_payments());
 
 		for i in 0..timer_ticks {
 			let duration_since_epoch = Duration::from_secs(i * 60);
-			outbound_payments.remove_stale_payments(duration_since_epoch, &pending_events, &log);
+			outbound_payments.remove_stale_payments(duration_since_epoch, &pending_events);
 
-			assert!(outbound_payments.has_pending_payments(&log));
+			assert!(outbound_payments.has_pending_payments());
 			assert!(pending_events.lock().unwrap().is_empty());
 		}
 
 		let duration_since_epoch = Duration::from_secs(timer_ticks * 60);
-		outbound_payments.remove_stale_payments(duration_since_epoch, &pending_events, &log);
+		outbound_payments.remove_stale_payments(duration_since_epoch, &pending_events);
 
-		assert!(!outbound_payments.has_pending_payments(&log));
+		assert!(!outbound_payments.has_pending_payments());
 		assert!(!pending_events.lock().unwrap().is_empty());
 		assert_eq!(
 			pending_events.lock().unwrap().pop_front(),
@@ -3165,14 +3165,14 @@ mod tests {
 
 		assert!(
 			outbound_payments.add_new_awaiting_invoice(
-				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None, &log,
+				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None,
 			).is_ok()
 		);
-		assert!(outbound_payments.has_pending_payments(&log));
+		assert!(outbound_payments.has_pending_payments());
 
 		assert!(
 			outbound_payments.add_new_awaiting_invoice(
-				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None, &log,
+				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None,
 			).is_err()
 		);
 	}
@@ -3188,18 +3188,18 @@ mod tests {
 		let payment_id = PaymentId([0; 32]);
 		let expiration = StaleExpiration::AbsoluteTimeout(Duration::from_secs(100));
 
-		assert!(!outbound_payments.has_pending_payments(&log));
+		assert!(!outbound_payments.has_pending_payments());
 		assert!(
 			outbound_payments.add_new_awaiting_invoice(
-				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None, &log,
+				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None,
 			).is_ok()
 		);
-		assert!(outbound_payments.has_pending_payments(&log));
+		assert!(outbound_payments.has_pending_payments());
 
 		outbound_payments.abandon_payment(
-			payment_id, PaymentFailureReason::UserAbandoned, &pending_events, &log
+			payment_id, PaymentFailureReason::UserAbandoned, &pending_events
 		);
-		assert!(!outbound_payments.has_pending_payments(&log));
+		assert!(!outbound_payments.has_pending_payments());
 		assert!(!pending_events.lock().unwrap().is_empty());
 		assert_eq!(
 			pending_events.lock().unwrap().pop_front(),
@@ -3232,10 +3232,10 @@ mod tests {
 
 		assert!(
 			outbound_payments.add_new_awaiting_invoice(
-				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None, &log,
+				payment_id, expiration, Retry::Attempts(0), RouteParametersConfig::default(), None,
 			).is_ok()
 		);
-		assert!(outbound_payments.has_pending_payments(&log));
+		assert!(outbound_payments.has_pending_payments());
 
 		let created_at = now() - DEFAULT_RELATIVE_EXPIRY;
 		let invoice = OfferBuilder::new(recipient_pubkey())
@@ -3255,7 +3255,7 @@ mod tests {
 			),
 			Err(Bolt12PaymentError::SendingFailed(RetryableSendFailure::PaymentExpired)),
 		);
-		assert!(!outbound_payments.has_pending_payments(&log));
+		assert!(!outbound_payments.has_pending_payments());
 
 		let payment_hash = Some(invoice.payment_hash());
 		let reason = Some(PaymentFailureReason::PaymentExpired);
@@ -3301,10 +3301,10 @@ mod tests {
 		assert!(
 			outbound_payments.add_new_awaiting_invoice(
 				payment_id, expiration, Retry::Attempts(0),
-				route_params_config, None, &log,
+				route_params_config, None,
 			).is_ok()
 		);
-		assert!(outbound_payments.has_pending_payments(&log));
+		assert!(outbound_payments.has_pending_payments());
 
 		let route_params = RouteParameters::from_payment_params_and_value(
 			PaymentParameters::from_bolt12_invoice(&invoice),
@@ -3320,7 +3320,7 @@ mod tests {
 			),
 			Err(Bolt12PaymentError::SendingFailed(RetryableSendFailure::RouteNotFound)),
 		);
-		assert!(!outbound_payments.has_pending_payments(&log));
+		assert!(!outbound_payments.has_pending_payments());
 
 		let payment_hash = Some(invoice.payment_hash());
 		let reason = Some(PaymentFailureReason::RouteNotFound);
@@ -3389,7 +3389,7 @@ mod tests {
 			})
 		);
 
-		assert!(!outbound_payments.has_pending_payments(&log));
+		assert!(!outbound_payments.has_pending_payments());
 		assert_eq!(
 			outbound_payments.send_payment_for_bolt12_invoice(
 				&invoice, payment_id, &&router, vec![], Bolt12InvoiceFeatures::empty(),
@@ -3398,17 +3398,17 @@ mod tests {
 			),
 			Err(Bolt12PaymentError::UnexpectedInvoice),
 		);
-		assert!(!outbound_payments.has_pending_payments(&log));
+		assert!(!outbound_payments.has_pending_payments());
 		assert!(pending_events.lock().unwrap().is_empty());
 
 		let route_params_config = RouteParametersConfig::default().with_max_total_routing_fee_msat(1234);
 
 		assert!(
 			outbound_payments.add_new_awaiting_invoice(
-				payment_id, expiration, Retry::Attempts(0), route_params_config, None, &log,
+				payment_id, expiration, Retry::Attempts(0), route_params_config, None,
 			).is_ok()
 		);
-		assert!(outbound_payments.has_pending_payments(&log));
+		assert!(outbound_payments.has_pending_payments());
 
 		assert_eq!(
 			outbound_payments.send_payment_for_bolt12_invoice(
@@ -3418,7 +3418,7 @@ mod tests {
 			),
 			Ok(()),
 		);
-		assert!(outbound_payments.has_pending_payments(&log));
+		assert!(outbound_payments.has_pending_payments());
 		assert!(pending_events.lock().unwrap().is_empty());
 
 		assert_eq!(
@@ -3429,7 +3429,7 @@ mod tests {
 			),
 			Err(Bolt12PaymentError::DuplicateInvoice),
 		);
-		assert!(outbound_payments.has_pending_payments(&log));
+		assert!(outbound_payments.has_pending_payments());
 		assert!(pending_events.lock().unwrap().is_empty());
 	}
 
@@ -3483,7 +3483,7 @@ mod tests {
 		core::mem::drop(outbounds);
 
 		// The payment will not be removed if it isn't expired yet.
-		outbound_payments.remove_stale_payments(Duration::from_secs(absolute_expiry), &pending_events, &log);
+		outbound_payments.remove_stale_payments(Duration::from_secs(absolute_expiry), &pending_events);
 		let outbounds = outbound_payments.pending_outbound_payments.lock().unwrap();
 		assert_eq!(outbounds.len(), 1);
 		let events = pending_events.lock().unwrap();
@@ -3491,7 +3491,7 @@ mod tests {
 		core::mem::drop(outbounds);
 		core::mem::drop(events);
 
-		outbound_payments.remove_stale_payments(Duration::from_secs(absolute_expiry + 1), &pending_events, &log);
+		outbound_payments.remove_stale_payments(Duration::from_secs(absolute_expiry + 1), &pending_events);
 		let outbounds = outbound_payments.pending_outbound_payments.lock().unwrap();
 		assert_eq!(outbounds.len(), 0);
 		let events = pending_events.lock().unwrap();
@@ -3536,7 +3536,7 @@ mod tests {
 		core::mem::drop(outbounds);
 
 		outbound_payments.abandon_payment(
-			payment_id, PaymentFailureReason::UserAbandoned, &pending_events, &log
+			payment_id, PaymentFailureReason::UserAbandoned, &pending_events
 		);
 		let outbounds = outbound_payments.pending_outbound_payments.lock().unwrap();
 		assert_eq!(outbounds.len(), 0);

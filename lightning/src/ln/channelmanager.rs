@@ -5448,7 +5448,6 @@ where
 			&self.node_signer,
 			best_block_height,
 			|args| self.send_payment_along_path(args),
-			&WithContext::from(&self.logger, None, None, Some(payment_hash)),
 		)
 	}
 
@@ -5466,7 +5465,6 @@ where
 			None,
 			&self.entropy_source,
 			best_block_height,
-			&WithContext::from(&self.logger, None, None, Some(payment_hash)),
 		)
 	}
 
@@ -5490,7 +5488,6 @@ where
 		self.pending_outbound_payments.test_set_payment_metadata(
 			payment_id,
 			new_payment_metadata,
-			&WithContext::from(&self.logger, None, None, None),
 		);
 	}
 
@@ -13908,7 +13905,6 @@ where
 			optional_params.route_params_config,
 			amount_msats,
 			optional_params.payer_note,
-			&WithContext::from(&self.logger, None, None, None),
 		)?;
 
 		self.flow
@@ -14230,13 +14226,13 @@ where
 	#[cfg(test)]
 	pub fn has_pending_payments(&self) -> bool {
 		let logger = WithContext::from(&self.logger, None, None, None);
-		self.pending_outbound_payments.has_pending_payments(&logger)
+		self.pending_outbound_payments.has_pending_payments()
 	}
 
 	#[cfg(test)]
 	pub fn clear_pending_payments(&self) {
 		let logger = WithContext::from(&self.logger, None, None, None);
-		self.pending_outbound_payments.clear_pending_payments(&logger)
+		self.pending_outbound_payments.clear_pending_payments()
 	}
 
 	#[cfg(any(test, feature = "_test_utils"))]
@@ -16472,13 +16468,12 @@ where
 					// offer, but tests can deal with that.
 					offer = replacement_offer;
 				}
-				let logger = WithContext::from(&self.logger, None, None, None);
-				if let Ok((amt_msats, payer_note)) = self.pending_outbound_payments.params_for_payment_awaiting_offer(payment_id, &logger) {
+				if let Ok((amt_msats, payer_note)) = self.pending_outbound_payments.params_for_payment_awaiting_offer(payment_id) {
 					let offer_pay_res =
 						self.pay_for_offer_intern(&offer, None, Some(amt_msats), payer_note, payment_id, Some(name),
 							|retryable_invoice_request| {
 								self.pending_outbound_payments
-									.received_offer(payment_id, Some(retryable_invoice_request), &logger)
+									.received_offer(payment_id, Some(retryable_invoice_request))
 									.map_err(|_| Bolt12SemanticError::DuplicatePaymentId)
 						});
 					if offer_pay_res.is_err() {
@@ -16488,7 +16483,7 @@ where
 						// Note that the PaymentFailureReason should be ignored for an
 						// AwaitingInvoice payment.
 						self.pending_outbound_payments.abandon_payment(
-							payment_id, PaymentFailureReason::RouteNotFound, &self.pending_events, &logger,
+							payment_id, PaymentFailureReason::RouteNotFound, &self.pending_events,
 						);
 					}
 				}
