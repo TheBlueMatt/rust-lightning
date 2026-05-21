@@ -2887,6 +2887,7 @@ impl<'a, Out: Output + MaybeSend + MaybeSync> Harness<'a, Out> {
 	}
 
 	fn restart_node(&mut self, node_idx: usize, v: u8, router: &'a FuzzRouter) {
+		self.nodes[node_idx].checkpoint_manager_persistence();
 		match node_idx {
 			0 => {
 				self.ab_link.disconnect_for_reload(0, &self.nodes, &mut self.queues);
@@ -3142,6 +3143,16 @@ pub fn do_test<Out: Output + MaybeSend + MaybeSync>(data: &[u8], out: Out) {
 			0x85 => harness.nodes[1].reset_fee_estimate(),
 			0x88 => harness.nodes[2].bump_fee_estimate(harness.chan_type),
 			0x89 => harness.nodes[2].reset_fee_estimate(),
+
+			0x90 => {
+				harness.nodes[0].checkpoint_manager_persistence();
+			},
+			0x91 => {
+				harness.nodes[1].checkpoint_manager_persistence();
+			},
+			0x92 => {
+				harness.nodes[2].checkpoint_manager_persistence();
+			},
 
 			0xa0 => {
 				let cp_node_id = harness.nodes[1].get_our_node_id();
@@ -3399,8 +3410,6 @@ pub fn do_test<Out: Output + MaybeSend + MaybeSync>(data: &[u8], out: Out) {
 			},
 			_ => break 'fuzz_loop,
 		}
-
-		harness.checkpoint_manager_persistences();
 
 		// Compute `ChannelDetails` for every channel after each step (ignoring the result) so the
 		// fuzzer exercises the splice-details derivation in `to_details` across as many states as
