@@ -15,7 +15,7 @@ use bitcoin::secp256k1::{self, Secp256k1, SecretKey};
 use lightning_invoice::Bolt11Invoice;
 
 use crate::blinded_path::{IntroductionNode, NodeIdLookUp};
-use crate::events::{self, PaidBolt12Invoice, PaymentFailureReason};
+use crate::events::{self, PaymentFailureReason};
 use crate::ln::channel_state::ChannelDetails;
 use crate::ln::channelmanager::{
 	EventCompletionAction, HTLCSource, OptionalBolt11PaymentParams, PaymentCompleteUpdate,
@@ -27,6 +27,7 @@ use crate::ln::onion_utils::{DecodedOnionFailure, HTLCFailReason};
 use crate::offers::invoice::{Bolt12Invoice, DerivedSigningPubkey, InvoiceBuilder};
 use crate::offers::invoice_request::InvoiceRequest;
 use crate::offers::nonce::Nonce;
+use crate::offers::payer_proof::PaidBolt12Invoice;
 use crate::offers::static_invoice::StaticInvoice;
 use crate::routing::router::{
 	BlindedTail, InFlightHtlcs, Path, PaymentParameters, Route, RouteParameters,
@@ -124,8 +125,9 @@ pub(crate) enum PendingOutboundPayment {
 		payment_metadata: Option<Vec<u8>>,
 		keysend_preimage: Option<PaymentPreimage>,
 		invoice_request: Option<InvoiceRequest>,
-		// Storing the BOLT 12 invoice here to allow Proof of Payment after
-		// the payment is made.
+		// Storing the BOLT 12 invoice here to allow Proof of Payment after the payment is made.
+		// The payer signing key needed to build a payer proof on retried paths is re-derived from
+		// the invoice's own payer metadata, so no separate nonce needs to be stored alongside it.
 		bolt12_invoice: Option<PaidBolt12Invoice>,
 		custom_tlvs: Vec<(u64, Vec<u8>)>,
 		pending_amt_msat: u64,
@@ -1209,7 +1211,8 @@ impl OutboundPayments {
 			hash_map::Entry::Occupied(entry) => match entry.get() {
 				PendingOutboundPayment::InvoiceReceived { .. } => {
 					let (retryable_payment, onion_session_privs) = Self::create_pending_payment(
-						payment_hash, recipient_onion.clone(), keysend_preimage, None, Some(bolt12_invoice.clone()), &route,
+						payment_hash, recipient_onion.clone(), keysend_preimage, None, Some(bolt12_invoice.clone()),
+						&route,
 						Some(retry_strategy), payment_params, entropy_source, best_block_height,
 					);
 					*entry.into_mut() = retryable_payment;
@@ -1220,7 +1223,8 @@ impl OutboundPayments {
 						invoice_request
 					} else { unreachable!() };
 					let (retryable_payment, onion_session_privs) = Self::create_pending_payment(
-						payment_hash, recipient_onion.clone(), keysend_preimage, Some(invreq), Some(bolt12_invoice.clone()), &route,
+						payment_hash, recipient_onion.clone(), keysend_preimage, Some(invreq), Some(bolt12_invoice.clone()),
+						&route,
 						Some(retry_strategy), payment_params, entropy_source, best_block_height
 					);
 					outbounds.insert(payment_id, retryable_payment);
@@ -1233,7 +1237,8 @@ impl OutboundPayments {
 		core::mem::drop(outbounds);
 
 		let result = self.pay_route_internal(
-			&route, payment_hash, &recipient_onion, keysend_preimage, invoice_request, Some(&bolt12_invoice), payment_id,
+			&route, payment_hash, &recipient_onion, keysend_preimage, invoice_request, Some(&bolt12_invoice),
+			payment_id,
 			&onion_session_privs, hold_htlcs_at_next_hop, node_signer,
 			best_block_height, &send_payment_along_path
 		);
@@ -1776,7 +1781,8 @@ impl OutboundPayments {
 			}
 		};
 		let res = self.pay_route_internal(&route, payment_hash, &recipient_onion, keysend_preimage,
-			invoice_request.as_ref(), bolt12_invoice.as_ref(), payment_id,
+			invoice_request.as_ref(), bolt12_invoice.as_ref(),
+			payment_id,
 			&onion_session_privs, false, node_signer, best_block_height, &send_payment_along_path);
 		log_info!(logger, "Result retrying payment id {}: {:?}", &payment_id, res);
 		if let Err(e) = res {
@@ -2011,7 +2017,8 @@ impl OutboundPayments {
 	fn create_pending_payment<ES: EntropySource>(
 		payment_hash: PaymentHash, recipient_onion: RecipientOnionFields,
 		keysend_preimage: Option<PaymentPreimage>, invoice_request: Option<InvoiceRequest>,
-		bolt12_invoice: Option<PaidBolt12Invoice>, route: &Route, retry_strategy: Option<Retry>,
+		bolt12_invoice: Option<PaidBolt12Invoice>,
+		route: &Route, retry_strategy: Option<Retry>,
 		payment_params: Option<PaymentParameters>, entropy_source: &ES, best_block_height: u32
 	) -> (PendingOutboundPayment, Vec<[u8; 32]>) {
 		let mut onion_session_privs = Vec::with_capacity(route.paths.len());
@@ -2284,7 +2291,7 @@ impl OutboundPayments {
 					payment_hash,
 					amount_msat,
 					fee_paid_msat,
-					bolt12_invoice: bolt12_invoice,
+					bolt12_invoice,
 				}, ev_completion_action.take()));
 				payment.get_mut().mark_fulfilled();
 			}
@@ -2784,6 +2791,9 @@ impl_writeable_tlv_based_enum_upgradable!(PendingOutboundPayment,
 				}
 			})),
 		(13, invoice_request, option),
+		// `bolt12_invoice` serializes as `(variant_byte, BigSize, invoice)`, the same wire layout
+		// used for the paid invoice before the payer nonce was bundled (and now re-derived from
+		// the invoice's own payer metadata), so the format is unchanged.
 		(15, bolt12_invoice, option),
 		(not_written, retry_strategy, (static_value, None)),
 		(not_written, attempts, (static_value, PaymentAttempts::new())),
@@ -2886,6 +2896,7 @@ mod tests {
 	use crate::offers::invoice_request::InvoiceRequest;
 	use crate::offers::nonce::Nonce;
 	use crate::offers::offer::OfferBuilder;
+	use crate::offers::payer_proof::PaidBolt12Invoice;
 	use crate::offers::test_utils::*;
 	use crate::routing::gossip::NetworkGraph;
 	use crate::routing::router::{
@@ -2896,9 +2907,12 @@ mod tests {
 	use crate::types::features::{Bolt12InvoiceFeatures, ChannelFeatures, NodeFeatures};
 	use crate::types::payment::{PaymentHash, PaymentPreimage};
 	use crate::util::errors::APIError;
-	use crate::util::hash_tables::new_hash_map;
+	use crate::util::hash_tables::{new_hash_map, new_hash_set};
 	use crate::util::logger::WithContext;
+	use crate::util::ser::{MaybeReadable, Writeable};
 	use crate::util::test_utils;
+
+	use super::PaymentAttempts;
 
 	use alloc::collections::VecDeque;
 
@@ -3464,6 +3478,62 @@ mod tests {
 		);
 		assert!(outbound_payments.has_pending_payments());
 		assert!(pending_events.lock().unwrap().is_empty());
+	}
+
+	#[test]
+	fn retryable_payment_round_trips_bolt12_invoice() {
+		// A `Retryable` payment serializes its `bolt12_invoice` and reads it back. This guards that
+		// the paid invoice (needed to build payer proofs on retried paths) survives the round-trip.
+		let secp_ctx = Secp256k1::new();
+		let expanded_key = ExpandedKey::new([42; 32]);
+		let nonce = Nonce([7; 16]);
+		let payment_id = PaymentId([3; 32]);
+
+		let invoice = OfferBuilder::new(recipient_pubkey())
+			.amount_msats(1000)
+			.build()
+			.unwrap()
+			.request_invoice(&expanded_key, nonce, &secp_ctx, payment_id)
+			.unwrap()
+			.build_and_sign()
+			.unwrap()
+			.respond_with_no_std(payment_paths(), payment_hash(), now())
+			.unwrap()
+			.build()
+			.unwrap()
+			.sign(recipient_sign)
+			.unwrap();
+
+		let mut session_privs = new_hash_set();
+		session_privs.insert([1; 32]);
+		let payment = PendingOutboundPayment::Retryable {
+			retry_strategy: Some(Retry::Attempts(0)),
+			attempts: PaymentAttempts::new(),
+			payment_params: None,
+			session_privs,
+			payment_hash: payment_hash(),
+			payment_secret: None,
+			payment_metadata: None,
+			keysend_preimage: None,
+			invoice_request: None,
+			bolt12_invoice: Some(PaidBolt12Invoice::Bolt12Invoice(invoice)),
+			custom_tlvs: Vec::new(),
+			pending_amt_msat: 1000,
+			pending_fee_msat: None,
+			total_msat: 1000,
+			onion_total_msat: 1000,
+			starting_block_height: 0,
+			remaining_max_total_routing_fee_msat: None,
+		};
+
+		let encoded = payment.encode();
+		let decoded = PendingOutboundPayment::read(&mut &encoded[..]).unwrap().unwrap();
+		match decoded {
+			PendingOutboundPayment::Retryable { bolt12_invoice, .. } => {
+				assert!(matches!(bolt12_invoice, Some(PaidBolt12Invoice::Bolt12Invoice(_))));
+			},
+			_ => panic!("expected a Retryable payment"),
+		}
 	}
 
 	#[rustfmt::skip]

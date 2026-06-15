@@ -49,11 +49,11 @@ use crate::chain::channelmonitor::{
 };
 use crate::chain::transaction::{OutPoint, TransactionData};
 use crate::chain::{BlockLocator, ChannelMonitorUpdateStatus, Confirm, Watch};
+use crate::events::FundingInfo;
 use crate::events::{
 	self, ClosureReason, Event, EventHandler, EventsProvider, HTLCHandlingFailureType,
 	InboundChannelFunds, PaymentFailureReason, ReplayEvent,
 };
-use crate::events::{FundingInfo, PaidBolt12Invoice};
 use crate::ln::chan_utils::selected_commitment_sat_per_1000_weight;
 #[cfg(any(test, fuzzing, feature = "_test_utils"))]
 use crate::ln::channel::QuiescentAction;
@@ -101,6 +101,7 @@ use crate::offers::invoice_request::{InvoiceRequest, InvoiceRequestVerifiedFromO
 use crate::offers::nonce::Nonce;
 use crate::offers::offer::{Offer, OfferFromHrn};
 use crate::offers::parse::Bolt12SemanticError;
+use crate::offers::payer_proof::PaidBolt12Invoice;
 use crate::offers::refund::Refund;
 use crate::offers::static_invoice::StaticInvoice;
 use crate::onion_message::async_payments::{
@@ -885,9 +886,13 @@ mod fuzzy_channelmanager {
 			/// doing a double-pass on route when we get a failure back
 			first_hop_htlc_msat: u64,
 			payment_id: PaymentId,
-			/// The BOLT12 invoice associated with this payment, if any. This is stored here to ensure
-			/// we can provide proof-of-payment details in payment claim events even after a restart
-			/// with a stale ChannelManager state.
+			/// The BOLT 12 invoice associated with this payment, if any. Stored here so it can be
+			/// surfaced as a [`PaidBolt12Invoice`] in [`Event::PaymentSent`] for building payer
+			/// proofs, even after a restart with a stale `ChannelManager` state. The payer signing
+			/// key needed for a proof is re-derived from the invoice's own payer metadata.
+			///
+			/// [`PaidBolt12Invoice`]: crate::offers::payer_proof::PaidBolt12Invoice
+			/// [`Event::PaymentSent`]: crate::events::Event::PaymentSent
 			bolt12_invoice: Option<PaidBolt12Invoice>,
 		},
 	}
@@ -1032,9 +1037,9 @@ impl HTLCSource {
 	pub(crate) fn static_invoice(&self) -> Option<StaticInvoice> {
 		match self {
 			Self::OutboundRoute {
-				bolt12_invoice: Some(PaidBolt12Invoice::StaticInvoice(inv)),
+				bolt12_invoice: Some(PaidBolt12Invoice::StaticInvoice(invoice)),
 				..
-			} => Some(inv.clone()),
+			} => Some(invoice.clone()),
 			_ => None,
 		}
 	}
@@ -18156,6 +18161,7 @@ impl Writeable for HTLCSource {
 			} => {
 				0u8.write(writer)?;
 				let payment_id_opt = Some(payment_id);
+				let bolt12_invoice = bolt12_invoice.as_ref();
 				write_tlv_fields!(writer, {
 				   (0, session_priv, required),
 				   (1, payment_id_opt, option),
