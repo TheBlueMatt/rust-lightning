@@ -52,7 +52,7 @@ impl TaggedHash {
 	/// Creates a tagged hash with the given parameters.
 	///
 	/// Panics if `tlv_stream` is not a well-formed TLV stream containing at least one TLV record.
-	pub(super) fn from_tlv_stream<'a, I: core::iter::Iterator<Item = TlvRecord<'a>>>(
+	pub(super) fn from_tlv_stream<'a, I: core::iter::Iterator<Item = TlvRecord<'a>> + 'a>(
 		tag: &'static str, tlv_stream: I,
 	) -> Self {
 		Self::from_merkle_root(tag, root_hash(tlv_stream))
@@ -155,9 +155,12 @@ pub fn verify_signature(
 
 /// Computes a merkle root hash for the given data, which must be a well-formed TLV stream
 /// containing at least one TLV record.
-fn root_hash<'a, I: core::iter::Iterator<Item = TlvRecord<'a>>>(tlv_stream: I) -> sha256::Hash {
+fn root_hash<'a, I: core::iter::Iterator<Item = TlvRecord<'a>> + 'a>(
+	tlv_stream: I,
+) -> sha256::Hash {
 	let (tlv_data, branch_tag) = merkle_tlv_data(tlv_stream, |_| false);
-	let mut leaves: Vec<sha256::Hash> = tlv_data.iter().map(|data| data.per_tlv_hash).collect();
+	let mut leaves: Vec<sha256::Hash> = tlv_data.map(|data| data.per_tlv_hash).collect();
+	assert!(!leaves.is_empty(), "TLV stream must contain at least one non-signature record");
 
 	// Calculate the merkle root hash in place.
 	let num_leaves = leaves.len();
@@ -328,10 +331,10 @@ struct TlvMerkleData {
 
 fn merkle_tlv_data<'a, I, F>(
 	tlv_stream: I, mut is_included: F,
-) -> (Vec<TlvMerkleData>, sha256::HashEngine)
+) -> (impl Iterator<Item = TlvMerkleData> + 'a, sha256::HashEngine)
 where
-	I: core::iter::Iterator<Item = TlvRecord<'a>>,
-	F: FnMut(u64) -> bool,
+	I: core::iter::Iterator<Item = TlvRecord<'a>> + 'a,
+	F: FnMut(u64) -> bool + 'a,
 {
 	let mut tlv_stream = tlv_stream.peekable();
 	let nonce_tag = tagged_hash_engine(sha256::Hash::from_engine({
@@ -343,22 +346,22 @@ where
 	}));
 	let leaf_tag = tagged_hash_engine(sha256::Hash::hash("LnLeaf".as_bytes()));
 	let branch_tag = tagged_hash_engine(sha256::Hash::hash("LnBranch".as_bytes()));
+	let iter_branch_tag = branch_tag.clone();
 
-	let mut tlv_data = Vec::with_capacity(128);
-	for record in tlv_stream.filter(|record| !SIGNATURE_TYPES.contains(&record.r#type)) {
-		let leaf_hash = tagged_hash_from_engine(leaf_tag.clone(), record.record_bytes);
-		let nonce_hash = tagged_hash_from_engine(nonce_tag.clone(), record.type_bytes);
-		let per_tlv_hash =
-			tagged_branch_hash_from_engine(branch_tag.clone(), leaf_hash, nonce_hash);
+	let tlv_data =
+		tlv_stream.filter(|record| !SIGNATURE_TYPES.contains(&record.r#type)).map(move |record| {
+			let leaf_hash = tagged_hash_from_engine(leaf_tag.clone(), record.record_bytes);
+			let nonce_hash = tagged_hash_from_engine(nonce_tag.clone(), record.type_bytes);
+			let per_tlv_hash =
+				tagged_branch_hash_from_engine(iter_branch_tag.clone(), leaf_hash, nonce_hash);
 
-		tlv_data.push(TlvMerkleData {
-			tlv_type: record.r#type,
-			nonce_hash,
-			per_tlv_hash,
-			is_included: is_included(record.r#type),
+			TlvMerkleData {
+				tlv_type: record.r#type,
+				nonce_hash,
+				per_tlv_hash,
+				is_included: is_included(record.r#type),
+			}
 		});
-	}
-	assert!(!tlv_data.is_empty(), "TLV stream must contain at least one non-signature record");
 
 	(tlv_data, branch_tag)
 }
@@ -374,10 +377,12 @@ where
 /// * `records` - Iterator of [`TlvRecord`]s from the invoice
 /// * `included_types` - Set of TLV types to include in the disclosure
 pub(super) fn compute_selective_disclosure<'a>(
-	records: impl Iterator<Item = TlvRecord<'a>>, included_types: &BTreeSet<u64>,
+	records: impl Iterator<Item = TlvRecord<'a>> + 'a, included_types: &'a BTreeSet<u64>,
 ) -> SelectiveDisclosure {
 	let (tlv_data, branch_tag) =
 		merkle_tlv_data(records, |tlv_type| included_types.contains(&tlv_type));
+	let tlv_data: Vec<TlvMerkleData> = tlv_data.collect();
+	assert!(!tlv_data.is_empty(), "TLV stream must contain at least one non-signature record");
 
 	let num_omitted_markers = tlv_data
 		.iter()
