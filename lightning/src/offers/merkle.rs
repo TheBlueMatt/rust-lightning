@@ -477,6 +477,54 @@ fn build_tree_dfs(
 	(combined, left_incl || right_incl)
 }
 
+/// Decodes the per-position inclusion map (`true` = included, `false` = omitted) from the included
+/// TLV types and the omitted markers, with the implicit omitted TLV0 at the front. This reverses
+/// the encoding from [`compute_omitted_markers`] and is the single source of truth shared by
+/// merkle-root reconstruction and the position map used in tests, so the two cannot drift.
+///
+/// `prev_marker` tracks the previous run value: a marker equal to [`next_marker`] of it continues
+/// the current run (omitted); otherwise an included TLV sits here first (a jump), and the same
+/// marker is reprocessed as a continuation on the next iteration.
+fn decode_positions(
+	included_types: impl Iterator<Item = u64>, omitted_markers: &[u64],
+) -> Vec<bool> {
+	let mut included = included_types.peekable();
+	let mut markers = omitted_markers.iter().copied().peekable();
+	let mut positions = vec![false]; // TLV0 is always omitted.
+	let mut prev_marker = 0u64;
+
+	loop {
+		match (included.peek().copied(), markers.peek().copied()) {
+			(None, None) => break,
+			// No more markers: every remaining position is included.
+			(Some(_), None) => {
+				included.next();
+				positions.push(true);
+			},
+			// No more included types: every remaining position is omitted.
+			(None, Some(marker)) => {
+				markers.next();
+				prev_marker = marker;
+				positions.push(false);
+			},
+			// Continuation of the current run -> omitted position.
+			(Some(_), Some(marker)) if marker == next_marker(prev_marker) => {
+				markers.next();
+				prev_marker = marker;
+				positions.push(false);
+			},
+			// Jump -> an included TLV sits here; the marker is reprocessed next iteration.
+			(Some(inc_type), Some(_)) => {
+				included.next();
+				prev_marker = inc_type;
+				positions.push(true);
+			},
+		}
+	}
+
+	positions
+}
+
 /// Reconstruct merkle root from selective disclosure data.
 ///
 /// `missing_hashes` must be in DFS (left-to-right recursive traversal) order,
@@ -497,18 +545,15 @@ pub(super) fn reconstruct_merkle_root(
 	let leaf_tag = tagged_hash_engine(sha256::Hash::hash("LnLeaf".as_bytes()));
 	let branch_tag = tagged_hash_engine(sha256::Hash::hash("LnBranch".as_bytes()));
 
-	// Build per-position hash array: Some(hash) for included positions, None for omitted.
-	// `payer_metadata` is always at position 0 (implicitly omitted).
-	let num_nodes = 1 + included_records.len() + omitted_markers.len();
-	let mut hashes: Vec<Option<sha256::Hash>> = Vec::with_capacity(num_nodes);
-	hashes.push(None);
+	// Build per-position hash array: Some(hash) for included positions, None for omitted (including
+	// the implicit `payer_metadata` at position 0). `decode_positions` is the shared source of truth
+	// for the run/jump structure, so this consumer cannot drift from the encoder or the test.
+	let positions = decode_positions(included_records.iter().map(|r| r.r#type), omitted_markers);
+	let mut hashes: Vec<Option<sha256::Hash>> = Vec::with_capacity(positions.len());
 
 	let mut inc_idx = 0;
-	let mut mrk_idx = 0;
-	let mut prev_marker: u64 = 0;
-
-	while inc_idx < included_records.len() || mrk_idx < omitted_markers.len() {
-		if mrk_idx >= omitted_markers.len() {
+	for included in positions {
+		if included {
 			let record = &included_records[inc_idx];
 			let leaf_hash = tagged_hash_from_engine(leaf_tag.clone(), record.record_bytes);
 			let nonce_hash = nonce_hashes[inc_idx];
@@ -518,29 +563,8 @@ pub(super) fn reconstruct_merkle_root(
 				nonce_hash,
 			)));
 			inc_idx += 1;
-		} else if inc_idx >= included_records.len() {
-			hashes.push(None);
-			prev_marker = omitted_markers[mrk_idx];
-			mrk_idx += 1;
 		} else {
-			let marker = omitted_markers[mrk_idx];
-			let inc_type = included_records[inc_idx].r#type;
-			if marker == next_marker(prev_marker) {
-				hashes.push(None);
-				prev_marker = marker;
-				mrk_idx += 1;
-			} else {
-				let record = &included_records[inc_idx];
-				let leaf_hash = tagged_hash_from_engine(leaf_tag.clone(), record.record_bytes);
-				let nonce_hash = nonce_hashes[inc_idx];
-				hashes.push(Some(tagged_branch_hash_from_engine(
-					branch_tag.clone(),
-					leaf_hash,
-					nonce_hash,
-				)));
-				prev_marker = inc_type;
-				inc_idx += 1;
-			}
+			hashes.push(None);
 		}
 	}
 
@@ -640,69 +664,12 @@ pub(super) fn validate_omitted_markers(
 	Ok(())
 }
 
-/// Reconstruct position inclusion map from included types and omitted markers.
-///
-/// This reverses the marker encoding algorithm from `compute_omitted_markers`:
-/// - Markers form "runs" of consecutive values (e.g., [11, 12] is a run)
-/// - A "jump" in markers (e.g., 12 → 41) indicates an included TLV came between
-/// - After included type X, the next marker in that run equals X + 1
-///
-/// The algorithm tracks `prev_marker` to detect continuations vs jumps:
-/// - If `marker == next_marker(prev_marker)`: continuation → omitted position
-/// - Otherwise: jump → included position comes first, then process marker as continuation
-///
-/// Example: included=[10, 40], markers=[11, 12, 41, 42]
-/// - Position 0: TLV0 (always omitted)
-/// - marker=11, prev=0: 11 != 1, jump! Insert included (10), prev=10
-/// - marker=11, prev=10: 11 == 11, continuation → omitted, prev=11
-/// - marker=12, prev=11: 12 == 12, continuation → omitted, prev=12
-/// - marker=41, prev=12: 41 != 13, jump! Insert included (40), prev=40
-/// - marker=41, prev=40: 41 == 41, continuation → omitted, prev=41
-/// - marker=42, prev=41: 42 == 42, continuation → omitted, prev=42
-/// Result: [O, I, O, O, I, O, O]
+/// Reconstruct the position inclusion map (`true` = included, `false` = omitted) from included
+/// types and omitted markers, using the same [`decode_positions`] logic `reconstruct_merkle_root`
+/// uses to place hashes.
 #[cfg(test)]
 fn reconstruct_positions(included_types: &[u64], omitted_markers: &[u64]) -> Vec<bool> {
-	let total = 1 + included_types.len() + omitted_markers.len();
-	let mut positions = Vec::with_capacity(total);
-	positions.push(false); // TLV0 is always omitted
-
-	let mut inc_idx = 0;
-	let mut mrk_idx = 0;
-	// After TLV0 (implicit marker 0), next continuation would be marker 1
-	let mut prev_marker: u64 = 0;
-
-	while inc_idx < included_types.len() || mrk_idx < omitted_markers.len() {
-		if mrk_idx >= omitted_markers.len() {
-			// No more markers, remaining positions are included
-			positions.push(true);
-			inc_idx += 1;
-		} else if inc_idx >= included_types.len() {
-			// No more included types, remaining positions are omitted
-			positions.push(false);
-			prev_marker = omitted_markers[mrk_idx];
-			mrk_idx += 1;
-		} else {
-			let marker = omitted_markers[mrk_idx];
-			let inc_type = included_types[inc_idx];
-
-			if marker == next_marker(prev_marker) {
-				// Continuation of current run → this position is omitted
-				positions.push(false);
-				prev_marker = marker;
-				mrk_idx += 1;
-			} else {
-				// Jump detected! An included TLV comes before this marker.
-				// After the included type, prev_marker resets to that type,
-				// so the marker will be processed as a continuation next iteration.
-				positions.push(true);
-				prev_marker = inc_type;
-				inc_idx += 1;
-				// Don't advance mrk_idx - same marker will be continuation next
-			}
-		}
-	}
-
-	positions
+	decode_positions(included_types.iter().copied(), omitted_markers)
 }
 
 #[cfg(test)]
