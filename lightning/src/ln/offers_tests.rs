@@ -64,6 +64,7 @@ use crate::offers::invoice_request::{InvoiceRequest, InvoiceRequestFields, Invoi
 use crate::offers::nonce::Nonce;
 use crate::offers::offer::OfferBuilder;
 use crate::offers::parse::Bolt12SemanticError;
+use crate::offers::payer_proof::PayerProof;
 use crate::onion_message::messenger::{DefaultMessageRouter, Destination, MessageRouter, MessageSendInstructions, NodeIdMessageRouter, NullMessageRouter, PeeledOnion, DUMMY_HOPS_PATH_LENGTH, QR_CODED_DUMMY_HOPS_PATH_LENGTH};
 use crate::onion_message::offers::OffersMessage;
 use crate::routing::router::{DEFAULT_PAYMENT_DUMMY_HOPS, PaymentParameters, RouteParameters, RouteParametersConfig};
@@ -2794,8 +2795,7 @@ fn creates_and_verifies_payer_proof_after_offer_payment() {
 
 	// --- Payer Proof Creation ---
 	// Bob (the payer) creates a proof-of-payment with selective disclosure, end to end from the
-	// invoice he actually paid. Note handling, bech32 round-trip, accessor parity against the
-	// parsed form, and the negative paths (`PreimageMismatch`, `KeyDerivationFailed`) are all
+	// invoice he actually paid. The negative paths (`PreimageMismatch`, `KeyDerivationFailed`) are
 	// covered by the unit tests in `offers::payer_proof::tests`.
 	let expanded_key = bob.keys_manager.get_expanded_key();
 	let secp_ctx = Secp256k1::new();
@@ -2811,4 +2811,23 @@ fn creates_and_verifies_payer_proof_after_offer_payment() {
 	// The proof binds the payment Bob actually made.
 	assert_eq!(payer_proof.payment_preimage(), payment_preimage);
 	assert_eq!(payer_proof.payment_hash(), invoice.payment_hash());
+
+	// Parsing the bech32 string back re-runs verification (preimage, invoice and proof signatures),
+	// just as a third-party verifier would.
+	let encoded = payer_proof.to_string();
+	let verified: PayerProof = encoded.parse().unwrap();
+	assert_eq!(verified.bytes(), payer_proof.bytes());
+	assert_eq!(verified.to_string(), encoded);
+
+	// The verified proof binds the same payment and preserves every disclosed field.
+	assert_eq!(verified.payment_preimage(), payment_preimage);
+	assert_eq!(verified.payment_hash(), invoice.payment_hash());
+	assert_eq!(verified.payer_signing_pubkey(), invoice_request.payer_signing_pubkey());
+	assert_eq!(verified.issuer_signing_pubkey(), invoice.signing_pubkey());
+	assert_eq!(verified.invoice_amount_msats(), Some(invoice.amount_msats()));
+	assert_eq!(verified.invoice_created_at(), Some(invoice.created_at()));
+	assert_eq!(
+		verified.offer_description().map(|desc| desc.to_string()),
+		offer.description().map(|desc| desc.to_string()),
+	);
 }
