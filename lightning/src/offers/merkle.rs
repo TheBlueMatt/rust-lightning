@@ -923,56 +923,111 @@ mod tests {
 		}
 	}
 
-	/// Test reconstruct_positions with the BOLT 12 payer proof spec example.
-	///
+	/// Builds a synthetic TLV stream with one record per type in `types`, each carrying a fixed
+	/// 2-byte value. Types must be < 253 so each encodes as a single BigSize byte. Only the types
+	/// and their order matter for selective-disclosure marker/position logic.
+	fn synthetic_tlv_stream(types: &[u64]) -> Vec<u8> {
+		let mut bytes = Vec::new();
+		for &tlv_type in types {
+			assert!(tlv_type < 253, "helper only supports single-byte BigSize types");
+			bytes.extend_from_slice(&[tlv_type as u8, 0x02, 0x00, 0x00]);
+		}
+		bytes
+	}
+
+	/// Computes the disclosure for `included` over `tlv_bytes`, checks the omitted markers and the
+	/// reconstructed positions, then reconstructs the merkle root and asserts it matches the
+	/// full-tree root. Unlike feeding hand-written markers to `reconstruct_positions`, this proves
+	/// the producer (`compute_selective_disclosure`) and consumer agree on the same stream.
+	fn assert_disclosure_round_trip(
+		tlv_bytes: &[u8], included: &[u64], expected_markers: &[u64], expected_positions: &[bool],
+	) {
+		use alloc::collections::BTreeSet;
+		let included_types: BTreeSet<u64> = included.iter().copied().collect();
+
+		let disclosure =
+			super::compute_selective_disclosure(TlvStream::new(tlv_bytes), &included_types);
+		assert_eq!(disclosure.omitted_markers.as_slice(), expected_markers);
+		assert_eq!(
+			super::reconstruct_positions(included, &disclosure.omitted_markers).as_slice(),
+			expected_positions,
+		);
+
+		let included_records: Vec<TlvRecord<'_>> =
+			TlvStream::new(tlv_bytes).filter(|r| included_types.contains(&r.r#type)).collect();
+		let reconstructed = super::reconstruct_merkle_root(
+			&included_records,
+			&disclosure.nonce_hashes,
+			&disclosure.omitted_markers,
+			&disclosure.missing_hashes,
+		)
+		.unwrap();
+		assert_eq!(reconstructed, disclosure.merkle_root);
+	}
+
+	/// BOLT 12 payer proof spec example.
 	/// TLVs: 0(omit), 10(incl), 20(omit), 30(omit), 40(incl), 50(omit), 60(omit)
-	/// Markers: [11, 12, 41, 42]
-	/// Expected positions: [O, I, O, O, I, O, O]
 	#[test]
 	fn test_reconstruct_positions_spec_example() {
-		let included_types = vec![10, 40];
-		let markers = vec![11, 12, 41, 42];
-		let positions = super::reconstruct_positions(&included_types, &markers);
-		assert_eq!(positions, vec![false, true, false, false, true, false, false]);
+		assert_disclosure_round_trip(
+			&synthetic_tlv_stream(&[0, 10, 20, 30, 40, 50, 60]),
+			&[10, 40],
+			&[11, 12, 41, 42],
+			&[false, true, false, false, true, false, false],
+		);
 	}
 
-	/// Test reconstruct_positions when there are omitted TLVs before the first included.
-	///
+	/// Omitted TLVs before the first included one.
 	/// TLVs: 0(omit), 5(omit), 10(incl), 20(omit)
-	/// Markers: [1, 11] (1 is first omitted after TLV0, 11 is after included 10)
-	/// Expected positions: [O, O, I, O]
 	#[test]
 	fn test_reconstruct_positions_omitted_before_included() {
-		let included_types = vec![10];
-		let markers = vec![1, 11];
-		let positions = super::reconstruct_positions(&included_types, &markers);
-		assert_eq!(positions, vec![false, false, true, false]);
+		assert_disclosure_round_trip(
+			&synthetic_tlv_stream(&[0, 5, 10, 20]),
+			&[10],
+			&[1, 11],
+			&[false, false, true, false],
+		);
 	}
 
-	/// Test reconstruct_positions with only included TLVs (no omitted except TLV0).
-	///
+	/// Only included TLVs (just the implicit TLV0 is omitted).
 	/// TLVs: 0(omit), 10(incl), 20(incl)
-	/// Markers: [] (no omitted TLVs after TLV0)
-	/// Expected positions: [O, I, I]
 	#[test]
 	fn test_reconstruct_positions_no_omitted() {
-		let included_types = vec![10, 20];
-		let markers = vec![];
-		let positions = super::reconstruct_positions(&included_types, &markers);
-		assert_eq!(positions, vec![false, true, true]);
+		assert_disclosure_round_trip(
+			&synthetic_tlv_stream(&[0, 10, 20]),
+			&[10, 20],
+			&[],
+			&[false, true, true],
+		);
 	}
 
-	/// Test reconstruct_positions with only omitted TLVs (no included).
-	///
+	/// Only omitted TLVs (nothing included). This is not a real proof shape -- a proof must
+	/// disclose the required fields -- so there is no disclosed leaf to anchor reconstruction.
+	/// The producer still emits markers/positions, but reconstructing the root must fail.
 	/// TLVs: 0(omit), 5(omit), 10(omit)
-	/// Markers: [1, 2] (consecutive omitted after TLV0)
-	/// Expected positions: [O, O, O]
 	#[test]
 	fn test_reconstruct_positions_no_included() {
-		let included_types = vec![];
-		let markers = vec![1, 2];
-		let positions = super::reconstruct_positions(&included_types, &markers);
-		assert_eq!(positions, vec![false, false, false]);
+		use alloc::collections::BTreeSet;
+
+		let tlv_bytes = synthetic_tlv_stream(&[0, 5, 10]);
+		let included_types = BTreeSet::new();
+		let disclosure =
+			super::compute_selective_disclosure(TlvStream::new(&tlv_bytes), &included_types);
+		assert_eq!(disclosure.omitted_markers, vec![1, 2]);
+		assert_eq!(
+			super::reconstruct_positions(&[], &disclosure.omitted_markers),
+			vec![false, false, false],
+		);
+
+		assert_eq!(
+			super::reconstruct_merkle_root(
+				&[],
+				&disclosure.nonce_hashes,
+				&disclosure.omitted_markers,
+				&disclosure.missing_hashes,
+			),
+			Err(super::SelectiveDisclosureError::InsufficientMissingHashes),
+		);
 	}
 
 	#[test]
