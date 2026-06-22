@@ -1184,6 +1184,28 @@ mod tests {
 			.unwrap()
 	}
 
+	/// Returns a fresh builder over a dummy paid invoice, for exercising the `include_type` API.
+	fn payer_proof_builder() -> PayerProofBuilder<ExplicitSigningPubkey> {
+		let preimage = PaymentPreimage([64; 32]);
+		let payment_hash = PaymentHash(*sha256::Hash::hash(&preimage.0).as_byte_array());
+		let invoice = RefundBuilder::new(vec![1; 32], payer_pubkey(), 42_000)
+			.unwrap()
+			.build()
+			.unwrap()
+			.respond_with_no_std(
+				payment_paths(),
+				payment_hash,
+				recipient_pubkey(),
+				Duration::from_secs(1_700_000_000),
+			)
+			.unwrap()
+			.build()
+			.unwrap()
+			.sign(recipient_sign)
+			.unwrap();
+		PaidBolt12Invoice::Bolt12Invoice(invoice).prove_payer(preimage).unwrap()
+	}
+
 	#[test]
 	fn test_selective_disclosure_computation() {
 		// Test that the merkle selective disclosure works correctly
@@ -1592,42 +1614,21 @@ mod tests {
 		);
 	}
 
-	/// Test that TLV types >= 240 are rejected by include_type.
-	///
-	/// Per spec, all types >= 240 are in the signature/payer-proof range and
-	/// handled separately. This includes types > 1000 (experimental range)
-	/// which were previously allowed through.
+	/// `include_type` must reject `payer_metadata` (0), the signature/payer-proof ranges, and the
+	/// gap before the experimental ranges, while accepting types below the signature range and the
+	/// experimental ranges.
 	#[test]
 	fn test_include_type_rejects_signature_types() {
-		// Test the type validation logic directly.
-		fn check_include_type(tlv_type: u64) -> Result<(), PayerProofError> {
-			if tlv_type == PAYER_METADATA_TYPE
-				|| SIGNATURE_TYPES.contains(&tlv_type)
-				|| PAYER_PROOF_DATA_TYPES.contains(&tlv_type)
-			{
-				return Err(PayerProofError::DisallowedTlvType(tlv_type));
-			}
-			Ok(())
-		}
-
-		// Signature-range types 240..=1000 and the unsupported gap before experimental
-		// ranges begins must be rejected.
-		assert!(matches!(check_include_type(240), Err(PayerProofError::DisallowedTlvType(240))));
-		assert!(matches!(check_include_type(250), Err(PayerProofError::DisallowedTlvType(250))));
-		assert!(matches!(check_include_type(1000), Err(PayerProofError::DisallowedTlvType(1000))));
-		assert!(matches!(check_include_type(1001), Err(PayerProofError::DisallowedTlvType(1001))));
 		let gap_top = EXPERIMENTAL_OFFER_TYPES.start - 1;
-		assert!(matches!(
-			check_include_type(gap_top),
-			Err(PayerProofError::DisallowedTlvType(t)) if t == gap_top,
-		));
-		// Experimental TLV ranges should remain includable.
-		assert!(check_include_type(EXPERIMENTAL_OFFER_TYPES.start).is_ok());
-		assert!(check_include_type(u64::MAX).is_ok());
-		// Just below the boundary
-		assert!(check_include_type(239).is_ok());
-		// Payer metadata still rejected
-		assert!(matches!(check_include_type(0), Err(PayerProofError::DisallowedTlvType(0))));
+		for ty in [0, 240, 250, 1000, 1001, gap_top] {
+			assert!(matches!(
+				payer_proof_builder().include_type(ty),
+				Err(PayerProofError::DisallowedTlvType(t)) if t == ty,
+			));
+		}
+		for ty in [239, EXPERIMENTAL_OFFER_TYPES.start, u64::MAX] {
+			assert!(payer_proof_builder().include_type(ty).is_ok());
+		}
 	}
 
 	#[test]
