@@ -45,7 +45,7 @@ use crate::offers::payer::PAYER_METADATA_TYPE;
 use crate::offers::static_invoice::StaticInvoice;
 use crate::types::payment::{PaymentHash, PaymentPreimage};
 use crate::util::ser::{
-	BigSize, CursorReadable, HighZeroBytesDroppedBigSize, WithoutLength, Writeable,
+	BigSize, CursorReadable, HighZeroBytesDroppedBigSize, WithoutLength, Writeable, Writer,
 };
 use lightning_types::string::PrintableString;
 
@@ -729,6 +729,12 @@ impl PayerProof {
 
 impl Bech32Encode for PayerProof {
 	const BECH32_HRP: &'static str = PAYER_PROOF_HRP;
+}
+
+impl Writeable for PayerProof {
+	fn write<W: Writer>(&self, writer: &mut W) -> Result<(), io::Error> {
+		WithoutLength(&self.bytes).write(writer)
+	}
 }
 
 impl AsRef<[u8]> for PayerProof {
