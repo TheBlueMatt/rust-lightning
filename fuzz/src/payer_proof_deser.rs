@@ -10,11 +10,14 @@
 use crate::utils::test_logger;
 use core::convert::TryFrom;
 use lightning::offers::payer_proof::PayerProof;
+use lightning::util::ser::Writeable;
 
 #[inline]
 pub fn do_test<Out: test_logger::Output>(data: &[u8], _out: Out) {
 	if let Ok(payer_proof) = PayerProof::try_from(data.to_vec()) {
-		assert_eq!(data, payer_proof.bytes());
+		let mut bytes = Vec::with_capacity(data.len());
+		payer_proof.write(&mut bytes).unwrap();
+		assert_eq!(data, bytes);
 	}
 }
 
