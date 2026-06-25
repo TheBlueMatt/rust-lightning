@@ -554,9 +554,9 @@ pub(super) fn reconstruct_merkle_root(
 	let mut inc_idx = 0;
 	for included in positions {
 		if included {
-			let record = &included_records[inc_idx];
+			let record = &included_records[inc_idx + 1];
 			let leaf_hash = tagged_hash_from_engine(leaf_tag.clone(), record.record_bytes);
-			let nonce_hash = nonce_hashes[inc_idx];
+			let nonce_hash = nonce_hashes[inc_idx + 1];
 			hashes.push(Some(tagged_branch_hash_from_engine(
 				branch_tag.clone(),
 				leaf_hash,
