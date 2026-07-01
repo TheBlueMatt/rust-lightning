@@ -30,7 +30,7 @@ use crate::offers::nonce::Nonce;
 use crate::offers::static_invoice::StaticInvoice;
 use crate::routing::router::{
 	BlindedTail, InFlightHtlcs, Path, PaymentParameters, Route, RouteParameters,
-	RouteParametersConfig, Router,
+	RouteParametersConfig, Router, RoutingError,
 };
 use crate::sign::{EntropySource, NodeSigner, Recipient};
 use crate::types::features::Bolt12InvoiceFeatures;
@@ -591,6 +591,11 @@ pub enum RetryableSendFailure {
 	///
 	/// [`BlindedPaymentPath`]: crate::blinded_path::payment::BlindedPaymentPath
 	OnionPacketSizeExceeded,
+	/// The recipient provided paths which were, in aggregate, insufficient to pay them. This
+	/// indicates the invoice is unpayable likely due to the recipient lacking sufficient liquidity
+	/// to receive the desired payment (or we are not properly synced, and missing parts of the
+	/// graph required to reach the recipient).
+	UnpayableInvoice,
 }
 
 /// If a payment fails to send to a route, it can be in one of several states. This enum is returned
@@ -1319,6 +1324,7 @@ impl OutboundPayments {
 					RetryableSendFailure::RouteNotFound => PaymentFailureReason::RouteNotFound,
 					RetryableSendFailure::DuplicatePayment => PaymentFailureReason::UnexpectedError,
 					RetryableSendFailure::OnionPacketSizeExceeded => PaymentFailureReason::UnexpectedError,
+					RetryableSendFailure::UnpayableInvoice => PaymentFailureReason::RecipientUnpayable,
 				};
 				self.abandon_payment(payment_id, reason, pending_events);
 				return Err(Bolt12PaymentError::SendingFailed(e));
@@ -1702,10 +1708,13 @@ impl OutboundPayments {
 			&node_signer.get_node_id(Recipient::Node).unwrap(), route_params,
 			Some(&first_hops.iter().collect::<Vec<_>>()), inflight_htlcs(),
 			payment_hash, payment_id,
-		).map_err(|_| {
+		).map_err(|e| {
 			log_error!(logger, "Failed to find route for payment with id {} and hash {}",
 				payment_id, payment_hash);
-			RetryableSendFailure::RouteNotFound
+			match e {
+				RoutingError::RecipientUnpayable => RetryableSendFailure::UnpayableInvoice,
+				_ => RetryableSendFailure::RouteNotFound,
+			}
 		})?;
 
 		validate_found_route(&mut route, route_params, logger)
@@ -1789,7 +1798,11 @@ impl OutboundPayments {
 			Ok(route) => route,
 			Err(e) => {
 				log_error!(logger, "Failed to find a route on retry, abandoning payment {}: {:#?}", &payment_id, e);
-				self.abandon_payment(payment_id, PaymentFailureReason::RouteNotFound, pending_events);
+				let reason = match e {
+					RoutingError::RecipientUnpayable => PaymentFailureReason::RecipientUnpayable,
+					_ => PaymentFailureReason::RouteNotFound,
+				};
+				self.abandon_payment(payment_id, reason, pending_events);
 				return
 			}
 		};

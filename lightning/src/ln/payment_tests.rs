@@ -57,6 +57,7 @@ use lightning_invoice::{Bolt11InvoiceDescription, Description};
 
 use crate::prelude::*;
 
+use crate::ln::blinded_payment_tests::{fail_blinded_htlc_backwards, get_blinded_route_parameters};
 use crate::ln::functional_test_utils;
 use crate::ln::functional_test_utils::*;
 use crate::routing::gossip::NodeId;
@@ -3146,7 +3147,7 @@ fn do_automatic_retries(test: AutoRetry) {
 			Event::PaymentFailed { payment_hash, payment_id, reason } => {
 				assert_eq!(Some(hash), payment_hash);
 				assert_eq!(PaymentId(hash.0), payment_id);
-				assert_eq!(PaymentFailureReason::RouteNotFound, reason.unwrap());
+				assert_eq!(PaymentFailureReason::RecipientUnpayable, reason.unwrap());
 			},
 			_ => panic!("Unexpected event"),
 		}
@@ -6160,5 +6161,115 @@ fn bolt11_multi_node_mpp_with_retry() {
 		assert_eq!(*payment_id, payment_id_b);
 	} else {
 		panic!("{payment_sent_b:?}");
+	}
+}
+
+#[test]
+fn blinded_recipient_insufficient_liquidity() {
+	// Test that a payment to a blinded recipient which cannot receive it because the shortfall is
+	// visible before we ever send an HTLC is reported as an unpayable invoice rather than a generic
+	// "route not found". Here the recipient's blinded path advertises an `htlc_maximum_msat` below
+	// the payment amount, and our only channel towards the introduction node is too small to carry
+	// it either, so routing fails immediately with `RetryableSendFailure::UnpayableInvoice`.
+	let chanmon_cfgs = create_chanmon_cfgs(3);
+	let node_cfgs = create_node_cfgs(3, &chanmon_cfgs);
+	let node_chanmgrs = create_node_chanmgrs(3, &node_cfgs, &[None, None, None]);
+	let nodes = create_network(3, &node_cfgs, &node_chanmgrs);
+
+	// A small first-hop channel (the "direct channel"), which does not have enough liquidity.
+	create_announced_chan_between_nodes_with_value(&nodes, 0, 1, 25_000, 0);
+	let chan_1_2 = create_announced_chan_between_nodes_with_value(&nodes, 1, 2, 1_000_000, 0);
+
+	let amt_msat = 50_000_000;
+	let (_, payment_hash, payment_secret) =
+		get_payment_preimage_hash(&nodes[2], Some(amt_msat), None);
+	// The blinded path advertises an htlc_maximum_msat well below the payment amount.
+	let route_params = get_blinded_route_parameters(
+		amt_msat,
+		payment_secret,
+		1,
+		amt_msat / 2,
+		vec![nodes[1].node.get_our_node_id(), nodes[2].node.get_our_node_id()],
+		&[&chan_1_2.0.contents],
+		&chanmon_cfgs[2].keys_manager,
+	);
+
+	let onion = RecipientOnionFields::spontaneous_empty(amt_msat);
+	let id = PaymentId(payment_hash.0);
+	let res = nodes[0].node.send_payment(payment_hash, onion, id, route_params, Retry::Attempts(0));
+	assert_eq!(res, Err(RetryableSendFailure::UnpayableInvoice));
+}
+
+#[test]
+fn recipient_insufficient_liquidity_discovered_in_flight() {
+	// Test that a payment to a blinded recipient which cannot receive it, but where the shortfall
+	// is only discovered in-flight, is reported via `Event::PaymentFailed`. Here the recipient's
+	// blinded path advertises a sufficient `htlc_maximum_msat`, but the channel one hop away from
+	// the recipient (the introduction node -> recipient hop) cannot actually carry the payment.
+	// The HTLC fails there, and once retrying exhausts the recipient's only path,
+	// `Event::PaymentFailed` carries `PaymentFailureReason::RecipientUnpayable`.
+	let chanmon_cfgs = create_chanmon_cfgs(3);
+	let node_cfgs = create_node_cfgs(3, &chanmon_cfgs);
+	let node_chanmgrs = create_node_chanmgrs(3, &node_cfgs, &[None, None, None]);
+	let nodes = create_network(3, &node_cfgs, &node_chanmgrs);
+
+	create_announced_chan_between_nodes_with_value(&nodes, 0, 1, 1_000_000, 0);
+	// The introduction node -> recipient channel is announced with plenty of capacity (so the
+	// blinded path advertises it can carry the payment and routing succeeds), but almost all of its
+	// balance sits on the recipient's side, so the introduction node cannot forward the payment on.
+	let (chan_upd_1_2, chan_id_1_2) = {
+		let chan =
+			create_announced_chan_between_nodes_with_value(&nodes, 1, 2, 1_000_000, 970_000_000);
+		(chan.0.contents, chan.2)
+	};
+
+	let amt_msat = 50_000_000;
+	let (_, payment_hash, payment_secret) =
+		get_payment_preimage_hash(&nodes[2], Some(amt_msat), None);
+	let route_params = get_blinded_route_parameters(
+		amt_msat,
+		payment_secret,
+		1,
+		1_0000_0000,
+		vec![nodes[1].node.get_our_node_id(), nodes[2].node.get_our_node_id()],
+		&[&chan_upd_1_2],
+		&chanmon_cfgs[2].keys_manager,
+	);
+
+	let onion = RecipientOnionFields::spontaneous_empty(amt_msat);
+	let id = PaymentId(payment_hash.0);
+	nodes[0].node.send_payment(payment_hash, onion, id, route_params, Retry::Attempts(1)).unwrap();
+	check_added_monitors(&nodes[0], 1);
+
+	// Deliver the HTLC to the introduction node.
+	let payment_event = SendEvent::from_node(&nodes[0]);
+	nodes[1].node.handle_update_add_htlc(nodes[0].node.get_our_node_id(), &payment_event.msgs[0]);
+	check_added_monitors(&nodes[1], 0);
+	do_commitment_signed_dance(&nodes[1], &nodes[0], &payment_event.commitment_msg, false, false);
+
+	// The introduction node cannot forward the payment to the recipient over the depleted channel,
+	// so it fails the HTLC back.
+	expect_and_process_pending_htlcs(&nodes[1], true);
+	expect_htlc_handling_failed_destinations!(
+		nodes[1].node.get_and_clear_pending_events(),
+		vec![HTLCHandlingFailureType::Forward {
+			node_id: Some(nodes[2].node.get_our_node_id()),
+			channel_id: chan_id_1_2,
+		}]
+	);
+	check_added_monitors(&nodes[1], 1);
+
+	// The failure is relayed back to us and we retry, but the recipient's only path is now
+	// exhausted, so the payment is abandoned with a recipient-liquidity failure reason.
+	fail_blinded_htlc_backwards(payment_hash, 1, &[&nodes[0], &nodes[1]], true);
+	nodes[0].node.process_pending_htlc_forwards();
+
+	let events = nodes[0].node.get_and_clear_pending_events();
+	assert_eq!(events.len(), 1);
+	match events[0] {
+		Event::PaymentFailed { reason, .. } => {
+			assert_eq!(reason, Some(PaymentFailureReason::RecipientUnpayable));
+		},
+		_ => panic!("Unexpected event: {:?}", events),
 	}
 }

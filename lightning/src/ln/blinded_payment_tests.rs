@@ -1270,8 +1270,9 @@ fn blinded_path_retries() {
 	match evs[0] {
 		Event::PaymentFailed { payment_hash: ev_payment_hash, reason, .. } => {
 			assert_eq!(ev_payment_hash, Some(payment_hash));
-			// We have 1 retry attempt remaining, but we're out of blinded paths to try.
-			assert_eq!(reason, Some(PaymentFailureReason::RouteNotFound));
+			// We have 1 retry attempt remaining, but we're out of blinded paths to try, which
+			// indicates the recipient lacks the liquidity to receive the payment.
+			assert_eq!(reason, Some(PaymentFailureReason::RecipientUnpayable));
 		},
 		_ => panic!()
 	}

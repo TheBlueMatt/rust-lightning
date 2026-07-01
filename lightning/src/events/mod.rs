@@ -810,9 +810,11 @@ pub enum PaymentFailureReason {
 	/// routes - we tried the payment over a few routes but were not able to find any further
 	/// candidate routes beyond those.
 	///
-	/// Also used for [`BlindedPathCreationFailed`] when downgrading to versions prior to 0.0.124.
+	/// Also used for [`BlindedPathCreationFailed`] when downgrading to versions prior to 0.0.124,
+	/// and for [`RecipientUnpayable`] when downgrading to versions prior to 0.3.
 	///
 	/// [`BlindedPathCreationFailed`]: Self::BlindedPathCreationFailed
+	/// [`RecipientUnpayable`]: Self::RecipientUnpayable
 	RouteNotFound,
 	/// This error should generally never happen. This likely means that there is a problem with
 	/// your router.
@@ -831,6 +833,18 @@ pub enum PaymentFailureReason {
 	///
 	/// [`HeldHtlcAvailable`]: crate::onion_message::async_payments::HeldHtlcAvailable
 	BlindedPathCreationFailed,
+	/// We have exhausted all of the possible paths to reach the recipient, and each attempt failed
+	/// at the recipient's end.
+	///
+	/// This indicates either:
+	///  (a) the recipient does not have sufficient inbound liquidity to receive the payment,
+	///  (b) the recipient's inbound liquidity is highly fragmented and paying could take a
+	///      substantial number of attempts and may be impractical,
+	///  (c) there is some other issue on the recipient's end which makes them unpayable (e.g.
+	///      they are offline and are not using async payments), or
+	///  (d) we are not properly synced, and missing parts of the graph required to reach the
+	///      recipient.
+	RecipientUnpayable,
 }
 
 impl_writeable_tlv_based_enum_upgradable!(PaymentFailureReason,
@@ -843,6 +857,7 @@ impl_writeable_tlv_based_enum_upgradable!(PaymentFailureReason,
 	(6, PaymentExpired) => {},
 	(7, BlindedPathCreationFailed) => {},
 	(8, RouteNotFound) => {},
+	(9, RecipientUnpayable) => {},
 	(10, UnexpectedError) => {},
 );
 
@@ -2325,6 +2340,9 @@ impl Writeable for Event {
 						&Some(PaymentFailureReason::RecipientRejected)
 					},
 					Some(PaymentFailureReason::BlindedPathCreationFailed) => {
+						&Some(PaymentFailureReason::RouteNotFound)
+					},
+					Some(PaymentFailureReason::RecipientUnpayable) => {
 						&Some(PaymentFailureReason::RouteNotFound)
 					},
 				};
