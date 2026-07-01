@@ -410,6 +410,18 @@ pub enum RoutingError {
 	///
 	/// The contained string provides a developer-readable description of the specific problem.
 	NoRouteFound(&'static str),
+	/// We were only able to reach the recipient over path(s) which we have already attempted and
+	/// failed (most likely due to insufficient liquidity).
+	///
+	/// This indicates either:
+	///  (a) the recipient does not have sufficient inbound liquidity to receive the payment,
+	///  (b) the recipient's inbound liquidity is highly fragmented and paying could take a
+	///      substantial number of attempts and may be impractical,
+	///  (c) there is some other issue on the recipient's end which makes them unpayable (e.g.
+	///      they are offline and are not using async payments), or
+	///  (d) we are not properly synced, and missing parts of the graph required to reach the
+	///      recipient.
+	RecipientUnpayable,
 	/// We hit an unexpected internal error while finding a [`Route`]. This indicates a bug in
 	/// LDK, please report it!
 	///
@@ -2275,6 +2287,7 @@ fn calculate_blinded_path_intro_points<'a, L: Logger>(
 	payment_params: &PaymentParameters, node_counters: &'a NodeCounters,
 	network_graph: &ReadOnlyNetworkGraph, logger: &L, our_node_id: NodeId,
 	first_hop_targets: &HashMap<NodeId, (Vec<&ChannelDetails>, u32)>,
+	payment_value_msat: u64,
 ) -> Result<Vec<Option<(&'a NodeId, u32)>>, RoutingError> {
 	let introduction_node_id_cache = payment_params.payee.blinded_route_hints().iter()
 		.map(|path| {
@@ -2301,10 +2314,50 @@ fn calculate_blinded_path_intro_points<'a, L: Logger>(
 		.collect::<Vec<_>>();
 	match &payment_params.payee {
 		Payee::Clear { route_hints, node_id, .. } => {
+			let mut found_untried_path = false;
+			// Note that while `RouteHintHop` does have a `htlc_maximum_msat` field, BOLT 11
+			// doesn't. Thus its not really worth the complexity of trying to add up how much in
+			// potential paths there is, we just assume if we have at least one first-hop or
+			// last-hop path it might suffice.
 			for route in route_hints.iter() {
+				let mut found_failed_hop = false;
 				for hop in &route.0 {
 					if hop.src_node_id == *node_id {
 						return Err(RoutingError::InvalidRequest("Route hint cannot have the payee as the source."));
+					}
+					if !found_untried_path && first_hop_targets.contains_key(&NodeId::from(hop.src_node_id)) {
+						found_untried_path = true;
+					}
+					if !found_failed_hop && payment_params.previously_failed_channels.contains(&hop.short_channel_id) {
+						found_failed_hop = true;
+					}
+				}
+				found_untried_path |= !found_failed_hop;
+			}
+			if !found_untried_path {
+				let recipient_id = NodeId::from(*node_id);
+				if !first_hop_targets.contains_key(&recipient_id) {
+					if let Some(node) = network_graph.nodes().get(&recipient_id) {
+						if node.channels.len() <= payment_params.previously_failed_channels.len() + 10 {
+							let mut total_chan_value_msat: u64 = 0;
+							for scid in node.channels.iter() {
+								if !payment_params.previously_failed_channels.contains(&scid) {
+									let chan = network_graph.channels().get(scid).expect("Graph is consistent");
+									let chan_value = chan
+										.as_directed_to(&recipient_id)
+										.map_or(u64::MAX, |(chan, _)| chan.effective_capacity().as_msat());
+									total_chan_value_msat = total_chan_value_msat.saturating_add(chan_value);
+									if total_chan_value_msat >= payment_value_msat {
+										break;
+									}
+								}
+							}
+							if total_chan_value_msat < payment_value_msat {
+								return Err(RoutingError::RecipientUnpayable);
+							}
+						}
+					} else {
+						return Err(RoutingError::RecipientUnpayable);
 					}
 				}
 			}
@@ -2313,7 +2366,9 @@ fn calculate_blinded_path_intro_points<'a, L: Logger>(
 			if introduction_node_id_cache.iter().all(|info_opt| info_opt.map(|(a, _)| a) == Some(&our_node_id)) {
 				return Err(RoutingError::InvalidRequest("Cannot generate a route to blinded paths if we are the introduction node to all of them"));
 			}
-			for (blinded_path, info_opt) in route_hints.iter().zip(introduction_node_id_cache.iter()) {
+			let mut found_untried_path = false;
+			let mut total_paths_value_msat: u64 = 0;
+			for (idx, (blinded_path, info_opt)) in route_hints.iter().zip(introduction_node_id_cache.iter()).enumerate() {
 				if blinded_path.blinded_hops().len() == 0 {
 					return Err(RoutingError::InvalidRequest("0-hop blinded path provided"));
 				}
@@ -2323,6 +2378,7 @@ fn calculate_blinded_path_intro_points<'a, L: Logger>(
 				};
 				if *introduction_node_id == our_node_id {
 					log_info!(logger, "Got blinded path with ourselves as the introduction node, ignoring");
+					continue;
 				} else if blinded_path.blinded_hops().len() == 1 &&
 					route_hints
 						.iter().zip(introduction_node_id_cache.iter())
@@ -2331,6 +2387,23 @@ fn calculate_blinded_path_intro_points<'a, L: Logger>(
 				{
 					return Err(RoutingError::InvalidRequest("1-hop blinded paths must all have matching introduction node ids"));
 				}
+
+				if !payment_params.previously_failed_blinded_path_idxs.contains(&(idx as u64)) {
+					found_untried_path = true;
+					if blinded_path.blinded_hops().len() == 1 {
+						// For one-hop blinded paths we ignore the payment constraints.
+						total_paths_value_msat = u64::MAX;
+					} else {
+						total_paths_value_msat =
+							total_paths_value_msat.saturating_add(blinded_path.payinfo.htlc_maximum_msat);
+					}
+				}
+			}
+			if !found_untried_path {
+				return Err(RoutingError::RecipientUnpayable);
+			}
+			if total_paths_value_msat < payment_value_msat {
+				return Err(RoutingError::RecipientUnpayable);
 			}
 		}
 	}
@@ -2989,6 +3062,7 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 
 	let introduction_node_id_cache = calculate_blinded_path_intro_points(
 		&payment_params, &node_counters, network_graph, &logger, our_node_id, &first_hop_targets,
+		final_value_msat,
 	)?;
 
 	let mut last_hop_candidates =
@@ -6524,7 +6598,8 @@ mod tests {
 			if let Err(err) = get_route(
 				&our_id, &route_params, &network_graph.read_only(), None,
 				Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes) {
-					assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
+					assert!(err == RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination") ||
+							err == RoutingError::RecipientUnpayable);
 			} else { panic!(); }
 		}
 
