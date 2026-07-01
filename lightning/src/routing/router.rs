@@ -113,7 +113,7 @@ where
 		params: &RouteParameters,
 		first_hops: Option<&[&ChannelDetails]>,
 		inflight_htlcs: InFlightHtlcs
-	) -> Result<Route, &'static str> {
+	) -> Result<Route, RoutingError> {
 		let random_seed_bytes = self.entropy_source.get_secure_random_bytes();
 		find_route(
 			payer, params, &self.network_graph, first_hops, &self.logger,
@@ -238,8 +238,9 @@ impl Router for FixedRouter {
 	fn find_route(
 		&self, _payer: &PublicKey, _route_params: &RouteParameters,
 		_first_hops: Option<&[&ChannelDetails]>, _inflight_htlcs: InFlightHtlcs,
-	) -> Result<Route, &'static str> {
-		self.route.lock().unwrap().take().ok_or("Can't use this router to return multiple routes")
+	) -> Result<Route, RoutingError> {
+		let default = RoutingError::NoRouteFound("Can't use this router to return multiple routes");
+		self.route.lock().unwrap().take().ok_or(default)
 	}
 
 	fn create_blinded_payment_paths<T: secp256k1::Signing + secp256k1::Verification>(
@@ -264,7 +265,7 @@ impl Router for FixedRouter {
 pub fn build_random_walk_probe_path<L: Logger, GL: Logger, ES: EntropySource>(
 	network_graph: &NetworkGraph<GL>, entropy_source: &ES, logger: L, payer: &PublicKey,
 	first_hops: &[&ChannelDetails], amount_msat: u64, max_hops: u8,
-) -> Result<Path, &'static str> {
+) -> Result<Path, RoutingError> {
 	let target_hops = max_hops.clamp(2, MAX_PATH_LENGTH_ESTIMATE) as usize;
 
 	let payer_id = NodeId::from_pubkey(payer);
@@ -277,7 +278,7 @@ pub fn build_random_walk_probe_path<L: Logger, GL: Logger, ES: EntropySource>(
 	};
 	let usable_count = first_hops.iter().filter(usable_first_hop).count();
 	if usable_count == 0 {
-		return Err("no usable first hops for random-walk probe");
+		return Err(RoutingError::InvalidRequest("no usable first hops for random-walk probe"));
 	}
 	let first_hop = *first_hops
 		.iter()
@@ -324,7 +325,9 @@ pub fn build_random_walk_probe_path<L: Logger, GL: Logger, ES: EntropySource>(
 	}
 
 	if hop_pubkeys.len() < target_hops {
-		return Err("random-walk probe path dead-ended before reaching hop count");
+		const DEAD_END: &'static str =
+			"random-walk probe path dead-ended before reaching hop count";
+		return Err(RoutingError::NoRouteFound(DEAD_END));
 	}
 
 	let route_params =
@@ -340,7 +343,9 @@ pub fn build_random_walk_probe_path<L: Logger, GL: Logger, ES: EntropySource>(
 		Some(&[first_hop]),
 	)?;
 	add_random_cltv_offset(&mut route, &route_params.payment_params, &graph, &random_seed_bytes);
-	route.paths.into_iter().next().ok_or("random-walk probe built an empty route")
+	const EMPTY_PATH_ERR: RoutingError =
+		RoutingError::NoRouteFound("random-walk probe built an empty route");
+	route.paths.into_iter().next().ok_or(EMPTY_PATH_ERR)
 }
 
 fn random_in_range<ES: EntropySource>(
@@ -390,6 +395,23 @@ fn random_walk_next_hop(
 	Some((*next_node_id, next_pubkey, edge_cltv))
 }
 
+/// An error returned when we are unable to find a [`Route`] for a payment.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RoutingError {
+	/// The request itself was invalid such that no [`Route`] could ever be found for it, regardless
+	/// of the current network or liquidity conditions. Retrying the request unchanged will always
+	/// fail in the same way.
+	///
+	/// The contained string provides a developer-readable description of the specific problem.
+	InvalidRequest(&'static str),
+	/// No [`Route`] to the destination could be found given the current network graph, the
+	/// available first hops, and the liquidity we are aware of. A later retry may succeed if the
+	/// relevant conditions change.
+	///
+	/// The contained string provides a developer-readable description of the specific problem.
+	NoRouteFound(&'static str),
+}
+
 /// A trait defining behavior for routing a payment.
 pub trait Router {
 	/// Finds a [`Route`] for a payment between the given `payer` and a payee.
@@ -400,7 +422,7 @@ pub trait Router {
 	fn find_route(
 		&self, payer: &PublicKey, route_params: &RouteParameters,
 		first_hops: Option<&[&ChannelDetails]>, inflight_htlcs: InFlightHtlcs
-	) -> Result<Route, &'static str>;
+	) -> Result<Route, RoutingError>;
 
 	/// Finds a [`Route`] for a payment between the given `payer` and a payee.
 	///
@@ -413,7 +435,7 @@ pub trait Router {
 		&self, payer: &PublicKey, route_params: &RouteParameters,
 		first_hops: Option<&[&ChannelDetails]>, inflight_htlcs: InFlightHtlcs,
 		_payment_hash: PaymentHash, _payment_id: PaymentId,
-	) -> Result<Route, &'static str> {
+	) -> Result<Route, RoutingError> {
 		self.find_route(payer, route_params, first_hops, inflight_htlcs)
 	}
 
@@ -437,7 +459,7 @@ impl<T: Router + ?Sized, R: Deref<Target = T>> Router for R {
 	fn find_route(
 		&self, payer: &PublicKey, route_params: &RouteParameters,
 		first_hops: Option<&[&ChannelDetails]>, inflight_htlcs: InFlightHtlcs,
-	) -> Result<Route, &'static str> {
+	) -> Result<Route, RoutingError> {
 		self.deref().find_route(payer, route_params, first_hops, inflight_htlcs)
 	}
 
@@ -445,7 +467,7 @@ impl<T: Router + ?Sized, R: Deref<Target = T>> Router for R {
 		&self, payer: &PublicKey, route_params: &RouteParameters,
 		first_hops: Option<&[&ChannelDetails]>, inflight_htlcs: InFlightHtlcs,
 		payment_hash: PaymentHash, payment_id: PaymentId,
-	) -> Result<Route, &'static str> {
+	) -> Result<Route, RoutingError> {
 		self.deref().find_route_with_id(
 			payer,
 			route_params,
@@ -2248,7 +2270,7 @@ fn calculate_blinded_path_intro_points<'a, L: Logger>(
 	payment_params: &PaymentParameters, node_counters: &'a NodeCounters,
 	network_graph: &ReadOnlyNetworkGraph, logger: &L, our_node_id: NodeId,
 	first_hop_targets: &HashMap<NodeId, (Vec<&ChannelDetails>, u32)>,
-) -> Result<Vec<Option<(&'a NodeId, u32)>>, &'static str> {
+) -> Result<Vec<Option<(&'a NodeId, u32)>>, RoutingError> {
 	let introduction_node_id_cache = payment_params.payee.blinded_route_hints().iter()
 		.map(|path| {
 			match path.introduction_node() {
@@ -2277,18 +2299,18 @@ fn calculate_blinded_path_intro_points<'a, L: Logger>(
 			for route in route_hints.iter() {
 				for hop in &route.0 {
 					if hop.src_node_id == *node_id {
-						return Err("Route hint cannot have the payee as the source.");
+						return Err(RoutingError::InvalidRequest("Route hint cannot have the payee as the source."));
 					}
 				}
 			}
 		},
 		Payee::Blinded { route_hints, .. } => {
 			if introduction_node_id_cache.iter().all(|info_opt| info_opt.map(|(a, _)| a) == Some(&our_node_id)) {
-				return Err("Cannot generate a route to blinded paths if we are the introduction node to all of them");
+				return Err(RoutingError::InvalidRequest("Cannot generate a route to blinded paths if we are the introduction node to all of them"));
 			}
 			for (blinded_path, info_opt) in route_hints.iter().zip(introduction_node_id_cache.iter()) {
 				if blinded_path.blinded_hops().len() == 0 {
-					return Err("0-hop blinded path provided");
+					return Err(RoutingError::InvalidRequest("0-hop blinded path provided"));
 				}
 				let introduction_node_id = match info_opt {
 					None => continue,
@@ -2302,7 +2324,7 @@ fn calculate_blinded_path_intro_points<'a, L: Logger>(
 						.filter(|(p, _)| p.blinded_hops().len() == 1)
 						.any(|(_, iter_info_opt)| iter_info_opt.is_some() && iter_info_opt != info_opt)
 				{
-					return Err("1-hop blinded paths must all have matching introduction node ids");
+					return Err(RoutingError::InvalidRequest("1-hop blinded paths must all have matching introduction node ids"));
 				}
 			}
 		}
@@ -2768,13 +2790,13 @@ pub fn find_route<L: Logger, GL: Logger, S: ScoreLookUp>(
 	our_node_pubkey: &PublicKey, route_params: &RouteParameters,
 	network_graph: &NetworkGraph<GL>, first_hops: Option<&[&ChannelDetails]>, logger: L,
 	scorer: &S, score_params: &S::ScoreParams, random_seed_bytes: &[u8; 32]
-) -> Result<Route, &'static str> {
+) -> Result<Route, RoutingError> {
 	let graph_lock = network_graph.read_only();
 	let mut route = get_route(our_node_pubkey, &route_params, &graph_lock, first_hops, &logger,
 		scorer, score_params, random_seed_bytes)?;
 	add_random_cltv_offset(&mut route, &route_params.payment_params, &graph_lock, random_seed_bytes);
 	route.debug_assert_route_meets_params(&logger)
-		.map_err(|()| "Generated route doesn't comply with the parameters you specified. This indicates a bug in the router. Please report this bug!")?;
+		.map_err(|()| RoutingError::InvalidRequest("Generated route doesn't comply with the parameters you specified. This indicates a bug in the router. Please report this bug!"))?;
 	Ok(route)
 }
 
@@ -2783,7 +2805,7 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 	our_node_pubkey: &PublicKey, route_params: &RouteParameters, network_graph: &ReadOnlyNetworkGraph,
 	first_hops: Option<&[&ChannelDetails]>, logger: L, scorer: &S, score_params: &S::ScoreParams,
 	_random_seed_bytes: &[u8; 32]
-) -> Result<Route, &'static str> {
+) -> Result<Route, RoutingError> {
 
 	let payment_params = &route_params.payment_params;
 	let max_path_length = core::cmp::min(payment_params.max_path_length, MAX_PATH_LENGTH_ESTIMATE);
@@ -2798,23 +2820,23 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 	let our_node_id = NodeId::from_pubkey(&our_node_pubkey);
 
 	if payee_node_id_opt.is_some_and(|payee| payee == our_node_id) {
-		return Err("Cannot generate a route to ourselves");
+		return Err(RoutingError::InvalidRequest("Cannot generate a route to ourselves"));
 	}
 	if our_node_id == maybe_dummy_payee_node_id {
-		return Err("Invalid origin node id provided, use a different one");
+		return Err(RoutingError::InvalidRequest("Invalid origin node id provided, use a different one"));
 	}
 
 	if final_value_msat > MAX_VALUE_MSAT {
-		return Err("Cannot generate a route of more value than all existing satoshis");
+		return Err(RoutingError::InvalidRequest("Cannot generate a route of more value than all existing satoshis"));
 	}
 
 	if final_value_msat == 0 {
-		return Err("Cannot send a payment of 0 msat");
+		return Err(RoutingError::InvalidRequest("Cannot send a payment of 0 msat"));
 	}
 
 	let final_cltv_expiry_delta = payment_params.payee.final_cltv_expiry_delta().unwrap_or(0);
 	if payment_params.max_total_cltv_expiry_delta <= final_cltv_expiry_delta {
-		return Err("Can't find a route where the maximum total CLTV expiry delta is below the final CLTV expiry.");
+		return Err(RoutingError::InvalidRequest("Can't find a route where the maximum total CLTV expiry delta is below the final CLTV expiry."));
 	}
 
 	// The general routing idea is the following:
@@ -2877,7 +2899,7 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 	let network_nodes = network_graph.nodes();
 
 	if payment_params.max_path_count == 0 {
-		return Err("Can't find a route with no paths allowed.");
+		return Err(RoutingError::InvalidRequest("Can't find a route with no paths allowed."));
 	}
 
 	// Allow MPP only if we have a features set from somewhere that indicates the payee supports
@@ -2941,7 +2963,7 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 				panic!("first_hops should be filled in with usable channels, not pending ones");
 			}
 			if chan.counterparty.node_id == *our_node_pubkey {
-				return Err("First hop cannot have our_node_pubkey as a destination.");
+				return Err(RoutingError::InvalidRequest("First hop cannot have our_node_pubkey as a destination."));
 			}
 			let counterparty_id = NodeId::from_pubkey(&chan.counterparty.node_id);
 			first_hop_targets
@@ -2954,7 +2976,7 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 				.0.push(chan);
 		}
 		if first_hop_targets.is_empty() {
-			return Err("Cannot route when there are no outbound routes away from us");
+			return Err(RoutingError::NoRouteFound("Cannot route when there are no outbound routes away from us"));
 		}
 	}
 
@@ -2978,13 +3000,13 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 				node_counters.private_node_counter_from_pubkey(&prev_hop_id)
 					.ok_or_else(|| {
 						debug_assert!(false);
-						"We should always have private target node counters available"
+						RoutingError::InvalidRequest("We should always have private target node counters available")
 					})?;
 			let (_src_id, private_source_node_counter) =
 				node_counters.private_node_counter_from_pubkey(&hop.src_node_id)
 					.ok_or_else(|| {
 						debug_assert!(false);
-						"We should always have private source node counters available"
+						RoutingError::InvalidRequest("We should always have private source node counters available")
 					})?;
 
 			if let Some((first_channels, _)) = first_hop_targets.get(target) {
@@ -3928,11 +3950,11 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 
 	// Step (5).
 	if payment_paths.len() == 0 {
-		return Err("Failed to find a path to the given destination");
+		return Err(RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 	}
 
 	if already_collected_value_msat < final_value_msat {
-		return Err("Failed to find a sufficient route to the given destination");
+		return Err(RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 	}
 
 	// Step (6).
@@ -4028,7 +4050,7 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 			};
 
 			hops.push(RouteHop {
-				pubkey: PublicKey::from_slice(target.as_slice()).map_err(|_| "A PublicKey in NetworkGraph is invalid!")?,
+				pubkey: PublicKey::from_slice(target.as_slice()).map_err(|_| RoutingError::InvalidRequest("A PublicKey in NetworkGraph is invalid!"))?,
 				node_features: node_features.clone(),
 				short_channel_id: hop.candidate.short_channel_id().unwrap(),
 				channel_features: hop.candidate.features(),
@@ -4073,7 +4095,7 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 	// Make sure we would never create a route whose total fees exceed max_total_routing_fee_msat.
 	if let Some(max_total_routing_fee_msat) = route_params.max_total_routing_fee_msat {
 		if route.get_total_fees() > max_total_routing_fee_msat {
-			return Err("Failed to find route that adheres to the maximum total fee limit");
+			return Err(RoutingError::NoRouteFound("Failed to find route that adheres to the maximum total fee limit"));
 		}
 	}
 
@@ -4180,7 +4202,7 @@ fn add_random_cltv_offset(route: &mut Route, payment_params: &PaymentParameters,
 pub fn build_route_from_hops<L: Logger, GL: Logger>(
 	our_node_pubkey: &PublicKey, hops: &[PublicKey], route_params: &RouteParameters,
 	network_graph: &NetworkGraph<GL>, logger: L, random_seed_bytes: &[u8; 32]
-) -> Result<Route, &'static str> {
+) -> Result<Route, RoutingError> {
 	let graph_lock = network_graph.read_only();
 	let mut route = build_route_from_hops_internal(our_node_pubkey, hops, &route_params,
 		&graph_lock, logger, random_seed_bytes, None)?;
@@ -4193,7 +4215,7 @@ fn build_route_from_hops_internal<L: Logger>(
 	our_node_pubkey: &PublicKey, hops: &[PublicKey], route_params: &RouteParameters,
 	network_graph: &ReadOnlyNetworkGraph, logger: L, random_seed_bytes: &[u8; 32],
 	first_hops: Option<&[&ChannelDetails]>,
-) -> Result<Route, &'static str> {
+) -> Result<Route, RoutingError> {
 
 	struct HopScorer {
 		our_node_id: NodeId,
@@ -4229,7 +4251,7 @@ fn build_route_from_hops_internal<L: Logger>(
 	}
 
 	if hops.len() > MAX_PATH_LENGTH_ESTIMATE.into() {
-		return Err("Cannot build a route exceeding the maximum path length.");
+		return Err(RoutingError::InvalidRequest("Cannot build a route exceeding the maximum path length."));
 	}
 
 	let our_node_id = NodeId::from_pubkey(our_node_pubkey);
@@ -4258,7 +4280,8 @@ mod tests {
 		add_random_cltv_offset, build_random_walk_probe_path, build_route_from_hops_internal,
 		default_node_features, get_route, BlindedPathCandidate, BlindedTail, CandidateRouteHop,
 		InFlightHtlcs, Path, Payee, PaymentParameters, PublicHopCandidate, Route, RouteHint,
-		RouteHintHop, RouteHop, RouteParameters, RoutingFees, ScorerAccountingForInFlightHtlcs,
+		RouteHintHop, RouteHop, RouteParameters, RoutingError, RoutingFees,
+		ScorerAccountingForInFlightHtlcs,
 		DEFAULT_MAX_TOTAL_CLTV_EXPIRY_DELTA, MAX_PATH_LENGTH_ESTIMATE,
 	};
 	use crate::routing::scoring::{
@@ -4477,7 +4500,7 @@ mod tests {
 			2,
 		)
 		.unwrap_err();
-		assert!(err.contains("no usable first hops"), "{}", err);
+		assert_eq!(err, RoutingError::InvalidRequest("no usable first hops for random-walk probe"));
 	}
 
 	#[test]
@@ -4497,7 +4520,7 @@ mod tests {
 			2,
 		)
 		.unwrap_err();
-		assert!(err.contains("no usable first hops"), "{}", err);
+		assert_eq!(err, RoutingError::InvalidRequest("no usable first hops for random-walk probe"));
 	}
 
 	#[test]
@@ -4516,7 +4539,7 @@ mod tests {
 		if let Err(err) = get_route(&our_id,
 			&route_params, &network_graph.read_only(), None, Arc::clone(&logger), &scorer,
 			&Default::default(), &random_seed_bytes) {
-				assert_eq!(err, "Cannot send a payment of 0 msat");
+				assert_eq!(err, RoutingError::InvalidRequest("Cannot send a payment of 0 msat"));
 		} else { panic!(); }
 
 		payment_params.max_path_length = 2;
@@ -4561,7 +4584,7 @@ mod tests {
 		if let Err(err) = get_route(&our_id,
 			&route_params, &network_graph.read_only(), Some(&our_chans.iter().collect::<Vec<_>>()),
 			Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes) {
-				assert_eq!(err, "First hop cannot have our_node_pubkey as a destination.");
+				assert_eq!(err, RoutingError::InvalidRequest("First hop cannot have our_node_pubkey as a destination."));
 		} else { panic!(); }
 
 		let route = get_route(&our_id, &route_params, &network_graph.read_only(), None,
@@ -4685,7 +4708,7 @@ mod tests {
 		if let Err(err) = get_route(&our_id,
 			&route_params, &network_graph.read_only(), None, Arc::clone(&logger), &scorer,
 			&Default::default(), &random_seed_bytes) {
-				assert_eq!(err, "Failed to find a path to the given destination");
+				assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 		} else { panic!(); }
 
 		// Lift the restriction on the first hop.
@@ -4917,7 +4940,7 @@ mod tests {
 		if let Err(err) = get_route(&our_id,
 			&route_params, &network_graph.read_only(), None, Arc::clone(&logger), &scorer,
 			&Default::default(), &random_seed_bytes) {
-				assert_eq!(err, "Failed to find route that adheres to the maximum total fee limit");
+				assert_eq!(err, RoutingError::NoRouteFound("Failed to find route that adheres to the maximum total fee limit"));
 		} else { panic!(); }
 
 		let mut route_params = RouteParameters::from_payment_params_and_value(
@@ -4970,7 +4993,7 @@ mod tests {
 		if let Err(err) = get_route(&our_id,
 			&route_params, &network_graph.read_only(), None, Arc::clone(&logger), &scorer,
 			&Default::default(), &random_seed_bytes) {
-				assert_eq!(err, "Failed to find a path to the given destination");
+				assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 		} else { panic!(); }
 
 		// If we specify a channel to node7, that overrides our local channel view and that gets used
@@ -5018,7 +5041,7 @@ mod tests {
 		if let Err(err) = get_route(&our_id,
 			&route_params, &network_graph.read_only(), None, Arc::clone(&logger), &scorer,
 			&Default::default(), &random_seed_bytes) {
-				assert_eq!(err, "Failed to find a path to the given destination");
+				assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 		} else { panic!(); }
 
 		// If we specify a channel to node7, that overrides our local channel view and that gets used
@@ -5221,7 +5244,7 @@ mod tests {
 			if let Err(err) = get_route(&our_id,
 				&route_params, &network_graph.read_only(), None, Arc::clone(&logger), &scorer,
 				&Default::default(), &random_seed_bytes) {
-					assert_eq!(err, "Route hint cannot have the payee as the source.");
+					assert_eq!(err, RoutingError::InvalidRequest("Route hint cannot have the payee as the source."));
 			} else { panic!(); }
 		}
 
@@ -5748,7 +5771,7 @@ mod tests {
 	}
 
 	#[rustfmt::skip]
-	fn do_unannounced_path_test(last_hop_htlc_max: Option<u64>, last_hop_fee_prop: u32, outbound_capacity_msat: u64, route_val: u64) -> Result<Route, &'static str> {
+	fn do_unannounced_path_test(last_hop_htlc_max: Option<u64>, last_hop_fee_prop: u32, outbound_capacity_msat: u64, route_val: u64) -> Result<Route, RoutingError> {
 		let source_node_id = PublicKey::from_secret_key(&Secp256k1::new(), &SecretKey::from_slice(&<Vec<u8>>::from_hex(&format!("{:02}", 41).repeat(32)).unwrap()[..]).unwrap());
 		let middle_node_id = PublicKey::from_secret_key(&Secp256k1::new(), &SecretKey::from_slice(&<Vec<u8>>::from_hex(&format!("{:02}", 42).repeat(32)).unwrap()[..]).unwrap());
 		let target_node_id = PublicKey::from_secret_key(&Secp256k1::new(), &SecretKey::from_slice(&<Vec<u8>>::from_hex(&format!("{:02}", 43).repeat(32)).unwrap()[..]).unwrap());
@@ -5909,7 +5932,7 @@ mod tests {
 			if let Err(err) = get_route(
 					&our_id, &route_params, &network_graph.read_only(), None,
 					Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes) {
-						assert_eq!(err, "Failed to find a sufficient route to the given destination");
+						assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -5953,7 +5976,7 @@ mod tests {
 					&our_id, &route_params, &network_graph.read_only(),
 					Some(&our_chans.iter().collect::<Vec<_>>()), Arc::clone(&logger), &scorer,
 					&Default::default(), &random_seed_bytes) {
-						assert_eq!(err, "Failed to find a sufficient route to the given destination");
+						assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -6009,7 +6032,7 @@ mod tests {
 			if let Err(err) = get_route(
 					&our_id, &route_params, &network_graph.read_only(), None, Arc::clone(&logger),
 					&scorer, &Default::default(), &random_seed_bytes) {
-						assert_eq!(err, "Failed to find a sufficient route to the given destination");
+						assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -6088,7 +6111,7 @@ mod tests {
 			if let Err(err) = get_route(
 					&our_id, &route_params, &network_graph.read_only(), None, Arc::clone(&logger),
 					&scorer, &Default::default(), &random_seed_bytes) {
-						assert_eq!(err, "Failed to find a sufficient route to the given destination");
+						assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -6127,7 +6150,7 @@ mod tests {
 			if let Err(err) = get_route(
 					&our_id, &route_params, &network_graph.read_only(), None, Arc::clone(&logger),
 					&scorer, &Default::default(), &random_seed_bytes) {
-						assert_eq!(err, "Failed to find a sufficient route to the given destination");
+						assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -6253,7 +6276,7 @@ mod tests {
 			if let Err(err) = get_route(
 					&our_id, &route_params, &network_graph.read_only(), None, Arc::clone(&logger),
 					&scorer, &Default::default(), &random_seed_bytes) {
-						assert_eq!(err, "Failed to find a sufficient route to the given destination");
+						assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -6496,7 +6519,7 @@ mod tests {
 			if let Err(err) = get_route(
 				&our_id, &route_params, &network_graph.read_only(), None,
 				Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes) {
-					assert_eq!(err, "Failed to find a sufficient route to the given destination");
+					assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -6508,7 +6531,7 @@ mod tests {
 			if let Err(err) = get_route(
 				&our_id, &route_params, &network_graph.read_only(), None,
 				Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes) {
-					assert_eq!(err, "Can't find a route with no paths allowed.");
+					assert_eq!(err, RoutingError::InvalidRequest("Can't find a route with no paths allowed."));
 			} else { panic!(); }
 		}
 
@@ -6522,7 +6545,7 @@ mod tests {
 			if let Err(err) = get_route(
 				&our_id, &route_params, &network_graph.read_only(), None,
 				Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes) {
-					assert_eq!(err, "Failed to find a sufficient route to the given destination");
+					assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -6625,7 +6648,7 @@ mod tests {
 	}
 
 	#[rustfmt::skip]
-	fn do_mpp_route_tests(amt: u64) -> Result<Route, &'static str> {
+	fn do_mpp_route_tests(amt: u64) -> Result<Route, RoutingError> {
 		let (secp_ctx, network_graph, gossip_sync, _, logger) = build_graph();
 		let (our_privkey, our_id, privkeys, nodes) = get_nodes(&secp_ctx);
 		let scorer = ln_test_utils::TestScorer::new();
@@ -6974,7 +6997,7 @@ mod tests {
 			if let Err(err) = get_route(
 					&our_id, &route_params, &network_graph.read_only(), None, Arc::clone(&logger),
 					&scorer, &Default::default(), &random_seed_bytes) {
-						assert_eq!(err, "Failed to find a sufficient route to the given destination");
+						assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -6985,7 +7008,7 @@ mod tests {
 			if let Err(err) = get_route(
 				&our_id, &route_params, &network_graph.read_only(), None, Arc::clone(&logger),
 				&scorer, &Default::default(), &random_seed_bytes) {
-					assert_eq!(err, "Failed to find a sufficient route to the given destination");
+					assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -7233,7 +7256,7 @@ mod tests {
 			if let Err(err) = get_route(
 					&our_id, &route_params, &network_graph.read_only(), None, Arc::clone(&logger),
 					&scorer, &Default::default(), &random_seed_bytes) {
-						assert_eq!(err, "Failed to find a sufficient route to the given destination");
+						assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 			} else { panic!(); }
 		}
 
@@ -7778,7 +7801,7 @@ mod tests {
 		match get_route( &our_id, &route_params, &network_graph, None, Arc::clone(&logger),
 			&scorer, &Default::default(), &random_seed_bytes) {
 				Err(err) => {
-					assert_eq!(err, "Failed to find a path to the given destination");
+					assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 				},
 				Ok(_) => panic!("Expected error"),
 		}
@@ -7892,7 +7915,7 @@ mod tests {
 			&Default::default(), &random_seed_bytes)
 		{
 			Err(err) => {
-				assert_eq!(err, "Failed to find a path to the given destination");
+				assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 			},
 			Ok(_) => panic!("Expected error"),
 		}
@@ -7961,7 +7984,7 @@ mod tests {
 			&Default::default(), &random_seed_bytes)
 		{
 			Err(err) => {
-				assert_eq!(err, "Failed to find a path to the given destination");
+				assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 			},
 			Ok(_) => panic!("Expected error"),
 		}
@@ -8300,7 +8323,7 @@ mod tests {
 			&route_params, &netgraph, None, Arc::clone(&logger), &scorer, &Default::default(),
 			&random_seed_bytes)
 		{
-			assert_eq!(err, "Failed to find a sufficient route to the given destination");
+			assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
 		} else { panic!(); }
 
 		// Make sure we'll split an MPP payment across route hints if their htlc_maximum_msat warrants.
@@ -8754,7 +8777,7 @@ mod tests {
 			&scorer, &Default::default(), &random_seed_bytes)
 		{
 			Err(err) => {
-				assert_eq!(err, "1-hop blinded paths must all have matching introduction node ids");
+				assert_eq!(err, RoutingError::InvalidRequest("1-hop blinded paths must all have matching introduction node ids"));
 			},
 			_ => panic!("Expected error")
 		}
@@ -8766,7 +8789,7 @@ mod tests {
 			&Default::default(), &random_seed_bytes)
 		{
 			Err(err) => {
-				assert_eq!(err, "Cannot generate a route to blinded paths if we are the introduction node to all of them");
+				assert_eq!(err, RoutingError::InvalidRequest("Cannot generate a route to blinded paths if we are the introduction node to all of them"));
 			},
 			_ => panic!("Expected error")
 		}
@@ -8779,7 +8802,7 @@ mod tests {
 			&Default::default(), &random_seed_bytes)
 		{
 			Err(err) => {
-				assert_eq!(err, "0-hop blinded path provided");
+				assert_eq!(err, RoutingError::InvalidRequest("0-hop blinded path provided"));
 			},
 			_ => panic!("Expected error")
 		}
@@ -8915,7 +8938,7 @@ mod tests {
 		if let Err(err) = get_route(&nodes[0], &route_params, &netgraph,
 			Some(&first_hops.iter().collect::<Vec<_>>()), Arc::clone(&logger), &scorer,
 			&Default::default(), &random_seed_bytes) {
-				assert_eq!(err, "Failed to find a path to the given destination");
+				assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 		} else { panic!("Expected error") }
 
 		// Sending an exact amount accounting for the blinded path fee works.
@@ -9027,7 +9050,7 @@ mod tests {
 		if let Err(err) = get_route(
 			&our_id, &route_params, &netgraph, None, Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes
 		) {
-			assert_eq!(err, "Failed to find a path to the given destination");
+			assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 		} else { panic!() }
 	}
 
@@ -9075,7 +9098,7 @@ mod tests {
 		if let Err(err) = get_route(
 			&our_id, &route_params, &netgraph, None, Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes
 		) {
-			assert_eq!(err, "Failed to find a path to the given destination");
+			assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 		} else { panic!() }
 	}
 
@@ -9146,7 +9169,7 @@ mod tests {
 			&our_id, &route_params, &netgraph, Some(&first_hops.iter().collect::<Vec<_>>()),
 			Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes
 		) {
-			assert_eq!(err, "Failed to find a path to the given destination");
+			assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 		} else { panic!() }
 	}
 
@@ -9292,7 +9315,7 @@ mod tests {
 			Arc::clone(&logger), &scorer, &ProbabilisticScoringFeeParameters::default(),
 			&random_seed_bytes
 		) {
-			assert_eq!(err, "Failed to find a path to the given destination");
+			assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
 		} else { panic!() }
 	}
 

@@ -68,7 +68,7 @@ use lightning::ln::types::ChannelId;
 use lightning::offers::invoice::UnsignedBolt12Invoice;
 use lightning::onion_message::messenger::{Destination, MessageRouter, OnionMessagePath};
 use lightning::routing::router::{
-	InFlightHtlcs, Path, PaymentParameters, Route, RouteHop, RouteParameters, Router,
+	InFlightHtlcs, Path, PaymentParameters, Route, RouteHop, RouteParameters, Router, RoutingError,
 };
 use lightning::sign::{
 	EntropySource, InMemorySigner, NodeSigner, PeerStorageKey, ReceiveAuthKey, Recipient,
@@ -158,7 +158,7 @@ impl Router for FuzzRouter {
 	fn find_route(
 		&self, _payer: &PublicKey, _params: &RouteParameters,
 		_first_hops: Option<&[&ChannelDetails]>, _inflight_htlcs: InFlightHtlcs,
-	) -> Result<Route, &'static str> {
+	) -> Result<Route, RoutingError> {
 		unreachable!()
 	}
 

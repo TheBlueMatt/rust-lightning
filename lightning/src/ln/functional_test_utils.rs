@@ -42,7 +42,7 @@ use crate::ln::types::ChannelId;
 use crate::offers::payer_proof::PaidBolt12Invoice;
 use crate::onion_message::messenger::OnionMessenger;
 use crate::routing::gossip::{NetworkGraph, NetworkUpdate, P2PGossipSync};
-use crate::routing::router::{self, PaymentParameters, Route, RouteParameters};
+use crate::routing::router::{self, PaymentParameters, Route, RouteParameters, RoutingError};
 use crate::routing::router::{compute_fees, BlindedTail, TrampolineHop};
 use crate::sign::{EntropySource, RandomBytes, ReceiveAuthKey};
 use crate::types::features::ChannelTypeFeatures;
@@ -2845,7 +2845,7 @@ pub fn get_payment_preimage_hash(
 }
 
 /// Gets a route from the given sender to the node described in `payment_params`.
-pub fn get_route(send_node: &Node, route_params: &RouteParameters) -> Result<Route, &'static str> {
+pub fn get_route(send_node: &Node, route_params: &RouteParameters) -> Result<Route, RoutingError> {
 	let scorer = TestScorer::new();
 	let keys_manager = TestKeysInterface::new(&[0u8; 32], Network::Testnet);
 	let random_seed_bytes = keys_manager.get_secure_random_bytes();
@@ -2863,7 +2863,7 @@ pub fn get_route(send_node: &Node, route_params: &RouteParameters) -> Result<Rou
 }
 
 /// Like `get_route` above, but adds a random CLTV offset to the final hop.
-pub fn find_route(send_node: &Node, route_params: &RouteParameters) -> Result<Route, &'static str> {
+pub fn find_route(send_node: &Node, route_params: &RouteParameters) -> Result<Route, RoutingError> {
 	let scorer = TestScorer::new();
 	let keys_manager = TestKeysInterface::new(&[0u8; 32], Network::Testnet);
 	let random_seed_bytes = keys_manager.get_secure_random_bytes();

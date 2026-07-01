@@ -55,7 +55,7 @@ use lightning::offers::invoice::UnsignedBolt12Invoice;
 use lightning::onion_message::messenger::{Destination, MessageRouter, OnionMessagePath};
 use lightning::routing::gossip::{NetworkGraph, P2PGossipSync};
 use lightning::routing::router::{
-	InFlightHtlcs, PaymentParameters, Route, RouteParameters, Router,
+	InFlightHtlcs, PaymentParameters, Route, RouteParameters, Router, RoutingError,
 };
 use lightning::routing::utxo::UtxoLookup;
 use lightning::sign::{
@@ -156,8 +156,8 @@ impl Router for FuzzRouter {
 	fn find_route(
 		&self, _payer: &PublicKey, _params: &RouteParameters,
 		_first_hops: Option<&[&ChannelDetails]>, _inflight_htlcs: InFlightHtlcs,
-	) -> Result<Route, &'static str> {
-		Err("Not implemented")
+	) -> Result<Route, RoutingError> {
+		Err(RoutingError::NoRouteFound("Not implemented"))
 	}
 
 	fn create_blinded_payment_paths<T: secp256k1::Signing + secp256k1::Verification>(

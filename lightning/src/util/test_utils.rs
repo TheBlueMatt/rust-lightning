@@ -42,7 +42,7 @@ use crate::routing::router::{
 	CandidateRouteHop, FirstHopCandidate, PrivateHopCandidate, PublicHopCandidate,
 };
 use crate::routing::router::{
-	DefaultRouter, InFlightHtlcs, Path, Route, RouteHintHop, RouteParameters, Router,
+	DefaultRouter, InFlightHtlcs, Path, Route, RouteHintHop, RouteParameters, Router, RoutingError,
 	ScorerAccountingForInFlightHtlcs,
 };
 use crate::routing::scoring::{ChannelUsage, ScoreLookUp, ScoreUpdate};
@@ -178,7 +178,7 @@ pub struct TestRouter<'a> {
 		TestScorer,
 	>,
 	pub network_graph: Arc<NetworkGraph<&'a TestLogger>>,
-	pub next_routes: Mutex<VecDeque<(RouteParameters, Option<Result<Route, &'static str>>)>>,
+	pub next_routes: Mutex<VecDeque<(RouteParameters, Option<Result<Route, RoutingError>>)>>,
 	pub next_blinded_payment_paths: Mutex<Vec<BlindedPaymentPath>>,
 	pub next_payment_context_metadata: Mutex<Option<BTreeMap<u64, Vec<u8>>>>,
 	pub scorer: &'a RwLock<TestScorer>,
@@ -213,7 +213,7 @@ impl<'a> TestRouter<'a> {
 		*self.next_payment_context_metadata.lock().unwrap() = Some(metadata);
 	}
 
-	pub fn expect_find_route(&self, query: RouteParameters, result: Result<Route, &'static str>) {
+	pub fn expect_find_route(&self, query: RouteParameters, result: Result<Route, RoutingError>) {
 		let mut expected_routes = self.next_routes.lock().unwrap();
 		expected_routes.push_back((query, Some(result)));
 	}
@@ -233,7 +233,7 @@ impl<'a> Router for TestRouter<'a> {
 	fn find_route(
 		&self, payer: &PublicKey, params: &RouteParameters, first_hops: Option<&[&ChannelDetails]>,
 		inflight_htlcs: InFlightHtlcs,
-	) -> Result<Route, &'static str> {
+	) -> Result<Route, RoutingError> {
 		let route_res;
 		let next_route_opt = self.next_routes.lock().unwrap().pop_front();
 		if let Some((find_route_query, find_route_res)) = next_route_opt {

@@ -3020,7 +3020,7 @@ mod tests {
 	use crate::routing::gossip::NetworkGraph;
 	use crate::routing::router::{
 		InFlightHtlcs, Path, PaymentParameters, Route, RouteHop, RouteParameters,
-		RouteParametersConfig,
+		RouteParametersConfig, RoutingError,
 	};
 	use crate::sync::{Arc, Mutex, RwLock};
 	use crate::types::features::{Bolt12InvoiceFeatures, ChannelFeatures, NodeFeatures};
@@ -3128,7 +3128,7 @@ mod tests {
 		let payment_params = PaymentParameters::from_node_id(
 			PublicKey::from_secret_key(&secp_ctx, &SecretKey::from_slice(&[42; 32]).unwrap()), 0);
 		let route_params = RouteParameters::from_payment_params_and_value(payment_params, 0);
-		router.expect_find_route(route_params.clone(), Err(""));
+		router.expect_find_route(route_params.clone(), Err(RoutingError::NoRouteFound("")));
 
 		let pending_events = Mutex::new(VecDeque::new());
 		if on_retry {
@@ -3476,7 +3476,7 @@ mod tests {
 			PaymentParameters::from_bolt12_invoice(&invoice),
 			invoice.amount_msats(),
 		);
-		router.expect_find_route(route_params, Err(""));
+		router.expect_find_route(route_params, Err(RoutingError::NoRouteFound("")));
 
 		assert_eq!(
 			outbound_payments.send_payment_for_bolt12_invoice(
