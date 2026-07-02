@@ -351,9 +351,7 @@ mod sealed {
 						obj.flags[Self::BYTE_OFFSET] &= !Self::OPTIONAL_MASK;
 					}
 
-					let last_non_zero_byte = obj.flags.iter().rposition(|&byte| byte != 0);
-					let size = if let Some(offset) = last_non_zero_byte { offset + 1 } else { 0 };
-					obj.flags.resize(size, 0u8);
+					obj.flags.trim_trailing_zeros();
 				}
 			}
 
@@ -831,6 +829,12 @@ impl FeatureFlags {
 		}
 	}
 
+	fn trim_trailing_zeros(&mut self) {
+		let last_non_zero_byte = self.iter().rposition(|&byte| byte != 0);
+		let size = if let Some(offset) = last_non_zero_byte { offset + 1 } else { 0 };
+		self.resize(size, 0u8);
+	}
+
 	/// Fetches the length of the [`FeatureFlags`], in bytes.
 	pub fn len(&self) -> usize {
 		self.deref().len()
@@ -906,6 +910,7 @@ impl<T: sealed::Context, Rhs: Borrow<Self>> core::ops::BitOrAssign<Rhs> for Feat
 		for (byte, rhs_byte) in self.flags.iter_mut().zip(rhs.borrow().flags.iter()) {
 			*byte |= *rhs_byte;
 		}
+		debug_assert!(*self.flags.last().unwrap_or(&1) != 0);
 	}
 }
 
@@ -1110,6 +1115,7 @@ impl<T: sealed::Context> Features<T> {
 		for (i, byte) in flag_iter {
 			flags[i] = byte;
 		}
+		flags.trim_trailing_zeros();
 		Features::<C> { flags, mark: PhantomData }
 	}
 
@@ -1118,7 +1124,9 @@ impl<T: sealed::Context> Features<T> {
 	///
 	/// This is not exported to bindings users as we don't support export across multiple T
 	pub fn from_le_bytes(flags: Vec<u8>) -> Features<T> {
-		Features { flags: FeatureFlags::from(flags), mark: PhantomData }
+		let mut res = Features { flags: FeatureFlags::from(flags), mark: PhantomData };
+		res.flags.trim_trailing_zeros();
+		res
 	}
 
 	/// Returns the feature set as a list of bytes, in little-endian. This is in reverse byte order
@@ -1133,7 +1141,9 @@ impl<T: sealed::Context> Features<T> {
 	/// This is not exported to bindings users as we don't support export across multiple T
 	pub fn from_be_bytes(mut flags: Vec<u8>) -> Features<T> {
 		flags.reverse(); // Swap to little-endian
-		Self { flags: FeatureFlags::from(flags), mark: PhantomData }
+		let mut res = Features { flags: FeatureFlags::from(flags), mark: PhantomData };
+		res.flags.trim_trailing_zeros();
+		res
 	}
 
 	/// Returns true if this `Features` has any optional flags set
@@ -1282,6 +1292,7 @@ impl<T: sealed::Context> Features<T> {
 		}
 
 		self.flags[byte_offset] |= mask;
+		debug_assert!(*self.flags.last().unwrap_or(&1) != 0);
 
 		Ok(())
 	}
