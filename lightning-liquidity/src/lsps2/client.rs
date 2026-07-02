@@ -10,6 +10,7 @@
 //! Contains the main bLIP-52 / LSPS2 client object, [`LSPS2ClientHandler`].
 
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use lightning::util::persist::KVStore;
 
 use core::default::Default;
@@ -39,24 +40,33 @@ pub struct LSPS2ClientConfig {}
 
 struct InboundJITChannel {
 	payment_size_msat: Option<u64>,
+	opening_fee_params: LSPS2OpeningFeeParams,
 }
 
 impl InboundJITChannel {
-	fn new(payment_size_msat: Option<u64>) -> Self {
-		Self { payment_size_msat }
+	fn new(payment_size_msat: Option<u64>, opening_fee_params: LSPS2OpeningFeeParams) -> Self {
+		Self { payment_size_msat, opening_fee_params }
 	}
 }
 
 struct PeerState {
 	pending_get_info_requests: HashSet<LSPSRequestId>,
 	pending_buy_requests: HashMap<LSPSRequestId, InboundJITChannel>,
+	latest_opening_fee_params: Option<LSPS2OpeningFeeParams>,
 }
 
 impl PeerState {
 	fn new() -> Self {
 		let pending_get_info_requests = new_hash_set();
 		let pending_buy_requests = new_hash_map();
-		Self { pending_get_info_requests, pending_buy_requests }
+		let latest_opening_fee_params = None;
+		Self { pending_get_info_requests, pending_buy_requests, latest_opening_fee_params }
+	}
+
+	fn is_prunable(&self) -> bool {
+		self.pending_get_info_requests.is_empty()
+			&& self.pending_buy_requests.is_empty()
+			&& self.latest_opening_fee_params.is_none()
 	}
 }
 
@@ -149,6 +159,11 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 	/// The client agrees to paying an opening fee equal to
 	/// `max(min_fee_msat, proportional * (payment_size_msat / 1_000_000))`.
 	///
+	/// Once the LSP confirms the request, i.e., when we receive the response emitted via
+	/// [`InvoiceParametersReady`], the chosen parameters will be cached as the latest parameters
+	/// negotiated with the LSP. They can be retrieved via [`Self::latest_opening_params`] until
+	/// they are wiped via [`Self::clear_latest_opening_params`].
+	///
 	/// Returns the used [`LSPSRequestId`] that was used for the buy request.
 	///
 	/// [`OpeningParametersReady`]: crate::lsps2::event::LSPS2ClientEvent::OpeningParametersReady
@@ -168,7 +183,7 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 				.or_insert(Mutex::new(PeerState::new()));
 			let mut peer_state_lock = inner_state_lock.lock().unwrap();
 
-			let jit_channel = InboundJITChannel::new(payment_size_msat);
+			let jit_channel = InboundJITChannel::new(payment_size_msat, opening_fee_params.clone());
 			if peer_state_lock
 				.pending_buy_requests
 				.insert(request_id.clone(), jit_channel)
@@ -186,6 +201,45 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 		message_queue_notifier.enqueue(&counterparty_node_id, msg);
 
 		Ok(request_id)
+	}
+
+	/// Returns the latest opening fee parameters negotiated with each LSP.
+	///
+	/// The returned [`Vec`] holds, for each LSP (identified by its `counterparty_node_id`) we
+	/// ever negotiated parameters with, the opening fee parameters we most recently chose via
+	/// [`Self::select_opening_params`] and that were subsequently confirmed by the LSP.
+	///
+	/// Note that this state is held in-memory only and hence will be lost on restart.
+	pub fn latest_opening_params(&self) -> Vec<(PublicKey, LSPS2OpeningFeeParams)> {
+		let outer_state_lock = self.per_peer_state.read().unwrap();
+		outer_state_lock
+			.iter()
+			.filter_map(|(counterparty_node_id, inner_state_lock)| {
+				let peer_state = inner_state_lock.lock().unwrap();
+				peer_state
+					.latest_opening_fee_params
+					.as_ref()
+					.map(|params| (*counterparty_node_id, params.clone()))
+			})
+			.collect()
+	}
+
+	/// Wipes the latest opening fee parameters negotiated with the LSP with the given
+	/// `counterparty_node_id`, i.e., they will no longer be returned by
+	/// [`Self::latest_opening_params`].
+	///
+	/// This is a no-op if we never negotiated parameters with the given LSP.
+	pub fn clear_latest_opening_params(&self, counterparty_node_id: &PublicKey) {
+		let mut outer_state_lock = self.per_peer_state.write().unwrap();
+		if let Some(inner_state_lock) = outer_state_lock.get(counterparty_node_id) {
+			let mut peer_state = inner_state_lock.lock().unwrap();
+			peer_state.latest_opening_fee_params = None;
+			let is_prunable = peer_state.is_prunable();
+			drop(peer_state);
+			if is_prunable {
+				outer_state_lock.remove(counterparty_node_id);
+			}
+		}
 	}
 
 	fn handle_get_info_response(
@@ -292,6 +346,8 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 					})?;
 
 				if let Ok(intercept_scid) = result.jit_channel_scid.to_scid() {
+					peer_state.latest_opening_fee_params = Some(jit_channel.opening_fee_params);
+
 					event_queue_notifier.enqueue(LSPS2ClientEvent::InvoiceParametersReady {
 						request_id,
 						counterparty_node_id: *counterparty_node_id,
@@ -402,4 +458,172 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPSProtocolMessageHandler
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+	use super::*;
+
+	use crate::lsps0::ser::LSPSDateTime;
+	use crate::lsps2::msgs::LSPS2InterceptScid;
+
+	use bitcoin::key::Secp256k1;
+	use bitcoin::secp256k1::SecretKey;
+
+	use lightning::util::persist::KVStoreSyncWrapper;
+	use lightning::util::test_utils::TestStore;
+	use lightning::util::wakers::Notifier;
+
+	use alloc::collections::VecDeque;
+
+	use core::str::FromStr;
+	use core::sync::atomic::{AtomicU64, Ordering};
+
+	struct UniqueTestEntropy {
+		counter: AtomicU64,
+	}
+
+	impl EntropySource for UniqueTestEntropy {
+		fn get_secure_random_bytes(&self) -> [u8; 32] {
+			let counter = self.counter.fetch_add(1, Ordering::SeqCst);
+			let mut bytes = [0u8; 32];
+			bytes[0..8].copy_from_slice(&counter.to_be_bytes());
+			bytes
+		}
+	}
+
+	type TestClient =
+		LSPS2ClientHandler<Arc<UniqueTestEntropy>, Arc<KVStoreSyncWrapper<Arc<TestStore>>>>;
+
+	fn setup_test_client() -> (TestClient, PublicKey, PublicKey) {
+		let test_entropy_source = Arc::new(UniqueTestEntropy { counter: AtomicU64::new(2) });
+		let notifier = Arc::new(Notifier::new());
+		let message_queue = Arc::new(MessageQueue::new(notifier));
+
+		let kv_store = Arc::new(KVStoreSyncWrapper(Arc::new(TestStore::new(false))));
+		let persist_notifier = Arc::new(Notifier::new());
+		let event_queue = Arc::new(EventQueue::new(VecDeque::new(), kv_store, persist_notifier));
+		let client = LSPS2ClientHandler::new(
+			test_entropy_source,
+			message_queue,
+			event_queue,
+			LSPS2ClientConfig::default(),
+		);
+
+		let secp = Secp256k1::new();
+		let secret_key_1 = SecretKey::from_slice(&[42u8; 32]).unwrap();
+		let secret_key_2 = SecretKey::from_slice(&[43u8; 32]).unwrap();
+		let peer_1 = PublicKey::from_secret_key(&secp, &secret_key_1);
+		let peer_2 = PublicKey::from_secret_key(&secp, &secret_key_2);
+
+		(client, peer_1, peer_2)
+	}
+
+	fn dummy_opening_fee_params(min_fee_msat: u64) -> LSPS2OpeningFeeParams {
+		LSPS2OpeningFeeParams {
+			min_fee_msat,
+			proportional: 21,
+			valid_until: LSPSDateTime::from_str("2035-05-20T08:30:45Z").unwrap(),
+			min_lifetime: 144,
+			max_client_to_self_delay: 128,
+			min_payment_size_msat: 1,
+			max_payment_size_msat: 100_000_000,
+			promise: "promise".to_string(),
+		}
+	}
+
+	fn dummy_buy_response() -> LSPS2BuyResponse {
+		LSPS2BuyResponse {
+			jit_channel_scid: LSPS2InterceptScid::from(42),
+			lsp_cltv_expiry_delta: 144,
+			client_trusts_lsp: false,
+		}
+	}
+
+	// Runs the full get_info + buy flow with the given peer and returns the negotiated
+	// parameters.
+	fn negotiate_opening_params(
+		client: &TestClient, peer: PublicKey, min_fee_msat: u64,
+	) -> LSPS2OpeningFeeParams {
+		let opening_fee_params = dummy_opening_fee_params(min_fee_msat);
+
+		let request_id = client.request_opening_params(peer, None);
+		let response =
+			LSPS2GetInfoResponse { opening_fee_params_menu: vec![opening_fee_params.clone()] };
+		client.handle_get_info_response(request_id, &peer, response).unwrap();
+
+		let request_id =
+			client.select_opening_params(peer, Some(1_000), opening_fee_params.clone()).unwrap();
+		client.handle_buy_response(request_id, &peer, dummy_buy_response()).unwrap();
+
+		opening_fee_params
+	}
+
+	#[test]
+	fn stores_latest_opening_params_per_lsp() {
+		let (client, peer_1, peer_2) = setup_test_client();
+
+		assert!(client.latest_opening_params().is_empty());
+
+		// Receiving an opening fee params menu alone doesn't store any parameters.
+		let request_id = client.request_opening_params(peer_1, None);
+		let menu = vec![dummy_opening_fee_params(42)];
+		let response = LSPS2GetInfoResponse { opening_fee_params_menu: menu };
+		client.handle_get_info_response(request_id, &peer_1, response).unwrap();
+		assert!(client.latest_opening_params().is_empty());
+
+		// Neither does selecting parameters, until the LSP confirms the buy request.
+		let params_1 = dummy_opening_fee_params(100);
+		let request_id =
+			client.select_opening_params(peer_1, Some(1_000), params_1.clone()).unwrap();
+		assert!(client.latest_opening_params().is_empty());
+
+		// A buy response for an unknown request id is rejected and doesn't store any parameters.
+		let unknown_request_id = LSPSRequestId("unknown:request:id".to_string());
+		assert!(client
+			.handle_buy_response(unknown_request_id, &peer_1, dummy_buy_response())
+			.is_err());
+		assert!(client.latest_opening_params().is_empty());
+
+		// Once the LSP confirms the buy request, the selected parameters are stored.
+		client.handle_buy_response(request_id, &peer_1, dummy_buy_response()).unwrap();
+		assert_eq!(client.latest_opening_params(), vec![(peer_1, params_1.clone())]);
+
+		// Parameters are stored on a per-LSP basis.
+		let params_2 = negotiate_opening_params(&client, peer_2, 300);
+		let latest_opening_params = client.latest_opening_params();
+		assert_eq!(latest_opening_params.len(), 2);
+		assert!(latest_opening_params.contains(&(peer_1, params_1)));
+		assert!(latest_opening_params.contains(&(peer_2, params_2.clone())));
+
+		// Parameters negotiated in a subsequent buy flow replace the previously stored ones.
+		let params_3 = negotiate_opening_params(&client, peer_1, 400);
+		let latest_opening_params = client.latest_opening_params();
+		assert_eq!(latest_opening_params.len(), 2);
+		assert!(latest_opening_params.contains(&(peer_1, params_3)));
+		assert!(latest_opening_params.contains(&(peer_2, params_2)));
+	}
+
+	#[test]
+	fn clears_latest_opening_params() {
+		let (client, peer_1, peer_2) = setup_test_client();
+
+		// Clearing parameters for an unknown peer is a no-op.
+		client.clear_latest_opening_params(&peer_1);
+		assert!(client.latest_opening_params().is_empty());
+
+		let _params_1 = negotiate_opening_params(&client, peer_1, 100);
+		let params_2 = negotiate_opening_params(&client, peer_2, 300);
+
+		client.clear_latest_opening_params(&peer_1);
+		assert_eq!(client.latest_opening_params(), vec![(peer_2, params_2)]);
+
+		// As we wiped the only state we held for `peer_1`, its entry should have been pruned
+		// entirely.
+		assert!(!client.per_peer_state.read().unwrap().contains_key(&peer_1));
+
+		// Clearing the parameters of a peer with pending requests wipes the parameters but keeps
+		// the remaining peer state around.
+		let _pending_request_id = client.request_opening_params(peer_2, None);
+		client.clear_latest_opening_params(&peer_2);
+		assert!(client.latest_opening_params().is_empty());
+		assert!(client.per_peer_state.read().unwrap().contains_key(&peer_2));
+	}
+}
