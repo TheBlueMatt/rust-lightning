@@ -14,18 +14,29 @@ use alloc::vec::Vec;
 use lightning::util::persist::KVStore;
 
 use core::default::Default;
+use core::future::Future as StdFuture;
+use core::pin::pin;
+use core::sync::atomic::{AtomicUsize, Ordering};
+use core::task;
 
 use crate::events::EventQueue;
 use crate::lsps0::ser::{LSPSProtocolMessageHandler, LSPSRequestId, LSPSResponseError};
 use crate::lsps2::event::LSPS2ClientEvent;
 use crate::message_queue::MessageQueue;
+use crate::persist::{
+	LIQUIDITY_MANAGER_PERSISTENCE_PRIMARY_NAMESPACE, LSPS2_CLIENT_PERSISTENCE_SECONDARY_NAMESPACE,
+};
+use crate::prelude::hash_map::Entry;
 use crate::prelude::{new_hash_map, new_hash_set, HashMap, HashSet};
 use crate::sync::{Arc, Mutex, RwLock};
+use crate::utils::async_poll::dummy_waker;
 
+use lightning::impl_ser_tlv_based;
 use lightning::ln::msgs::{ErrorAction, LightningError};
 use lightning::sign::EntropySource;
 use lightning::util::errors::APIError;
 use lightning::util::logger::Level;
+use lightning::util::ser::Writeable;
 
 use bitcoin::secp256k1::PublicKey;
 
@@ -49,10 +60,11 @@ impl InboundJITChannel {
 	}
 }
 
-struct PeerState {
+pub(crate) struct PeerState {
 	pending_get_info_requests: HashSet<LSPSRequestId>,
 	pending_buy_requests: HashMap<LSPSRequestId, InboundJITChannel>,
 	latest_opening_fee_params: Option<LSPS2OpeningFeeParams>,
+	needs_persist: bool,
 }
 
 impl PeerState {
@@ -60,7 +72,13 @@ impl PeerState {
 		let pending_get_info_requests = new_hash_set();
 		let pending_buy_requests = new_hash_map();
 		let latest_opening_fee_params = None;
-		Self { pending_get_info_requests, pending_buy_requests, latest_opening_fee_params }
+		let needs_persist = false;
+		Self {
+			pending_get_info_requests,
+			pending_buy_requests,
+			latest_opening_fee_params,
+			needs_persist,
+		}
 	}
 
 	fn is_prunable(&self) -> bool {
@@ -69,6 +87,13 @@ impl PeerState {
 			&& self.latest_opening_fee_params.is_none()
 	}
 }
+
+impl_ser_tlv_based!(PeerState, {
+	(0, latest_opening_fee_params, option),
+	(_unused, pending_get_info_requests, (static_value, new_hash_set())),
+	(_unused, pending_buy_requests, (static_value, new_hash_map())),
+	(_unused, needs_persist, (static_value, false)),
+});
 
 /// The main object allowing to send and receive bLIP-52 / LSPS2 messages.
 ///
@@ -79,24 +104,29 @@ impl PeerState {
 /// [`bLIP-52 / LSPS2 specification`]: https://github.com/lightning/blips/blob/master/blip-0052.md#trust-models
 pub struct LSPS2ClientHandler<ES: EntropySource, K: KVStore + Clone> {
 	entropy_source: ES,
+	kv_store: K,
 	pending_messages: Arc<MessageQueue>,
 	pending_events: Arc<EventQueue<K>>,
 	per_peer_state: RwLock<HashMap<PublicKey, Mutex<PeerState>>>,
 	config: LSPS2ClientConfig,
+	persistence_in_flight: AtomicUsize,
 }
 
 impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 	/// Constructs an `LSPS2ClientHandler`.
 	pub(crate) fn new(
-		entropy_source: ES, pending_messages: Arc<MessageQueue>,
-		pending_events: Arc<EventQueue<K>>, config: LSPS2ClientConfig,
+		per_peer_state: HashMap<PublicKey, Mutex<PeerState>>, entropy_source: ES,
+		pending_messages: Arc<MessageQueue>, pending_events: Arc<EventQueue<K>>, kv_store: K,
+		config: LSPS2ClientConfig,
 	) -> Self {
 		Self {
 			entropy_source,
+			kv_store,
 			pending_messages,
 			pending_events,
-			per_peer_state: RwLock::new(new_hash_map()),
+			per_peer_state: RwLock::new(per_peer_state),
 			config,
+			persistence_in_flight: AtomicUsize::new(0),
 		}
 	}
 
@@ -160,9 +190,10 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 	/// `max(min_fee_msat, proportional * (payment_size_msat / 1_000_000))`.
 	///
 	/// Once the LSP confirms the request, i.e., when we receive the response emitted via
-	/// [`InvoiceParametersReady`], the chosen parameters will be cached as the latest parameters
-	/// negotiated with the LSP. They can be retrieved via [`Self::latest_opening_params`] until
-	/// they are wiped via [`Self::clear_latest_opening_params`].
+	/// [`InvoiceParametersReady`], the chosen parameters will be cached and persisted as the
+	/// latest parameters negotiated with the LSP. They can be retrieved via
+	/// [`Self::latest_opening_params`] until they are wiped via
+	/// [`Self::clear_latest_opening_params`].
 	///
 	/// Returns the used [`LSPSRequestId`] that was used for the buy request.
 	///
@@ -209,7 +240,8 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 	/// ever negotiated parameters with, the opening fee parameters we most recently chose via
 	/// [`Self::select_opening_params`] and that were subsequently confirmed by the LSP.
 	///
-	/// Note that this state is held in-memory only and hence will be lost on restart.
+	/// The parameters are persisted towards the used [`KVStore`], i.e., they will still be
+	/// available after restart.
 	pub fn latest_opening_params(&self) -> Vec<(PublicKey, LSPS2OpeningFeeParams)> {
 		let outer_state_lock = self.per_peer_state.read().unwrap();
 		outer_state_lock
@@ -226,20 +258,30 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 
 	/// Wipes the latest opening fee parameters negotiated with the LSP with the given
 	/// `counterparty_node_id`, i.e., they will no longer be returned by
-	/// [`Self::latest_opening_params`].
+	/// [`Self::latest_opening_params`], and updates the [`KVStore`] accordingly.
 	///
 	/// This is a no-op if we never negotiated parameters with the given LSP.
-	pub fn clear_latest_opening_params(&self, counterparty_node_id: &PublicKey) {
-		let mut outer_state_lock = self.per_peer_state.write().unwrap();
-		if let Some(inner_state_lock) = outer_state_lock.get(counterparty_node_id) {
-			let mut peer_state = inner_state_lock.lock().unwrap();
-			peer_state.latest_opening_fee_params = None;
-			let is_prunable = peer_state.is_prunable();
-			drop(peer_state);
-			if is_prunable {
-				outer_state_lock.remove(counterparty_node_id);
+	pub async fn clear_latest_opening_params(
+		&self, counterparty_node_id: &PublicKey,
+	) -> Result<(), APIError> {
+		{
+			let outer_state_lock = self.per_peer_state.read().unwrap();
+			match outer_state_lock.get(counterparty_node_id) {
+				Some(inner_state_lock) => {
+					let mut peer_state = inner_state_lock.lock().unwrap();
+					if peer_state.latest_opening_fee_params.take().is_some() {
+						peer_state.needs_persist = true;
+					}
+				},
+				None => return Ok(()),
 			}
 		}
+
+		// Note we leave removing any now-empty peer state entries to the prune logic in
+		// `persist`, which will also remove them from the store.
+		self.persist_peer_state(*counterparty_node_id).await.map_err(|e| APIError::APIMisuseError {
+			err: format!("Failed to persist peer state for {}: {}", counterparty_node_id, e),
+		})
 	}
 
 	fn handle_get_info_response(
@@ -347,6 +389,7 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 
 				if let Ok(intercept_scid) = result.jit_channel_scid.to_scid() {
 					peer_state.latest_opening_fee_params = Some(jit_channel.opening_fee_params);
+					peer_state.needs_persist = true;
 
 					event_queue_notifier.enqueue(LSPS2ClientEvent::InvoiceParametersReady {
 						request_id,
@@ -420,6 +463,143 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 			},
 		}
 	}
+
+	async fn persist_peer_state(
+		&self, counterparty_node_id: PublicKey,
+	) -> Result<(), lightning::io::Error> {
+		let fut = {
+			let outer_state_lock = self.per_peer_state.read().unwrap();
+			match outer_state_lock.get(&counterparty_node_id) {
+				None => {
+					// We dropped the peer state by now.
+					return Ok(());
+				},
+				Some(entry) => {
+					let mut peer_state_lock = entry.lock().unwrap();
+					if !peer_state_lock.needs_persist {
+						// We already have persisted otherwise by now.
+						return Ok(());
+					} else {
+						peer_state_lock.needs_persist = false;
+						let key = counterparty_node_id.to_string();
+						let encoded = peer_state_lock.encode();
+						// Begin the write with the entry lock held. This avoids racing with
+						// potentially-in-flight `persist` calls writing state for the same peer.
+						self.kv_store.write(
+							LIQUIDITY_MANAGER_PERSISTENCE_PRIMARY_NAMESPACE,
+							LSPS2_CLIENT_PERSISTENCE_SECONDARY_NAMESPACE,
+							&key,
+							encoded,
+						)
+					}
+				},
+			}
+		};
+
+		fut.await.map_err(|e| {
+			self.per_peer_state
+				.read()
+				.unwrap()
+				.get(&counterparty_node_id)
+				.map(|p| p.lock().unwrap().needs_persist = true);
+			e
+		})
+	}
+
+	pub(crate) async fn persist(&self) -> Result<bool, lightning::io::Error> {
+		// TODO: We should eventually persist in parallel, however, when we do, we probably want to
+		// introduce some batching to upper-bound the number of requests inflight at any given
+		// time.
+
+		if self.persistence_in_flight.fetch_add(1, Ordering::AcqRel) > 0 {
+			// If we're not the first event processor to get here, just return early, the increment
+			// we just did will be treated as "go around again" at the end.
+			return Ok(false);
+		}
+
+		let res = self.do_persist().await;
+		debug_assert!(res.is_err() || self.persistence_in_flight.load(Ordering::Acquire) == 0);
+		self.persistence_in_flight.store(0, Ordering::Release);
+		res
+	}
+
+	async fn do_persist(&self) -> Result<bool, lightning::io::Error> {
+		let mut did_persist = false;
+
+		loop {
+			let mut need_remove = Vec::new();
+			let mut need_persist = Vec::new();
+
+			{
+				// First build a list of peers to persist and prune with the read lock. This allows
+				// us to avoid the write lock unless we actually need to remove a node.
+				let outer_state_lock = self.per_peer_state.read().unwrap();
+				for (counterparty_node_id, inner_state_lock) in outer_state_lock.iter() {
+					let peer_state_lock = inner_state_lock.lock().unwrap();
+					if peer_state_lock.is_prunable() {
+						need_remove.push(*counterparty_node_id);
+					} else if peer_state_lock.needs_persist {
+						need_persist.push(*counterparty_node_id);
+					}
+				}
+			}
+
+			for counterparty_node_id in need_persist.into_iter() {
+				debug_assert!(!need_remove.contains(&counterparty_node_id));
+				self.persist_peer_state(counterparty_node_id).await?;
+				did_persist = true;
+			}
+
+			for counterparty_node_id in need_remove {
+				let mut future_opt = None;
+				{
+					// We need to take the `per_peer_state` write lock to remove an entry, but also
+					// have to hold it until after the `remove` call returns (but not through
+					// future completion) to ensure that writes for the peer's state are
+					// well-ordered with other `persist_peer_state` calls even across the removal
+					// itself.
+					let mut per_peer_state = self.per_peer_state.write().unwrap();
+					if let Entry::Occupied(mut entry) = per_peer_state.entry(counterparty_node_id) {
+						let state = entry.get_mut().get_mut().unwrap();
+						if state.is_prunable() {
+							entry.remove();
+							let key = counterparty_node_id.to_string();
+							future_opt = Some(self.kv_store.remove(
+								LIQUIDITY_MANAGER_PERSISTENCE_PRIMARY_NAMESPACE,
+								LSPS2_CLIENT_PERSISTENCE_SECONDARY_NAMESPACE,
+								&key,
+								true,
+							));
+						} else {
+							// If the peer got new state, force a re-persist of the current state.
+							state.needs_persist = true;
+						}
+					} else {
+						// This should never happen, we can only have one `persist` call
+						// in-progress at once and map entries are only removed by it.
+						debug_assert!(false);
+					}
+				}
+				if let Some(future) = future_opt {
+					future.await?;
+					did_persist = true;
+				} else {
+					self.persist_peer_state(counterparty_node_id).await?;
+					did_persist = true;
+				}
+			}
+
+			if self.persistence_in_flight.fetch_sub(1, Ordering::AcqRel) != 1 {
+				// If another thread incremented the state while we were running we should go
+				// around again, but only once.
+				self.persistence_in_flight.store(1, Ordering::Release);
+				continue;
+			}
+			break;
+		}
+
+		Ok(did_persist)
+	}
 }
 
 impl<ES: EntropySource, K: KVStore + Clone> LSPSProtocolMessageHandler
@@ -457,12 +637,83 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPSProtocolMessageHandler
 	}
 }
 
+/// A synchroneous wrapper around [`LSPS2ClientHandler`] to be used in contexts where async is not
+/// available.
+pub struct LSPS2ClientHandlerSync<'a, ES: EntropySource, K: KVStore + Clone> {
+	inner: &'a LSPS2ClientHandler<ES, K>,
+}
+
+impl<'a, ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandlerSync<'a, ES, K> {
+	pub(crate) fn from_inner(inner: &'a LSPS2ClientHandler<ES, K>) -> Self {
+		Self { inner }
+	}
+
+	/// Returns a reference to the used config.
+	///
+	/// Wraps [`LSPS2ClientHandler::config`].
+	pub fn config(&self) -> &LSPS2ClientConfig {
+		self.inner.config()
+	}
+
+	/// Request the channel opening parameters from the LSP.
+	///
+	/// Wraps [`LSPS2ClientHandler::request_opening_params`].
+	pub fn request_opening_params(
+		&self, counterparty_node_id: PublicKey, token: Option<String>,
+	) -> LSPSRequestId {
+		self.inner.request_opening_params(counterparty_node_id, token)
+	}
+
+	/// Confirms a set of chosen channel opening parameters to use for the JIT channel and
+	/// requests the necessary invoice generation parameters from the LSP.
+	///
+	/// Wraps [`LSPS2ClientHandler::select_opening_params`].
+	pub fn select_opening_params(
+		&self, counterparty_node_id: PublicKey, payment_size_msat: Option<u64>,
+		opening_fee_params: LSPS2OpeningFeeParams,
+	) -> Result<LSPSRequestId, APIError> {
+		self.inner.select_opening_params(
+			counterparty_node_id,
+			payment_size_msat,
+			opening_fee_params,
+		)
+	}
+
+	/// Returns the latest opening fee parameters negotiated with each LSP.
+	///
+	/// Wraps [`LSPS2ClientHandler::latest_opening_params`].
+	pub fn latest_opening_params(&self) -> Vec<(PublicKey, LSPS2OpeningFeeParams)> {
+		self.inner.latest_opening_params()
+	}
+
+	/// Wipes the latest opening fee parameters negotiated with the LSP with the given
+	/// `counterparty_node_id`.
+	///
+	/// Wraps [`LSPS2ClientHandler::clear_latest_opening_params`].
+	pub fn clear_latest_opening_params(
+		&self, counterparty_node_id: &PublicKey,
+	) -> Result<(), APIError> {
+		let mut fut = pin!(self.inner.clear_latest_opening_params(counterparty_node_id));
+
+		let mut waker = dummy_waker();
+		let mut ctx = task::Context::from_waker(&mut waker);
+		match fut.as_mut().poll(&mut ctx) {
+			task::Poll::Ready(result) => result,
+			task::Poll::Pending => {
+				// In a sync context, we can't wait for the future to complete.
+				unreachable!("Should not be pending in a sync context");
+			},
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 
 	use crate::lsps0::ser::LSPSDateTime;
 	use crate::lsps2::msgs::LSPS2InterceptScid;
+	use crate::persist::read_lsps2_client_peer_states;
 
 	use bitcoin::key::Secp256k1;
 	use bitcoin::secp256k1::SecretKey;
@@ -473,6 +724,7 @@ mod tests {
 
 	use alloc::collections::VecDeque;
 
+	use core::future::Future;
 	use core::str::FromStr;
 	use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -489,23 +741,42 @@ mod tests {
 		}
 	}
 
-	type TestClient =
-		LSPS2ClientHandler<Arc<UniqueTestEntropy>, Arc<KVStoreSyncWrapper<Arc<TestStore>>>>;
+	type TestStoreRef = Arc<KVStoreSyncWrapper<Arc<TestStore>>>;
+	type TestClient = LSPS2ClientHandler<Arc<UniqueTestEntropy>, TestStoreRef>;
 
-	fn setup_test_client() -> (TestClient, PublicKey, PublicKey) {
+	fn block_on<F: Future>(fut: F) -> F::Output {
+		let mut fut = pin!(fut);
+		let mut waker = dummy_waker();
+		let mut ctx = task::Context::from_waker(&mut waker);
+		match fut.as_mut().poll(&mut ctx) {
+			task::Poll::Ready(res) => res,
+			task::Poll::Pending => panic!("Future should not be pending in a sync context"),
+		}
+	}
+
+	fn setup_test_client_with_store(
+		kv_store: TestStoreRef, per_peer_state: HashMap<PublicKey, Mutex<PeerState>>,
+	) -> TestClient {
 		let test_entropy_source = Arc::new(UniqueTestEntropy { counter: AtomicU64::new(2) });
 		let notifier = Arc::new(Notifier::new());
 		let message_queue = Arc::new(MessageQueue::new(notifier));
 
-		let kv_store = Arc::new(KVStoreSyncWrapper(Arc::new(TestStore::new(false))));
 		let persist_notifier = Arc::new(Notifier::new());
-		let event_queue = Arc::new(EventQueue::new(VecDeque::new(), kv_store, persist_notifier));
-		let client = LSPS2ClientHandler::new(
+		let event_queue =
+			Arc::new(EventQueue::new(VecDeque::new(), kv_store.clone(), persist_notifier));
+		LSPS2ClientHandler::new(
+			per_peer_state,
 			test_entropy_source,
 			message_queue,
 			event_queue,
+			kv_store,
 			LSPS2ClientConfig::default(),
-		);
+		)
+	}
+
+	fn setup_test_client() -> (TestClient, TestStoreRef, PublicKey, PublicKey) {
+		let kv_store = Arc::new(KVStoreSyncWrapper(Arc::new(TestStore::new(false))));
+		let client = setup_test_client_with_store(kv_store.clone(), new_hash_map());
 
 		let secp = Secp256k1::new();
 		let secret_key_1 = SecretKey::from_slice(&[42u8; 32]).unwrap();
@@ -513,7 +784,7 @@ mod tests {
 		let peer_1 = PublicKey::from_secret_key(&secp, &secret_key_1);
 		let peer_2 = PublicKey::from_secret_key(&secp, &secret_key_2);
 
-		(client, peer_1, peer_2)
+		(client, kv_store, peer_1, peer_2)
 	}
 
 	fn dummy_opening_fee_params(min_fee_msat: u64) -> LSPS2OpeningFeeParams {
@@ -558,7 +829,7 @@ mod tests {
 
 	#[test]
 	fn stores_latest_opening_params_per_lsp() {
-		let (client, peer_1, peer_2) = setup_test_client();
+		let (client, _, peer_1, peer_2) = setup_test_client();
 
 		assert!(client.latest_opening_params().is_empty());
 
@@ -603,27 +874,65 @@ mod tests {
 
 	#[test]
 	fn clears_latest_opening_params() {
-		let (client, peer_1, peer_2) = setup_test_client();
+		let (client, kv_store, peer_1, peer_2) = setup_test_client();
 
 		// Clearing parameters for an unknown peer is a no-op.
-		client.clear_latest_opening_params(&peer_1);
+		block_on(client.clear_latest_opening_params(&peer_1)).unwrap();
 		assert!(client.latest_opening_params().is_empty());
 
 		let _params_1 = negotiate_opening_params(&client, peer_1, 100);
 		let params_2 = negotiate_opening_params(&client, peer_2, 300);
 
-		client.clear_latest_opening_params(&peer_1);
-		assert_eq!(client.latest_opening_params(), vec![(peer_2, params_2)]);
+		block_on(client.clear_latest_opening_params(&peer_1)).unwrap();
+		assert_eq!(client.latest_opening_params(), vec![(peer_2, params_2.clone())]);
 
-		// As we wiped the only state we held for `peer_1`, its entry should have been pruned
-		// entirely.
+		// As we wiped the only state we held for `peer_1`, its entry is pruned entirely (from
+		// memory and the store) by the next `persist` call.
+		assert!(client.per_peer_state.read().unwrap().contains_key(&peer_1));
+		assert!(block_on(client.persist()).unwrap());
 		assert!(!client.per_peer_state.read().unwrap().contains_key(&peer_1));
+
+		let peer_states = block_on(read_lsps2_client_peer_states(kv_store.clone())).unwrap();
+		assert!(!peer_states.contains_key(&peer_1));
+		let client_2 = setup_test_client_with_store(kv_store, peer_states);
+		assert_eq!(client_2.latest_opening_params(), vec![(peer_2, params_2)]);
 
 		// Clearing the parameters of a peer with pending requests wipes the parameters but keeps
 		// the remaining peer state around.
 		let _pending_request_id = client.request_opening_params(peer_2, None);
-		client.clear_latest_opening_params(&peer_2);
+		block_on(client.clear_latest_opening_params(&peer_2)).unwrap();
 		assert!(client.latest_opening_params().is_empty());
 		assert!(client.per_peer_state.read().unwrap().contains_key(&peer_2));
+	}
+
+	#[test]
+	fn persists_latest_opening_params() {
+		let (client, kv_store, peer_1, peer_2) = setup_test_client();
+
+		// There is nothing to persist until we negotiated parameters.
+		assert!(!block_on(client.persist()).unwrap());
+		assert!(block_on(read_lsps2_client_peer_states(kv_store.clone())).unwrap().is_empty());
+
+		let params_1 = negotiate_opening_params(&client, peer_1, 100);
+		let params_2 = negotiate_opening_params(&client, peer_2, 300);
+		assert!(block_on(client.persist()).unwrap());
+
+		// A fresh client initialized from the store returns the persisted parameters.
+		let peer_states = block_on(read_lsps2_client_peer_states(kv_store.clone())).unwrap();
+		let client_2 = setup_test_client_with_store(kv_store.clone(), peer_states);
+		let latest_opening_params = client_2.latest_opening_params();
+		assert_eq!(latest_opening_params.len(), 2);
+		assert!(latest_opening_params.contains(&(peer_1, params_1)));
+		assert!(latest_opening_params.contains(&(peer_2, params_2)));
+
+		// Persisting again is a no-op as long as the state didn't change.
+		assert!(!block_on(client.persist()).unwrap());
+
+		// Negotiating new parameters requires repersistence.
+		let params_3 = negotiate_opening_params(&client, peer_1, 400);
+		assert!(block_on(client.persist()).unwrap());
+		let peer_states = block_on(read_lsps2_client_peer_states(kv_store.clone())).unwrap();
+		let client_3 = setup_test_client_with_store(kv_store, peer_states);
+		assert!(client_3.latest_opening_params().contains(&(peer_1, params_3)));
 	}
 }

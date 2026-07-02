@@ -24,15 +24,15 @@ use crate::lsps5::msgs::LSPS5Message;
 use crate::lsps5::service::{LSPS5ServiceConfig, LSPS5ServiceHandler};
 use crate::message_queue::MessageQueue;
 use crate::persist::{
-	read_event_queue, read_lsps1_service_peer_states, read_lsps2_service_peer_states,
-	read_lsps5_service_peer_states,
+	read_event_queue, read_lsps1_service_peer_states, read_lsps2_client_peer_states,
+	read_lsps2_service_peer_states, read_lsps5_service_peer_states,
 };
 
 use crate::lsps1::client::{LSPS1ClientConfig, LSPS1ClientHandler};
 use crate::lsps1::msgs::LSPS1Message;
 use crate::lsps1::service::{LSPS1ServiceConfig, LSPS1ServiceHandler, LSPS1ServiceHandlerSync};
 
-use crate::lsps2::client::{LSPS2ClientConfig, LSPS2ClientHandler};
+use crate::lsps2::client::{LSPS2ClientConfig, LSPS2ClientHandler, LSPS2ClientHandlerSync};
 use crate::lsps2::msgs::LSPS2Message;
 use crate::lsps2::service::{LSPS2ServiceConfig, LSPS2ServiceHandler, LSPS2ServiceHandlerSync};
 use crate::prelude::{new_hash_map, new_hash_set, HashMap, HashSet};
@@ -365,16 +365,23 @@ where
 
 		let mut supported_protocols = Vec::new();
 
-		let lsps2_client_handler = client_config.as_ref().and_then(|config| {
-			config.lsps2_client_config.map(|config| {
-				LSPS2ClientHandler::new(
+		let lsps2_client_handler = if let Some(client_config) = client_config.as_ref() {
+			if let Some(config) = client_config.lsps2_client_config {
+				let peer_states = read_lsps2_client_peer_states(kv_store.clone()).await?;
+				Some(LSPS2ClientHandler::new(
+					peer_states,
 					entropy_source.clone(),
 					Arc::clone(&pending_messages),
 					Arc::clone(&pending_events),
-					config.clone(),
-				)
-			})
-		});
+					kv_store.clone(),
+					config,
+				))
+			} else {
+				None
+			}
+		} else {
+			None
+		};
 
 		let lsps2_service_handler = if let Some(service_config) = service_config.as_ref() {
 			if let Some(lsps2_service_config) = service_config.lsps2_service_config.as_ref() {
@@ -617,10 +624,10 @@ where
 		self.pending_events.get_and_clear_pending_events()
 	}
 
-	/// Persists the state of the service handlers towards the given [`KVStore`] implementation if
+	/// Persists the state of the handlers towards the given [`KVStore`] implementation if
 	/// needed.
 	///
-	/// Returns `true` if it persisted service handler data.
+	/// Returns `true` if it persisted any handler data.
 	///
 	/// This will be regularly called by LDK's background processor if necessary and only needs to
 	/// be called manually if it's not utilized.
@@ -631,6 +638,10 @@ where
 
 		if let Some(lsps1_service_handler) = self.lsps1_service_handler.as_ref() {
 			did_persist |= lsps1_service_handler.persist().await?;
+		}
+
+		if let Some(lsps2_client_handler) = self.lsps2_client_handler.as_ref() {
+			did_persist |= lsps2_client_handler.persist().await?;
 		}
 
 		if let Some(lsps2_service_handler) = self.lsps2_service_handler.as_ref() {
@@ -1046,8 +1057,10 @@ where
 	/// Returns a reference to the LSPS2 client-side handler.
 	///
 	/// Wraps [`LiquidityManager::lsps2_client_handler`].
-	pub fn lsps2_client_handler(&self) -> Option<&LSPS2ClientHandler<ES, KVStoreSyncWrapper<KS>>> {
-		self.inner.lsps2_client_handler()
+	pub fn lsps2_client_handler<'a>(
+		&'a self,
+	) -> Option<LSPS2ClientHandlerSync<'a, ES, KVStoreSyncWrapper<KS>>> {
+		self.inner.lsps2_client_handler.as_ref().map(|r| LSPS2ClientHandlerSync::from_inner(r))
 	}
 
 	/// Returns a reference to the LSPS2 server-side handler.
