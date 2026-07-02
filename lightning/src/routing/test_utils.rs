@@ -171,14 +171,16 @@ pub(super) fn get_nodes(secp_ctx: &Secp256k1<All>) -> (SecretKey, PublicKey, Vec
 
 pub(super) fn id_to_feature_flags(id: u8) -> Vec<u8> {
 	// Set the feature flags to the id'th odd (ie non-required) feature bit so that we can
-	// test for it later.
+	// test for it later. Note that these flags are in little-endian byte order and must be
+	// minimally-encoded (i.e. not contain any trailing zero bytes) for announcements built
+	// from them to be accepted.
 	let idx = (id - 1) * 2 + 1;
 	if idx > 8*3 {
-		vec![1 << (idx - 8*3), 0, 0, 0]
+		vec![0, 0, 0, 1 << (idx - 8*3)]
 	} else if idx > 8*2 {
-		vec![1 << (idx - 8*2), 0, 0]
+		vec![0, 0, 1 << (idx - 8*2)]
 	} else if idx > 8*1 {
-		vec![1 << (idx - 8*1), 0]
+		vec![0, 1 << (idx - 8*1)]
 	} else {
 		vec![1 << idx]
 	}
