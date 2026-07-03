@@ -4,6 +4,7 @@ use lightning_liquidity::utils::time::TimeProvider;
 use lightning_liquidity::{LiquidityClientConfig, LiquidityManagerSync, LiquidityServiceConfig};
 
 use lightning::ln::functional_test_utils::{Node, TestChannelManager};
+use lightning::sign::{EntropySource, RandomBytes};
 use lightning::util::test_utils::{TestBroadcaster, TestKeysInterface, TestStore};
 
 use core::ops::Deref;
@@ -27,8 +28,15 @@ fn build_service_and_client_nodes<'a, 'b, 'c>(
 	let client_inner = nodes_iter.next().expect("missing client node");
 	let leftover = nodes_iter.next();
 
+	// Use a shareable, `'static` entropy source so handler handles (e.g., as returned by
+	// `LiquidityManagerSync::lsps2_client_handler_arc`) can be moved into `'static` contexts.
+	let service_entropy_source =
+		Arc::new(RandomBytes::new(service_inner.keys_manager.get_secure_random_bytes()));
+	let client_entropy_source =
+		Arc::new(RandomBytes::new(client_inner.keys_manager.get_secure_random_bytes()));
+
 	let service_lm = LiquidityManagerSync::new_with_custom_time_provider(
-		service_inner.keys_manager,
+		service_entropy_source,
 		service_inner.keys_manager,
 		service_inner.node,
 		service_kv_store,
@@ -40,7 +48,7 @@ fn build_service_and_client_nodes<'a, 'b, 'c>(
 	.unwrap();
 
 	let client_lm = LiquidityManagerSync::new_with_custom_time_provider(
-		client_inner.keys_manager,
+		client_entropy_source,
 		client_inner.keys_manager,
 		client_inner.node,
 		client_kv_store,
@@ -121,7 +129,7 @@ pub(crate) fn create_service_client_and_payer_nodes<'a, 'b, 'c>(
 pub(crate) struct LiquidityNode<'a, 'b, 'c> {
 	pub inner: Node<'a, 'b, 'c>,
 	pub liquidity_manager: LiquidityManagerSync<
-		&'c TestKeysInterface,
+		Arc<RandomBytes>,
 		&'c TestKeysInterface,
 		&'a TestChannelManager<'b, 'c>,
 		Arc<TestStore>,
@@ -134,7 +142,7 @@ impl<'a, 'b, 'c> LiquidityNode<'a, 'b, 'c> {
 	pub fn new(
 		node: Node<'a, 'b, 'c>,
 		liquidity_manager: LiquidityManagerSync<
-			&'c TestKeysInterface,
+			Arc<RandomBytes>,
 			&'c TestKeysInterface,
 			&'a TestChannelManager<'b, 'c>,
 			Arc<TestStore>,
