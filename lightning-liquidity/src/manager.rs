@@ -286,7 +286,7 @@ pub struct LiquidityManager<
 	lsps1_service_handler: Option<LSPS1ServiceHandler<ES, CM, K, TP>>,
 	lsps1_client_handler: Option<LSPS1ClientHandler<ES, K>>,
 	lsps2_service_handler: Option<LSPS2ServiceHandler<CM, K, T>>,
-	lsps2_client_handler: Option<LSPS2ClientHandler<ES, K>>,
+	lsps2_client_handler: Option<Arc<LSPS2ClientHandler<ES, K>>>,
 	lsps5_service_handler: Option<LSPS5ServiceHandler<CM, NS, K, TP>>,
 	lsps5_client_handler: Option<LSPS5ClientHandler<ES, K>>,
 	service_config: Option<LiquidityServiceConfig>,
@@ -368,14 +368,14 @@ where
 		let lsps2_client_handler = if let Some(client_config) = client_config.as_ref() {
 			if let Some(config) = client_config.lsps2_client_config {
 				let peer_states = read_lsps2_client_peer_states(kv_store.clone()).await?;
-				Some(LSPS2ClientHandler::new(
+				Some(Arc::new(LSPS2ClientHandler::new(
 					peer_states,
 					entropy_source.clone(),
 					Arc::clone(&pending_messages),
 					Arc::clone(&pending_events),
 					kv_store.clone(),
 					config,
-				))
+				)))
 			} else {
 				None
 			}
@@ -543,7 +543,16 @@ where
 	/// retrieve all necessary data to create 'just-in-time' invoices that, when paid, will have
 	/// the configured LSP open a 'just-in-time' channel.
 	pub fn lsps2_client_handler(&self) -> Option<&LSPS2ClientHandler<ES, K>> {
-		self.lsps2_client_handler.as_ref()
+		self.lsps2_client_handler.as_deref()
+	}
+
+	/// Returns a shareable handle to the LSPS2 client-side handler, e.g., to wire it into an
+	/// [`LSPS2Router`] via [`LSPS2Router::set_lsps2_client_handler`].
+	///
+	/// [`LSPS2Router`]: crate::lsps2::router::LSPS2Router
+	/// [`LSPS2Router::set_lsps2_client_handler`]: crate::lsps2::router::LSPS2Router::set_lsps2_client_handler
+	pub fn lsps2_client_handler_arc(&self) -> Option<Arc<LSPS2ClientHandler<ES, K>>> {
+		self.lsps2_client_handler.clone()
 	}
 
 	/// Returns a reference to the LSPS2 server-side handler.
@@ -1060,7 +1069,20 @@ where
 	pub fn lsps2_client_handler<'a>(
 		&'a self,
 	) -> Option<LSPS2ClientHandlerSync<'a, ES, KVStoreSyncWrapper<KS>>> {
-		self.inner.lsps2_client_handler.as_ref().map(|r| LSPS2ClientHandlerSync::from_inner(r))
+		self.inner.lsps2_client_handler.as_deref().map(|r| LSPS2ClientHandlerSync::from_inner(r))
+	}
+
+	/// Returns a shareable handle to the LSPS2 client-side handler, e.g., to wire it into an
+	/// [`LSPS2Router`] via [`LSPS2Router::set_lsps2_client_handler`].
+	///
+	/// Wraps [`LiquidityManager::lsps2_client_handler_arc`].
+	///
+	/// [`LSPS2Router`]: crate::lsps2::router::LSPS2Router
+	/// [`LSPS2Router::set_lsps2_client_handler`]: crate::lsps2::router::LSPS2Router::set_lsps2_client_handler
+	pub fn lsps2_client_handler_arc(
+		&self,
+	) -> Option<Arc<LSPS2ClientHandler<ES, KVStoreSyncWrapper<KS>>>> {
+		self.inner.lsps2_client_handler_arc()
 	}
 
 	/// Returns a reference to the LSPS2 server-side handler.

@@ -60,10 +60,31 @@ impl InboundJITChannel {
 	}
 }
 
+/// The parameters to use when generating an invoice that will be paid via an LSPS2 JIT channel,
+/// as negotiated with the LSP in the most recently completed buy flow.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LSPS2InvoiceParameters {
+	/// The node id of the LSP that will open the JIT channel.
+	pub counterparty_node_id: PublicKey,
+	/// The intercept short channel id to use in the route hint or blinded payment path.
+	pub intercept_scid: u64,
+	/// The `cltv_expiry_delta` the LSP requires for the hop over `intercept_scid`.
+	pub cltv_expiry_delta: u32,
+	/// The opening fee parameters we agreed to pay for the channel open.
+	pub opening_fee_params: LSPS2OpeningFeeParams,
+}
+
+impl_ser_tlv_based!(LSPS2InvoiceParameters, {
+	(0, counterparty_node_id, required),
+	(2, intercept_scid, required),
+	(4, cltv_expiry_delta, required),
+	(6, opening_fee_params, required),
+});
+
 pub(crate) struct PeerState {
 	pending_get_info_requests: HashSet<LSPSRequestId>,
 	pending_buy_requests: HashMap<LSPSRequestId, InboundJITChannel>,
-	latest_opening_fee_params: Option<LSPS2OpeningFeeParams>,
+	latest_invoice_params: Option<LSPS2InvoiceParameters>,
 	needs_persist: bool,
 }
 
@@ -71,12 +92,12 @@ impl PeerState {
 	fn new() -> Self {
 		let pending_get_info_requests = new_hash_set();
 		let pending_buy_requests = new_hash_map();
-		let latest_opening_fee_params = None;
+		let latest_invoice_params = None;
 		let needs_persist = false;
 		Self {
 			pending_get_info_requests,
 			pending_buy_requests,
-			latest_opening_fee_params,
+			latest_invoice_params,
 			needs_persist,
 		}
 	}
@@ -84,12 +105,12 @@ impl PeerState {
 	fn is_prunable(&self) -> bool {
 		self.pending_get_info_requests.is_empty()
 			&& self.pending_buy_requests.is_empty()
-			&& self.latest_opening_fee_params.is_none()
+			&& self.latest_invoice_params.is_none()
 	}
 }
 
 impl_ser_tlv_based!(PeerState, {
-	(0, latest_opening_fee_params, option),
+	(0, latest_invoice_params, option),
 	(_unused, pending_get_info_requests, (static_value, new_hash_set())),
 	(_unused, pending_buy_requests, (static_value, new_hash_map())),
 	(_unused, needs_persist, (static_value, false)),
@@ -103,7 +124,7 @@ impl_ser_tlv_based!(PeerState, {
 ///
 /// [`bLIP-52 / LSPS2 specification`]: https://github.com/lightning/blips/blob/master/blip-0052.md#trust-models
 pub struct LSPS2ClientHandler<ES: EntropySource, K: KVStore + Clone> {
-	entropy_source: ES,
+	pub(crate) entropy_source: ES,
 	kv_store: K,
 	pending_messages: Arc<MessageQueue>,
 	pending_events: Arc<EventQueue<K>>,
@@ -190,10 +211,10 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 	/// `max(min_fee_msat, proportional * (payment_size_msat / 1_000_000))`.
 	///
 	/// Once the LSP confirms the request, i.e., when we receive the response emitted via
-	/// [`InvoiceParametersReady`], the chosen parameters will be cached and persisted as the
-	/// latest parameters negotiated with the LSP. They can be retrieved via
-	/// [`Self::latest_opening_params`] until they are wiped via
-	/// [`Self::clear_latest_opening_params`].
+	/// [`InvoiceParametersReady`], the resulting invoice parameters will be cached and persisted
+	/// as the latest parameters negotiated with the LSP. They can be retrieved via
+	/// [`Self::latest_invoice_params`] until they are wiped via
+	/// [`Self::clear_latest_invoice_params`].
 	///
 	/// Returns the used [`LSPSRequestId`] that was used for the buy request.
 	///
@@ -234,34 +255,35 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 		Ok(request_id)
 	}
 
-	/// Returns the latest opening fee parameters negotiated with each LSP.
+	/// Returns the latest invoice parameters negotiated with each LSP.
 	///
-	/// The returned [`Vec`] holds, for each LSP (identified by its `counterparty_node_id`) we
-	/// ever negotiated parameters with, the opening fee parameters we most recently chose via
+	/// The returned [`Vec`] holds, for each LSP (identified by
+	/// [`LSPS2InvoiceParameters::counterparty_node_id`]) we ever negotiated parameters with, the
+	/// parameters resulting from the buy flow we most recently initiated via
 	/// [`Self::select_opening_params`] and that were subsequently confirmed by the LSP.
 	///
 	/// The parameters are persisted towards the used [`KVStore`], i.e., they will still be
-	/// available after restart.
-	pub fn latest_opening_params(&self) -> Vec<(PublicKey, LSPS2OpeningFeeParams)> {
+	/// available after restart. They are also used by an [`LSPS2Router`] to inject JIT-channel
+	/// blinded payment paths when creating BOLT12 invoices.
+	///
+	/// [`LSPS2Router`]: crate::lsps2::router::LSPS2Router
+	pub fn latest_invoice_params(&self) -> Vec<LSPS2InvoiceParameters> {
 		let outer_state_lock = self.per_peer_state.read().unwrap();
 		outer_state_lock
 			.iter()
-			.filter_map(|(counterparty_node_id, inner_state_lock)| {
+			.filter_map(|(_, inner_state_lock)| {
 				let peer_state = inner_state_lock.lock().unwrap();
-				peer_state
-					.latest_opening_fee_params
-					.as_ref()
-					.map(|params| (*counterparty_node_id, params.clone()))
+				peer_state.latest_invoice_params.clone()
 			})
 			.collect()
 	}
 
-	/// Wipes the latest opening fee parameters negotiated with the LSP with the given
+	/// Wipes the latest invoice parameters negotiated with the LSP with the given
 	/// `counterparty_node_id`, i.e., they will no longer be returned by
-	/// [`Self::latest_opening_params`], and updates the [`KVStore`] accordingly.
+	/// [`Self::latest_invoice_params`], and updates the [`KVStore`] accordingly.
 	///
 	/// This is a no-op if we never negotiated parameters with the given LSP.
-	pub async fn clear_latest_opening_params(
+	pub async fn clear_latest_invoice_params(
 		&self, counterparty_node_id: &PublicKey,
 	) -> Result<(), APIError> {
 		{
@@ -269,7 +291,7 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 			match outer_state_lock.get(counterparty_node_id) {
 				Some(inner_state_lock) => {
 					let mut peer_state = inner_state_lock.lock().unwrap();
-					if peer_state.latest_opening_fee_params.take().is_some() {
+					if peer_state.latest_invoice_params.take().is_some() {
 						peer_state.needs_persist = true;
 					}
 				},
@@ -388,7 +410,12 @@ impl<ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandler<ES, K> {
 					})?;
 
 				if let Ok(intercept_scid) = result.jit_channel_scid.to_scid() {
-					peer_state.latest_opening_fee_params = Some(jit_channel.opening_fee_params);
+					peer_state.latest_invoice_params = Some(LSPS2InvoiceParameters {
+						counterparty_node_id: *counterparty_node_id,
+						intercept_scid,
+						cltv_expiry_delta: result.lsp_cltv_expiry_delta,
+						opening_fee_params: jit_channel.opening_fee_params,
+					});
 					peer_state.needs_persist = true;
 
 					event_queue_notifier.enqueue(LSPS2ClientEvent::InvoiceParametersReady {
@@ -679,21 +706,21 @@ impl<'a, ES: EntropySource, K: KVStore + Clone> LSPS2ClientHandlerSync<'a, ES, K
 		)
 	}
 
-	/// Returns the latest opening fee parameters negotiated with each LSP.
+	/// Returns the latest invoice parameters negotiated with each LSP.
 	///
-	/// Wraps [`LSPS2ClientHandler::latest_opening_params`].
-	pub fn latest_opening_params(&self) -> Vec<(PublicKey, LSPS2OpeningFeeParams)> {
-		self.inner.latest_opening_params()
+	/// Wraps [`LSPS2ClientHandler::latest_invoice_params`].
+	pub fn latest_invoice_params(&self) -> Vec<LSPS2InvoiceParameters> {
+		self.inner.latest_invoice_params()
 	}
 
-	/// Wipes the latest opening fee parameters negotiated with the LSP with the given
+	/// Wipes the latest invoice parameters negotiated with the LSP with the given
 	/// `counterparty_node_id`.
 	///
-	/// Wraps [`LSPS2ClientHandler::clear_latest_opening_params`].
-	pub fn clear_latest_opening_params(
+	/// Wraps [`LSPS2ClientHandler::clear_latest_invoice_params`].
+	pub fn clear_latest_invoice_params(
 		&self, counterparty_node_id: &PublicKey,
 	) -> Result<(), APIError> {
-		let mut fut = pin!(self.inner.clear_latest_opening_params(counterparty_node_id));
+		let mut fut = pin!(self.inner.clear_latest_invoice_params(counterparty_node_id));
 
 		let mut waker = dummy_waker();
 		let mut ctx = task::Context::from_waker(&mut waker);
@@ -808,11 +835,22 @@ mod tests {
 		}
 	}
 
-	// Runs the full get_info + buy flow with the given peer and returns the negotiated
+	fn dummy_invoice_params(
+		counterparty_node_id: PublicKey, min_fee_msat: u64,
+	) -> LSPS2InvoiceParameters {
+		LSPS2InvoiceParameters {
+			counterparty_node_id,
+			intercept_scid: 42,
+			cltv_expiry_delta: 144,
+			opening_fee_params: dummy_opening_fee_params(min_fee_msat),
+		}
+	}
+
+	// Runs the full get_info + buy flow with the given peer and returns the resulting invoice
 	// parameters.
-	fn negotiate_opening_params(
+	fn negotiate_invoice_params(
 		client: &TestClient, peer: PublicKey, min_fee_msat: u64,
-	) -> LSPS2OpeningFeeParams {
+	) -> LSPS2InvoiceParameters {
 		let opening_fee_params = dummy_opening_fee_params(min_fee_msat);
 
 		let request_id = client.request_opening_params(peer, None);
@@ -821,70 +859,71 @@ mod tests {
 		client.handle_get_info_response(request_id, &peer, response).unwrap();
 
 		let request_id =
-			client.select_opening_params(peer, Some(1_000), opening_fee_params.clone()).unwrap();
+			client.select_opening_params(peer, Some(1_000), opening_fee_params).unwrap();
 		client.handle_buy_response(request_id, &peer, dummy_buy_response()).unwrap();
 
-		opening_fee_params
+		dummy_invoice_params(peer, min_fee_msat)
 	}
 
 	#[test]
-	fn stores_latest_opening_params_per_lsp() {
+	fn stores_latest_invoice_params_per_lsp() {
 		let (client, _, peer_1, peer_2) = setup_test_client();
 
-		assert!(client.latest_opening_params().is_empty());
+		assert!(client.latest_invoice_params().is_empty());
 
 		// Receiving an opening fee params menu alone doesn't store any parameters.
 		let request_id = client.request_opening_params(peer_1, None);
 		let menu = vec![dummy_opening_fee_params(42)];
 		let response = LSPS2GetInfoResponse { opening_fee_params_menu: menu };
 		client.handle_get_info_response(request_id, &peer_1, response).unwrap();
-		assert!(client.latest_opening_params().is_empty());
+		assert!(client.latest_invoice_params().is_empty());
 
 		// Neither does selecting parameters, until the LSP confirms the buy request.
-		let params_1 = dummy_opening_fee_params(100);
+		let opening_fee_params_1 = dummy_opening_fee_params(100);
 		let request_id =
-			client.select_opening_params(peer_1, Some(1_000), params_1.clone()).unwrap();
-		assert!(client.latest_opening_params().is_empty());
+			client.select_opening_params(peer_1, Some(1_000), opening_fee_params_1).unwrap();
+		assert!(client.latest_invoice_params().is_empty());
 
 		// A buy response for an unknown request id is rejected and doesn't store any parameters.
 		let unknown_request_id = LSPSRequestId("unknown:request:id".to_string());
 		assert!(client
 			.handle_buy_response(unknown_request_id, &peer_1, dummy_buy_response())
 			.is_err());
-		assert!(client.latest_opening_params().is_empty());
+		assert!(client.latest_invoice_params().is_empty());
 
-		// Once the LSP confirms the buy request, the selected parameters are stored.
+		// Once the LSP confirms the buy request, the resulting parameters are stored.
+		let params_1 = dummy_invoice_params(peer_1, 100);
 		client.handle_buy_response(request_id, &peer_1, dummy_buy_response()).unwrap();
-		assert_eq!(client.latest_opening_params(), vec![(peer_1, params_1.clone())]);
+		assert_eq!(client.latest_invoice_params(), vec![params_1.clone()]);
 
 		// Parameters are stored on a per-LSP basis.
-		let params_2 = negotiate_opening_params(&client, peer_2, 300);
-		let latest_opening_params = client.latest_opening_params();
-		assert_eq!(latest_opening_params.len(), 2);
-		assert!(latest_opening_params.contains(&(peer_1, params_1)));
-		assert!(latest_opening_params.contains(&(peer_2, params_2.clone())));
+		let params_2 = negotiate_invoice_params(&client, peer_2, 300);
+		let latest_invoice_params = client.latest_invoice_params();
+		assert_eq!(latest_invoice_params.len(), 2);
+		assert!(latest_invoice_params.contains(&params_1));
+		assert!(latest_invoice_params.contains(&params_2));
 
 		// Parameters negotiated in a subsequent buy flow replace the previously stored ones.
-		let params_3 = negotiate_opening_params(&client, peer_1, 400);
-		let latest_opening_params = client.latest_opening_params();
-		assert_eq!(latest_opening_params.len(), 2);
-		assert!(latest_opening_params.contains(&(peer_1, params_3)));
-		assert!(latest_opening_params.contains(&(peer_2, params_2)));
+		let params_3 = negotiate_invoice_params(&client, peer_1, 400);
+		let latest_invoice_params = client.latest_invoice_params();
+		assert_eq!(latest_invoice_params.len(), 2);
+		assert!(latest_invoice_params.contains(&params_3));
+		assert!(latest_invoice_params.contains(&params_2));
 	}
 
 	#[test]
-	fn clears_latest_opening_params() {
+	fn clears_latest_invoice_params() {
 		let (client, kv_store, peer_1, peer_2) = setup_test_client();
 
 		// Clearing parameters for an unknown peer is a no-op.
-		block_on(client.clear_latest_opening_params(&peer_1)).unwrap();
-		assert!(client.latest_opening_params().is_empty());
+		block_on(client.clear_latest_invoice_params(&peer_1)).unwrap();
+		assert!(client.latest_invoice_params().is_empty());
 
-		let _params_1 = negotiate_opening_params(&client, peer_1, 100);
-		let params_2 = negotiate_opening_params(&client, peer_2, 300);
+		let _params_1 = negotiate_invoice_params(&client, peer_1, 100);
+		let params_2 = negotiate_invoice_params(&client, peer_2, 300);
 
-		block_on(client.clear_latest_opening_params(&peer_1)).unwrap();
-		assert_eq!(client.latest_opening_params(), vec![(peer_2, params_2.clone())]);
+		block_on(client.clear_latest_invoice_params(&peer_1)).unwrap();
+		assert_eq!(client.latest_invoice_params(), vec![params_2.clone()]);
 
 		// As we wiped the only state we held for `peer_1`, its entry is pruned entirely (from
 		// memory and the store) by the next `persist` call.
@@ -895,44 +934,44 @@ mod tests {
 		let peer_states = block_on(read_lsps2_client_peer_states(kv_store.clone())).unwrap();
 		assert!(!peer_states.contains_key(&peer_1));
 		let client_2 = setup_test_client_with_store(kv_store, peer_states);
-		assert_eq!(client_2.latest_opening_params(), vec![(peer_2, params_2)]);
+		assert_eq!(client_2.latest_invoice_params(), vec![params_2]);
 
 		// Clearing the parameters of a peer with pending requests wipes the parameters but keeps
 		// the remaining peer state around.
 		let _pending_request_id = client.request_opening_params(peer_2, None);
-		block_on(client.clear_latest_opening_params(&peer_2)).unwrap();
-		assert!(client.latest_opening_params().is_empty());
+		block_on(client.clear_latest_invoice_params(&peer_2)).unwrap();
+		assert!(client.latest_invoice_params().is_empty());
 		assert!(client.per_peer_state.read().unwrap().contains_key(&peer_2));
 	}
 
 	#[test]
-	fn persists_latest_opening_params() {
+	fn persists_latest_invoice_params() {
 		let (client, kv_store, peer_1, peer_2) = setup_test_client();
 
 		// There is nothing to persist until we negotiated parameters.
 		assert!(!block_on(client.persist()).unwrap());
 		assert!(block_on(read_lsps2_client_peer_states(kv_store.clone())).unwrap().is_empty());
 
-		let params_1 = negotiate_opening_params(&client, peer_1, 100);
-		let params_2 = negotiate_opening_params(&client, peer_2, 300);
+		let params_1 = negotiate_invoice_params(&client, peer_1, 100);
+		let params_2 = negotiate_invoice_params(&client, peer_2, 300);
 		assert!(block_on(client.persist()).unwrap());
 
 		// A fresh client initialized from the store returns the persisted parameters.
 		let peer_states = block_on(read_lsps2_client_peer_states(kv_store.clone())).unwrap();
 		let client_2 = setup_test_client_with_store(kv_store.clone(), peer_states);
-		let latest_opening_params = client_2.latest_opening_params();
-		assert_eq!(latest_opening_params.len(), 2);
-		assert!(latest_opening_params.contains(&(peer_1, params_1)));
-		assert!(latest_opening_params.contains(&(peer_2, params_2)));
+		let latest_invoice_params = client_2.latest_invoice_params();
+		assert_eq!(latest_invoice_params.len(), 2);
+		assert!(latest_invoice_params.contains(&params_1));
+		assert!(latest_invoice_params.contains(&params_2));
 
 		// Persisting again is a no-op as long as the state didn't change.
 		assert!(!block_on(client.persist()).unwrap());
 
 		// Negotiating new parameters requires repersistence.
-		let params_3 = negotiate_opening_params(&client, peer_1, 400);
+		let params_3 = negotiate_invoice_params(&client, peer_1, 400);
 		assert!(block_on(client.persist()).unwrap());
 		let peer_states = block_on(read_lsps2_client_peer_states(kv_store.clone())).unwrap();
 		let client_3 = setup_test_client_with_store(kv_store, peer_states);
-		assert!(client_3.latest_opening_params().contains(&(peer_1, params_3)));
+		assert!(client_3.latest_invoice_params().contains(&params_3));
 	}
 }
