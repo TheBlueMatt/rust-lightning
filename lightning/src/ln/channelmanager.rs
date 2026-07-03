@@ -5912,6 +5912,26 @@ impl<
 		self.check_refresh_async_receive_offer_cache(false);
 	}
 
+	/// Forces a refresh of the [`StaticInvoice`]s that a static invoice server is storing and
+	/// serving to payers on our behalf, i.e., rebuilds them based on our currently available
+	/// payment paths and sends the results to the server.
+	///
+	/// This is useful whenever the payment paths that should be included in our invoices change,
+	/// e.g., because new just-in-time channel parameters were negotiated with an LSP. Note that
+	/// stale invoices are also refreshed automatically where needed, this method merely allows
+	/// triggering an immediate refresh of all invoices.
+	///
+	/// This is a no-op if no paths to a static invoice server were set via
+	/// [`Self::set_paths_to_static_invoice_server`].
+	///
+	/// [`StaticInvoice`]: crate::offers::static_invoice::StaticInvoice
+	pub fn refresh_static_invoices(&self) {
+		let peers = self.get_peers_for_blinded_path();
+		let channels = self.list_usable_channels();
+		let router = &self.router;
+		self.flow.refresh_static_invoices(peers, channels, router);
+	}
+
 	/// Should be called after handling an [`Event::PersistStaticInvoice`], where the `Responder`
 	/// comes from [`Event::PersistStaticInvoice::invoice_persisted_path`].
 	pub fn static_invoice_persisted(&self, invoice_persisted_path: Responder) {

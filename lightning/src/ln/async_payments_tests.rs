@@ -2509,6 +2509,80 @@ fn refresh_static_invoices_for_used_offers() {
 
 #[cfg_attr(feature = "std", ignore)]
 #[test]
+fn manually_refresh_static_invoices() {
+	// Check that `ChannelManager::refresh_static_invoices` sends an updated invoice to the server
+	// even for `Ready` offers that wouldn't be refreshed on a timer tick.
+	let chanmon_cfgs = create_chanmon_cfgs(2);
+	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
+	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
+	let nodes = create_network(2, &node_cfgs, &node_chanmgrs);
+	create_unannounced_chan_between_nodes_with_value(&nodes, 0, 1, 1_000_000, 0);
+	let server = &nodes[0];
+	let recipient = &nodes[1];
+
+	let recipient_id = vec![42; 32];
+	let inv_server_paths =
+		server.node.blinded_paths_for_async_recipient(recipient_id.clone(), None).unwrap();
+	recipient.node.set_paths_to_static_invoice_server(inv_server_paths).unwrap();
+	expect_offer_paths_requests(&nodes[1], &[&nodes[0]]);
+
+	// Set up the recipient to have one offer ready and an invoice with the static invoice server.
+	let flow_res = pass_static_invoice_server_messages(server, recipient, recipient_id.clone());
+	let original_invoice = flow_res.invoice;
+
+	// A timer tick doesn't refresh the invoices of `Ready` offers.
+	recipient.node.timer_tick_occurred();
+	expect_offer_paths_requests(&nodes[1], &[&nodes[0]]);
+
+	// Forcing a refresh sends an updated invoice to the server, though.
+	recipient.node.refresh_static_invoices();
+	let pending_oms = recipient.onion_messenger.release_pending_msgs();
+	let serve_static_invoice_om = pending_oms
+		.get(&server.node.get_our_node_id())
+		.unwrap()
+		.iter()
+		.find(|msg| match server.onion_messenger.peel_onion_message(&msg).unwrap() {
+			PeeledOnion::AsyncPayments(AsyncPaymentsMessage::ServeStaticInvoice(_), _, _) => true,
+			PeeledOnion::AsyncPayments(AsyncPaymentsMessage::OfferPathsRequest(_), _, _) => false,
+			_ => panic!("Unexpected message"),
+		})
+		.unwrap();
+
+	server
+		.onion_messenger
+		.handle_onion_message(recipient.node.get_our_node_id(), &serve_static_invoice_om);
+	let mut events = server.node.get_and_clear_pending_events();
+	assert_eq!(events.len(), 1);
+	let ack_path = match events.pop().unwrap() {
+		Event::PersistStaticInvoice {
+			invoice,
+			invoice_slot,
+			invoice_persisted_path,
+			recipient_id: ev_id,
+			..
+		} => {
+			assert_ne!(original_invoice, invoice);
+			assert_eq!(recipient_id, ev_id);
+			// When we update the invoice corresponding to a specific offer, the invoice_slot stays
+			// the same.
+			assert_eq!(invoice_slot, flow_res.invoice_slot);
+			invoice_persisted_path
+		},
+		_ => panic!(),
+	};
+	server.node.static_invoice_persisted(ack_path);
+	let invoice_persisted_om = server
+		.onion_messenger
+		.next_onion_message_for_peer(recipient.node.get_our_node_id())
+		.unwrap();
+	recipient
+		.onion_messenger
+		.handle_onion_message(server.node.get_our_node_id(), &invoice_persisted_om);
+	assert_eq!(recipient.node.flow.test_get_async_receive_offers().len(), 1);
+}
+
+#[cfg_attr(feature = "std", ignore)]
+#[test]
 fn ignore_expired_static_invoice() {
 	// If a server receives an expired static invoice to persist, they should ignore it and not
 	// generate an event.

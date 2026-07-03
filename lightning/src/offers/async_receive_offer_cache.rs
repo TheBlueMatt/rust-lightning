@@ -445,22 +445,25 @@ impl AsyncReceiveOfferCache {
 
 	/// Returns an iterator over the list of cached offers where we need to send an updated invoice to
 	/// the static invoice server.
+	///
+	/// If `force` is set, all cached offers are considered to need an updated invoice.
 	pub(super) fn offers_needing_invoice_refresh(
-		&self, duration_since_epoch: Duration,
+		&self, duration_since_epoch: Duration, force: bool,
 	) -> impl Iterator<Item = (&Offer, Nonce, &Responder)> {
 		// For any offers which are either in use or pending confirmation by the server, we should send
 		// them a fresh invoice on each timer tick.
 		self.offers_with_idx().filter_map(move |(_, offer)| {
-			let needs_invoice_update = match offer.status {
-				OfferStatus::Used { invoice_created_at } => {
-					invoice_created_at.saturating_add(INVOICE_REFRESH_THRESHOLD)
-						< duration_since_epoch
-				},
-				OfferStatus::Pending => true,
-				// Don't bother updating `Ready` offers' invoices on a timer because the offers themselves
-				// are regularly rotated anyway.
-				OfferStatus::Ready { .. } => false,
-			};
+			let needs_invoice_update = force
+				|| match offer.status {
+					OfferStatus::Used { invoice_created_at } => {
+						invoice_created_at.saturating_add(INVOICE_REFRESH_THRESHOLD)
+							< duration_since_epoch
+					},
+					OfferStatus::Pending => true,
+					// Don't bother updating `Ready` offers' invoices on a timer because the offers
+					// themselves are regularly rotated anyway.
+					OfferStatus::Ready { .. } => false,
+				};
 			if needs_invoice_update {
 				Some((&offer.offer, offer.offer_nonce, &offer.update_static_invoice_path))
 			} else {

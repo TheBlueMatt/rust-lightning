@@ -1349,10 +1349,34 @@ impl<MR: MessageRouter, L: Logger> OffersMessageFlow<MR, L> {
 		self.check_refresh_async_offers(peers.clone(), timer_tick_occurred)?;
 
 		if timer_tick_occurred {
-			self.check_refresh_static_invoices(peers, usable_channels, router);
+			self.check_refresh_static_invoices(peers, usable_channels, router, false);
 		}
 
 		Ok(())
+	}
+
+	/// Forces a refresh of the [`StaticInvoice`]s stored with the static invoice server, i.e.,
+	/// rebuilds them based on the currently available payment paths and sends the results to the
+	/// server.
+	///
+	/// This is useful whenever the payment paths that should be included in our invoices change,
+	/// e.g., because new just-in-time channel parameters were negotiated with an LSP. Note that
+	/// stale invoices are also refreshed automatically where needed, this method merely allows
+	/// triggering an immediate refresh of all invoices.
+	///
+	/// This is a no-op if we are not configured as an async recipient.
+	pub fn refresh_static_invoices<R: Router>(
+		&self, peers: Vec<MessageForwardNode>, usable_channels: Vec<ChannelDetails>, router: R,
+	) {
+		// Terminate early if this node does not intend to receive async payments.
+		{
+			let cache = self.async_receive_offer_cache.lock().unwrap();
+			if cache.paths_to_static_invoice_server().is_empty() {
+				return;
+			}
+		}
+
+		self.check_refresh_static_invoices(peers, usable_channels, router, true);
 	}
 
 	fn check_refresh_async_offers(
@@ -1408,12 +1432,15 @@ impl<MR: MessageRouter, L: Logger> OffersMessageFlow<MR, L> {
 	/// server, based on the offers provided by the cache.
 	fn check_refresh_static_invoices<R: Router>(
 		&self, peers: Vec<MessageForwardNode>, usable_channels: Vec<ChannelDetails>, router: R,
+		force: bool,
 	) {
 		let mut serve_static_invoice_msgs = Vec::new();
 		{
 			let duration_since_epoch = self.duration_since_epoch();
 			let cache = self.async_receive_offer_cache.lock().unwrap();
-			for offer_and_metadata in cache.offers_needing_invoice_refresh(duration_since_epoch) {
+			for offer_and_metadata in
+				cache.offers_needing_invoice_refresh(duration_since_epoch, force)
+			{
 				let (offer, offer_nonce, update_static_invoice_path) = offer_and_metadata;
 
 				let (invoice, forward_invreq_path) = match self.create_static_invoice_for_server(
