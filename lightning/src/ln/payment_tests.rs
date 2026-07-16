@@ -6170,7 +6170,7 @@ fn blinded_recipient_insufficient_liquidity() {
 	// visible before we ever send an HTLC is reported as an unpayable invoice rather than a generic
 	// "route not found". Here the recipient's blinded path advertises an `htlc_maximum_msat` below
 	// the payment amount, and our only channel towards the introduction node is too small to carry
-	// it either, so routing fails immediately with `RetryableSendFailure::UnpayableInvoice`.
+	// it either, so routing fails immediately with `RetryableSendFailure::UnpayableInstructions`.
 	let chanmon_cfgs = create_chanmon_cfgs(3);
 	let node_cfgs = create_node_cfgs(3, &chanmon_cfgs);
 	let node_chanmgrs = create_node_chanmgrs(3, &node_cfgs, &[None, None, None]);
@@ -6197,7 +6197,7 @@ fn blinded_recipient_insufficient_liquidity() {
 	let onion = RecipientOnionFields::spontaneous_empty(amt_msat);
 	let id = PaymentId(payment_hash.0);
 	let res = nodes[0].node.send_payment(payment_hash, onion, id, route_params, Retry::Attempts(0));
-	assert_eq!(res, Err(RetryableSendFailure::UnpayableInvoice));
+	assert_eq!(res, Err(RetryableSendFailure::UnpayableInstructions));
 }
 
 #[test]

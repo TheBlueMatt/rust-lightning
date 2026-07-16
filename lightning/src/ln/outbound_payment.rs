@@ -592,10 +592,10 @@ pub enum RetryableSendFailure {
 	/// [`BlindedPaymentPath`]: crate::blinded_path::payment::BlindedPaymentPath
 	OnionPacketSizeExceeded,
 	/// The recipient provided paths which were, in aggregate, insufficient to pay them. This
-	/// indicates the invoice is unpayable likely due to the recipient lacking sufficient liquidity
-	/// to receive the desired payment (or we are not properly synced, and missing parts of the
-	/// graph required to reach the recipient).
-	UnpayableInvoice,
+	/// indicates the payment instructions are unpayable likely due to the recipient lacking
+	/// sufficient liquidity to receive the desired payment (or we are not properly synced, and
+	/// missing parts of the graph required to reach the recipient).
+	UnpayableInstructions,
 }
 
 /// If a payment fails to send to a route, it can be in one of several states. This enum is returned
@@ -1324,7 +1324,8 @@ impl OutboundPayments {
 					RetryableSendFailure::RouteNotFound => PaymentFailureReason::RouteNotFound,
 					RetryableSendFailure::DuplicatePayment => PaymentFailureReason::UnexpectedError,
 					RetryableSendFailure::OnionPacketSizeExceeded => PaymentFailureReason::UnexpectedError,
-					RetryableSendFailure::UnpayableInvoice => PaymentFailureReason::RecipientUnpayable,
+					RetryableSendFailure::UnpayableInstructions =>
+						PaymentFailureReason::RecipientUnpayable,
 				};
 				self.abandon_payment(payment_id, reason, pending_events);
 				return Err(Bolt12PaymentError::SendingFailed(e));
@@ -1712,7 +1713,7 @@ impl OutboundPayments {
 			log_error!(logger, "Failed to find route for payment with id {} and hash {}",
 				payment_id, payment_hash);
 			match e {
-				RoutingError::RecipientUnpayable => RetryableSendFailure::UnpayableInvoice,
+				RoutingError::RecipientUnpayable => RetryableSendFailure::UnpayableInstructions,
 				_ => RetryableSendFailure::RouteNotFound,
 			}
 		})?;
