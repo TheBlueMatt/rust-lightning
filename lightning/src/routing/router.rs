@@ -2283,7 +2283,7 @@ impl<'a> NodeCounters<'a> {
 /// Calculates the introduction point for each blinded path in the given [`PaymentParameters`], if
 /// they can be found.
 #[rustfmt::skip]
-fn calculate_blinded_path_intro_points<'a, L: Logger>(
+fn check_payee_get_blinded_intro_points<'a, L: Logger>(
 	payment_params: &PaymentParameters, node_counters: &'a NodeCounters,
 	network_graph: &ReadOnlyNetworkGraph, logger: &L, our_node_id: NodeId,
 	first_hop_targets: &HashMap<NodeId, (Vec<&ChannelDetails>, u32)>,
@@ -3060,7 +3060,7 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 
 	let node_counters = node_counter_builder.build();
 
-	let introduction_node_id_cache = calculate_blinded_path_intro_points(
+	let introduction_node_id_cache = check_payee_get_blinded_intro_points(
 		&payment_params, &node_counters, network_graph, &logger, our_node_id, &first_hop_targets,
 		final_value_msat,
 	)?;
