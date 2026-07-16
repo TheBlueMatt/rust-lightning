@@ -410,6 +410,11 @@ pub enum RoutingError {
 	///
 	/// The contained string provides a developer-readable description of the specific problem.
 	NoRouteFound(&'static str),
+	/// We hit an unexpected internal error while finding a [`Route`]. This indicates a bug in
+	/// LDK, please report it!
+	///
+	/// The contained string provides a developer-readable description of the specific problem.
+	UnexpectedError(&'static str),
 }
 
 /// A trait defining behavior for routing a payment.
@@ -2796,7 +2801,7 @@ pub fn find_route<L: Logger, GL: Logger, S: ScoreLookUp>(
 		scorer, score_params, random_seed_bytes)?;
 	add_random_cltv_offset(&mut route, &route_params.payment_params, &graph_lock, random_seed_bytes);
 	route.debug_assert_route_meets_params(&logger)
-		.map_err(|()| RoutingError::InvalidRequest("Generated route doesn't comply with the parameters you specified. This indicates a bug in the router. Please report this bug!"))?;
+		.map_err(|()| RoutingError::UnexpectedError("Generated route doesn't comply with the parameters you specified"))?;
 	Ok(route)
 }
 
@@ -3000,13 +3005,13 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 				node_counters.private_node_counter_from_pubkey(&prev_hop_id)
 					.ok_or_else(|| {
 						debug_assert!(false);
-						RoutingError::InvalidRequest("We should always have private target node counters available")
+						RoutingError::UnexpectedError("We should always have private target node counters available")
 					})?;
 			let (_src_id, private_source_node_counter) =
 				node_counters.private_node_counter_from_pubkey(&hop.src_node_id)
 					.ok_or_else(|| {
 						debug_assert!(false);
-						RoutingError::InvalidRequest("We should always have private source node counters available")
+						RoutingError::UnexpectedError("We should always have private source node counters available")
 					})?;
 
 			if let Some((first_channels, _)) = first_hop_targets.get(target) {
@@ -4050,7 +4055,7 @@ pub(crate) fn get_route<L: Logger, S: ScoreLookUp>(
 			};
 
 			hops.push(RouteHop {
-				pubkey: PublicKey::from_slice(target.as_slice()).map_err(|_| RoutingError::InvalidRequest("A PublicKey in NetworkGraph is invalid!"))?,
+				pubkey: PublicKey::from_slice(target.as_slice()).map_err(|_| RoutingError::UnexpectedError("A PublicKey in NetworkGraph is invalid!"))?,
 				node_features: node_features.clone(),
 				short_channel_id: hop.candidate.short_channel_id().unwrap(),
 				channel_features: hop.candidate.features(),
