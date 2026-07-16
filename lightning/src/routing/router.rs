@@ -2371,6 +2371,7 @@ fn check_payee_get_blinded_intro_points<'a, L: Logger>(
 				return Err(RoutingError::InvalidRequest("Cannot generate a route to blinded paths if we are the introduction node to all of them"));
 			}
 			let mut found_untried_path = false;
+			let mut found_self_intro = false;
 			let mut total_paths_value_msat: u64 = 0;
 			for (idx, (blinded_path, info_opt)) in route_hints.iter().zip(introduction_node_id_cache.iter()).enumerate() {
 				if blinded_path.blinded_hops().len() == 0 {
@@ -2382,6 +2383,7 @@ fn check_payee_get_blinded_intro_points<'a, L: Logger>(
 				};
 				if *introduction_node_id == our_node_id {
 					log_info!(logger, "Got blinded path with ourselves as the introduction node, ignoring");
+					found_self_intro = true;
 					continue;
 				} else if blinded_path.blinded_hops().len() == 1 &&
 					route_hints
@@ -2403,11 +2405,12 @@ fn check_payee_get_blinded_intro_points<'a, L: Logger>(
 					}
 				}
 			}
-			if !found_untried_path {
-				return Err(RoutingError::RecipientUnpayable);
-			}
-			if total_paths_value_msat < payment_value_msat {
-				return Err(RoutingError::RecipientUnpayable);
+			if !found_untried_path || total_paths_value_msat < payment_value_msat {
+				if found_self_intro {
+					return Err(RoutingError::UnexpectedError("Blinded paths should have the payee intro node removed before pathfinding"));
+				} else {
+					return Err(RoutingError::RecipientUnpayable);
+				}
 			}
 		}
 	}
@@ -9143,7 +9146,7 @@ mod tests {
 		if let Err(err) = get_route(
 			&our_id, &route_params, &netgraph, None, Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes
 		) {
-			assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
+			assert_eq!(err, RoutingError::UnexpectedError("Blinded paths should have the payee intro node removed before pathfinding"));
 		} else { panic!() }
 	}
 
@@ -9191,7 +9194,7 @@ mod tests {
 		if let Err(err) = get_route(
 			&our_id, &route_params, &netgraph, None, Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes
 		) {
-			assert_eq!(err, RoutingError::NoRouteFound("Failed to find a path to the given destination"));
+			assert_eq!(err, RoutingError::UnexpectedError("Blinded paths should have the payee intro node removed before pathfinding"));
 		} else { panic!() }
 	}
 
