@@ -2314,7 +2314,7 @@ fn check_payee_get_blinded_intro_points<'a, L: Logger>(
 		.collect::<Vec<_>>();
 	match &payment_params.payee {
 		Payee::Clear { route_hints, node_id, .. } => {
-			let mut found_untried_path = false;
+			let mut found_usable_path = false;
 			// Note that while `RouteHintHop` does have a `htlc_maximum_msat` field, BOLT 11
 			// doesn't. Thus its not really worth the complexity of trying to add up how much in
 			// potential paths there is, we just assume if we have at least one first-hop or
@@ -2325,16 +2325,16 @@ fn check_payee_get_blinded_intro_points<'a, L: Logger>(
 					if hop.src_node_id == *node_id {
 						return Err(RoutingError::InvalidRequest("Route hint cannot have the payee as the source."));
 					}
-					if !found_untried_path && first_hop_targets.contains_key(&NodeId::from(hop.src_node_id)) {
-						found_untried_path = true;
+					if !found_usable_path && first_hop_targets.contains_key(&NodeId::from(hop.src_node_id)) {
+						found_usable_path = true;
 					}
 					if !found_failed_hop && payment_params.previously_failed_channels.contains(&hop.short_channel_id) {
 						found_failed_hop = true;
 					}
 				}
-				found_untried_path |= !found_failed_hop;
+				found_usable_path |= !found_failed_hop;
 			}
-			if !found_untried_path {
+			if !found_usable_path {
 				let recipient_id = NodeId::from(*node_id);
 				if !first_hop_targets.contains_key(&recipient_id) {
 					if let Some(node) = network_graph.nodes().get(&recipient_id) {
