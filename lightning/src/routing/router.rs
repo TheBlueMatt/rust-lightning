@@ -6602,8 +6602,17 @@ mod tests {
 			if let Err(err) = get_route(
 				&our_id, &route_params, &network_graph.read_only(), None,
 				Arc::clone(&logger), &scorer, &Default::default(), &random_seed_bytes) {
-					assert!(err == RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination") ||
-							err == RoutingError::RecipientUnpayable);
+					// We only total the amounts we can send for > 1 hop blinded paths.
+					// Clear hints generally don't have max amounts as BOLT 11 doesn't provide it,
+					// and 1-hop blinded paths we simply assume have sufficient liquidity.
+					if matches!(
+						&payment_params.payee,
+						Payee::Blinded { route_hints, .. } if route_hints[0].blinded_hops().len() > 1
+					) {
+						assert_eq!(err, RoutingError::RecipientUnpayable);
+					} else {
+						assert_eq!(err, RoutingError::NoRouteFound("Failed to find a sufficient route to the given destination"));
+					}
 			} else { panic!(); }
 		}
 
