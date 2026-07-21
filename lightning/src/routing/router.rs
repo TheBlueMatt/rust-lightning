@@ -2280,8 +2280,9 @@ impl<'a> NodeCounters<'a> {
 	}
 }
 
-/// Calculates the introduction point for each blinded path in the given [`PaymentParameters`], if
-/// they can be found.
+/// Examines the blinded path introduction point(s), clear route hints, or recipient node to decide
+/// if its possible to pay them at all. For blinded paths, returns the introduction point for each
+/// blinded path, if found.
 #[rustfmt::skip]
 fn check_payee_get_blinded_intro_points<'a, L: Logger>(
 	payment_params: &PaymentParameters, node_counters: &'a NodeCounters,
