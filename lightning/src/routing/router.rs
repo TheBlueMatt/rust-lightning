@@ -2338,6 +2338,9 @@ fn check_payee_get_blinded_intro_points<'a, L: Logger>(
 				let recipient_id = NodeId::from(*node_id);
 				if !first_hop_targets.contains_key(&recipient_id) {
 					if let Some(node) = network_graph.nodes().get(&recipient_id) {
+						// If a node has more than 10 untried channels, don't bother trying to
+						// calculate its remaining capacity (which may require walking quite a few
+						// channels).
 						if node.channels.len() <= payment_params.previously_failed_channels.len() + 10 {
 							let mut total_chan_value_msat: u64 = 0;
 							for scid in node.channels.iter() {
