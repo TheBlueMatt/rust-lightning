@@ -2326,7 +2326,7 @@ fn check_payee_get_blinded_intro_points<'a, L: Logger>(
 					if hop.src_node_id == *node_id {
 						return Err(RoutingError::InvalidRequest("Route hint cannot have the payee as the source."));
 					}
-					if !found_usable_path && first_hop_targets.contains_key(&NodeId::from(hop.src_node_id)) {
+					if !found_usable_path && route.0.len() == 1 && first_hop_targets.contains_key(&NodeId::from(hop.src_node_id)) {
 						found_usable_path = true;
 					}
 					if !found_failed_hop && payment_params.previously_failed_channels.contains(&hop.short_channel_id) {
