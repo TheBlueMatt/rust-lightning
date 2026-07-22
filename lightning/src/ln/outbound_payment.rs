@@ -1801,6 +1801,7 @@ impl OutboundPayments {
 				log_error!(logger, "Failed to find a route on retry, abandoning payment {}: {:#?}", &payment_id, e);
 				let reason = match e {
 					RoutingError::RecipientUnpayable => PaymentFailureReason::RecipientUnpayable,
+					RoutingError::UnexpectedError(_) => PaymentFailureReason::UnexpectedError,
 					_ => PaymentFailureReason::RouteNotFound,
 				};
 				self.abandon_payment(payment_id, reason, pending_events);
