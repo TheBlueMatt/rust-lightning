@@ -2320,7 +2320,7 @@ fn check_payee_get_blinded_intro_points<'a, L: Logger>(
 			// doesn't. Thus its not really worth the complexity of trying to add up how much in
 			// potential paths there is, we just assume if we have at least one first-hop or
 			// last-hop path it might suffice.
-			for route in route_hints.iter() {
+			for route in route_hints.iter().filter(|path| !path.0.is_empty())  {
 				let mut found_failed_hop = false;
 				for hop in &route.0 {
 					if hop.src_node_id == *node_id {
