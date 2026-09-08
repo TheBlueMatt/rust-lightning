@@ -636,12 +636,14 @@ pub(crate) mod futures_util {
 		C: Future<Output = Result<(), ERR>> + Unpin,
 		D: Future<Output = Result<(), ERR>> + Unpin,
 		E: Future<Output = Result<(), ERR>> + Unpin,
+		F: Future<Output = Result<(), ERR>> + Unpin,
 	> {
 		a: JoinerResult<ERR, A>,
 		b: JoinerResult<ERR, B>,
 		c: JoinerResult<ERR, C>,
 		d: JoinerResult<ERR, D>,
 		e: JoinerResult<ERR, E>,
+		f: JoinerResult<ERR, F>,
 	}
 
 	impl<
@@ -651,7 +653,8 @@ pub(crate) mod futures_util {
 			C: Future<Output = Result<(), ERR>> + Unpin,
 			D: Future<Output = Result<(), ERR>> + Unpin,
 			E: Future<Output = Result<(), ERR>> + Unpin,
-		> Joiner<ERR, A, B, C, D, E>
+			F: Future<Output = Result<(), ERR>> + Unpin,
+		> Joiner<ERR, A, B, C, D, E, F>
 	{
 		pub(crate) fn new() -> Self {
 			Self {
@@ -660,6 +663,7 @@ pub(crate) mod futures_util {
 				c: JoinerResult::Pending(None),
 				d: JoinerResult::Pending(None),
 				e: JoinerResult::Pending(None),
+				f: JoinerResult::Pending(None),
 			}
 		}
 
@@ -681,6 +685,9 @@ pub(crate) mod futures_util {
 		pub(crate) fn set_e(&mut self, fut: E) {
 			self.e = JoinerResult::Pending(Some(fut));
 		}
+		pub(crate) fn set_f(&mut self, fut: F) {
+			self.f = JoinerResult::Pending(Some(fut));
+		}
 	}
 
 	impl<
@@ -690,11 +697,12 @@ pub(crate) mod futures_util {
 			C: Future<Output = Result<(), ERR>> + Unpin,
 			D: Future<Output = Result<(), ERR>> + Unpin,
 			E: Future<Output = Result<(), ERR>> + Unpin,
-		> Future for Joiner<ERR, A, B, C, D, E>
+			F: Future<Output = Result<(), ERR>> + Unpin,
+		> Future for Joiner<ERR, A, B, C, D, E, F>
 	where
-		Joiner<ERR, A, B, C, D, E>: Unpin,
+		Joiner<ERR, A, B, C, D, E, F>: Unpin,
 	{
-		type Output = [Result<(), ERR>; 5];
+		type Output = [Result<(), ERR>; 6];
 		fn poll(mut self: Pin<&mut Self>, ctx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
 			let mut all_complete = true;
 			macro_rules! handle {
@@ -722,9 +730,10 @@ pub(crate) mod futures_util {
 			handle!(c);
 			handle!(d);
 			handle!(e);
+			handle!(f);
 
 			if all_complete {
-				let mut res = [Ok(()), Ok(()), Ok(()), Ok(()), Ok(())];
+				let mut res = [Ok(()), Ok(()), Ok(()), Ok(()), Ok(()), Ok(())];
 				if let JoinerResult::Ready(ref mut val) = &mut self.a {
 					core::mem::swap(&mut res[0], val);
 				}
@@ -739,6 +748,9 @@ pub(crate) mod futures_util {
 				}
 				if let JoinerResult::Ready(ref mut val) = &mut self.e {
 					core::mem::swap(&mut res[4], val);
+				}
+				if let JoinerResult::Ready(ref mut val) = &mut self.f {
+					core::mem::swap(&mut res[5], val);
 				}
 				Poll::Ready(res)
 			} else {
@@ -1040,18 +1052,6 @@ where
 			om.get_om().process_pending_events_async(async_event_handler).await
 		}
 
-		// Note that the PeerManager::process_events may block on ChannelManager's locks,
-		// hence it comes last here. When the ChannelManager finishes whatever it's doing,
-		// we want to ensure we get into `persist_manager` as quickly as we can, especially
-		// without running the normal event processing above and handing events to users.
-		//
-		// Specifically, on an *extremely* slow machine, we may see ChannelManager start
-		// processing a message effectively at any point during this loop. In order to
-		// minimize the time between such processing completing and persisting the updated
-		// ChannelManager, we want to minimize methods blocking on a ChannelManager
-		// generally, and as a fallback place such blocking only immediately before
-		// persistence.
-		peer_manager.as_ref().process_events();
 		match check_and_reset_sleeper(&mut last_forwards_processing_call, || {
 			sleeper(batch_delay.next())
 		}) {
@@ -1339,6 +1339,15 @@ where
 			}
 		});
 		futures.set_e(lm_fut);
+
+		let pm_events_fut = core::pin::pin!(async {
+			// Once the persistence tasks are in-flight, also go ahead and process
+			// peer_manager events. For async operations this is "free" in that the cost of it is
+			// hidden behind the writes which we're waiting on anyway.
+			peer_manager.as_ref().process_events();
+			Ok(())
+		});
+		futures.set_f(pm_events_fut);
 
 		// Run persistence tasks in parallel and exit if any of them returns an error.
 		for res in futures.await {
