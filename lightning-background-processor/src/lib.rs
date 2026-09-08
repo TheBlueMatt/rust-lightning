@@ -637,6 +637,7 @@ pub(crate) mod futures_util {
 		D: Future<Output = Result<(), ERR>> + Unpin,
 		E: Future<Output = Result<(), ERR>> + Unpin,
 		F: Future<Output = Result<(), ERR>> + Unpin,
+		G: Future<Output = Result<(), ERR>> + Unpin,
 	> {
 		a: JoinerResult<ERR, A>,
 		b: JoinerResult<ERR, B>,
@@ -644,6 +645,7 @@ pub(crate) mod futures_util {
 		d: JoinerResult<ERR, D>,
 		e: JoinerResult<ERR, E>,
 		f: JoinerResult<ERR, F>,
+		g: JoinerResult<ERR, G>,
 	}
 
 	impl<
@@ -654,7 +656,8 @@ pub(crate) mod futures_util {
 			D: Future<Output = Result<(), ERR>> + Unpin,
 			E: Future<Output = Result<(), ERR>> + Unpin,
 			F: Future<Output = Result<(), ERR>> + Unpin,
-		> Joiner<ERR, A, B, C, D, E, F>
+			G: Future<Output = Result<(), ERR>> + Unpin,
+		> Joiner<ERR, A, B, C, D, E, F, G>
 	{
 		pub(crate) fn new() -> Self {
 			Self {
@@ -664,6 +667,7 @@ pub(crate) mod futures_util {
 				d: JoinerResult::Pending(None),
 				e: JoinerResult::Pending(None),
 				f: JoinerResult::Pending(None),
+				g: JoinerResult::Pending(None),
 			}
 		}
 
@@ -688,6 +692,9 @@ pub(crate) mod futures_util {
 		pub(crate) fn set_f(&mut self, fut: F) {
 			self.f = JoinerResult::Pending(Some(fut));
 		}
+		pub(crate) fn set_g(&mut self, fut: G) {
+			self.g = JoinerResult::Pending(Some(fut));
+		}
 	}
 
 	impl<
@@ -698,11 +705,12 @@ pub(crate) mod futures_util {
 			D: Future<Output = Result<(), ERR>> + Unpin,
 			E: Future<Output = Result<(), ERR>> + Unpin,
 			F: Future<Output = Result<(), ERR>> + Unpin,
-		> Future for Joiner<ERR, A, B, C, D, E, F>
+			G: Future<Output = Result<(), ERR>> + Unpin,
+		> Future for Joiner<ERR, A, B, C, D, E, F, G>
 	where
-		Joiner<ERR, A, B, C, D, E, F>: Unpin,
+		Joiner<ERR, A, B, C, D, E, F, G>: Unpin,
 	{
-		type Output = [Result<(), ERR>; 6];
+		type Output = [Result<(), ERR>; 7];
 		fn poll(mut self: Pin<&mut Self>, ctx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
 			let mut all_complete = true;
 			macro_rules! handle {
@@ -731,9 +739,10 @@ pub(crate) mod futures_util {
 			handle!(d);
 			handle!(e);
 			handle!(f);
+			handle!(g);
 
 			if all_complete {
-				let mut res = [Ok(()), Ok(()), Ok(()), Ok(()), Ok(()), Ok(())];
+				let mut res = [Ok(()), Ok(()), Ok(()), Ok(()), Ok(()), Ok(()), Ok(())];
 				if let JoinerResult::Ready(ref mut val) = &mut self.a {
 					core::mem::swap(&mut res[0], val);
 				}
@@ -751,6 +760,9 @@ pub(crate) mod futures_util {
 				}
 				if let JoinerResult::Ready(ref mut val) = &mut self.f {
 					core::mem::swap(&mut res[5], val);
+				}
+				if let JoinerResult::Ready(ref mut val) = &mut self.g {
+					core::mem::swap(&mut res[6], val);
 				}
 				Poll::Ready(res)
 			} else {
@@ -1045,13 +1057,13 @@ where
 
 	let mut last_forwards_processing_call = sleeper(batch_delay.get());
 
-	loop {
-		channel_manager.get_cm().process_pending_events_async(async_event_handler).await;
-		chain_monitor.get_cm().process_pending_events_async(async_event_handler).await;
-		if let Some(om) = &onion_messenger {
-			om.get_om().process_pending_events_async(async_event_handler).await
-		}
+	channel_manager.get_cm().process_pending_events_async(async_event_handler).await;
+	chain_monitor.get_cm().process_pending_events_async(async_event_handler).await;
+	if let Some(om) = &onion_messenger {
+		om.get_om().process_pending_events_async(async_event_handler).await
+	}
 
+	loop {
 		match check_and_reset_sleeper(&mut last_forwards_processing_call, || {
 			sleeper(batch_delay.next())
 		}) {
@@ -1340,14 +1352,24 @@ where
 		});
 		futures.set_e(lm_fut);
 
+		let ev_fut = core::pin::pin!(async {
+			channel_manager.get_cm().process_pending_events_async(async_event_handler).await;
+			chain_monitor.get_cm().process_pending_events_async(async_event_handler).await;
+			if let Some(om) = &onion_messenger {
+				om.get_om().process_pending_events_async(async_event_handler).await
+			}
+			Ok(())
+		});
+		futures.set_f(ev_fut);
+
 		let pm_events_fut = core::pin::pin!(async {
 			// Once the persistence tasks are in-flight, also go ahead and process
 			// peer_manager events. For async operations this is "free" in that the cost of it is
-			// hidden behind the writes which we're waiting on anyway.
+			// hidden behind the writes/event processing which we're waiting on anyway.
 			peer_manager.as_ref().process_events();
 			Ok(())
 		});
-		futures.set_f(pm_events_fut);
+		futures.set_g(pm_events_fut);
 
 		// Run persistence tasks in parallel and exit if any of them returns an error.
 		for res in futures.await {
@@ -1376,11 +1398,8 @@ where
 			// We detect this by checking if our max-100ms-sleep, above, ran longer than a
 			// full second, at which point we assume sockets may have been killed (they
 			// appear to be at least on some platforms, even if it has only been a second).
-			// Note that we have to take care to not get here just because user event
-			// processing was slow at the top of the loop. For example, the sample client
-			// may call Bitcoin Core RPCs during event handling, which very often takes
-			// more than a handful of seconds to complete, and shouldn't disconnect all our
-			// peers.
+			// Note that we have to take care to not get here just because persistence or event
+			// processing above was slow.
 			log_trace!(logger, "100ms sleep took more than a second, disconnecting peers.");
 			peer_manager.as_ref().disconnect_all_peers();
 			last_ping_call = sleeper(PING_TIMER);
