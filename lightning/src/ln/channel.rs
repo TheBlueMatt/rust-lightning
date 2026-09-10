@@ -60,7 +60,9 @@ use crate::ln::channelmanager::{
 	PendingHTLCStatus, RAACommitmentOrder, SentHTLCId, TrustedChannelFeatures, TxSignaturesOrder,
 	BREAKDOWN_TIMEOUT, MAX_LOCAL_BREAKDOWN_TIMEOUT, MIN_CLTV_EXPIRY_DELTA,
 };
-use crate::ln::funding::{FeeRateAdjustmentError, FundingContribution, FundingTemplate};
+use crate::ln::funding::{
+	FeeRateAdjustmentError, FundingContribution, FundingTemplate, PendingFundingComponents,
+};
 use crate::ln::interactivetxs::{
 	AbortReason, HandleTxCompleteValue, InteractiveTxConstructor, InteractiveTxConstructorArgs,
 	InteractiveTxMessageSend, InteractiveTxSigningSession, SharedOwnedInput, SharedOwnedOutput,
@@ -3084,8 +3086,16 @@ impl<'a> FundingComponentSet<'a> {
 		self
 	}
 
+	/// Collects the components into an owned record that a contribution can carry with it.
+	fn to_pending_components(&self) -> PendingFundingComponents {
+		PendingFundingComponents::new(
+			self.inputs().collect(),
+			self.outputs().map(|script| script.to_owned()).collect(),
+		)
+	}
+
 	fn splice_funding_failed(&self, contribution: FundingContribution) -> SpliceFundingFailed {
-		SpliceFundingFailed::from_contribution(contribution, self.inputs(), self.outputs())
+		SpliceFundingFailed::from_contribution(contribution, self.to_pending_components())
 	}
 }
 
@@ -7494,19 +7504,20 @@ pub(super) struct SpliceRbfAbort {
 }
 
 impl SpliceFundingFailed {
-	fn from_contribution<'a>(
-		contribution: FundingContribution,
-		existing_inputs: impl Iterator<Item = bitcoin::OutPoint>,
-		existing_outputs: impl Iterator<Item = &'a bitcoin::Script>,
+	/// Builds a failure for `contribution`, releasing only the inputs and outputs not among
+	/// `pending_components`, which remain committed to an existing splice attempt.
+	fn from_contribution(
+		contribution: FundingContribution, pending_components: PendingFundingComponents,
 	) -> Self {
-		let filtered =
-			contribution.clone().into_unique_contributions(existing_inputs, existing_outputs);
-		match filtered {
-			None => Self { contributed_inputs: vec![], contributed_outputs: vec![], contribution },
-			Some((contributed_inputs, contributed_outputs)) => {
-				Self { contributed_inputs, contributed_outputs, contribution }
-			},
-		}
+		let (contributed_inputs, contributed_outputs) = contribution
+			.unique_contributions(pending_components.inputs(), pending_components.output_scripts())
+			.map(|(inputs, outputs)| (inputs, outputs.into_iter().cloned().collect()))
+			.unwrap_or_default();
+		// The contribution may be fed back to `funding_contributed` to retry. Have it carry what it
+		// overlapped with so that, if the retry is refused once the channel is gone, the overlapping
+		// inputs and outputs are again withheld from the funding reported as discarded.
+		let contribution = contribution.with_pending_components(pending_components);
+		Self { contributed_inputs, contributed_outputs, contribution }
 	}
 
 	/// Splits into the funding info for `DiscardFunding` (if there are inputs or outputs to
@@ -7558,8 +7569,7 @@ where
 			},
 			None => SpliceFundingFailed::from_contribution(
 				contribution,
-				core::iter::empty(),
-				core::iter::empty(),
+				PendingFundingComponents::default(),
 			),
 		}
 	}
@@ -13320,11 +13330,24 @@ where
 			satisfaction_weight: EMPTY_SCRIPT_SIG_WEIGHT + FUNDING_TRANSACTION_WITNESS_WEIGHT,
 		};
 
+		// Contributions built from the template may reuse inputs and outputs committed to pending
+		// rounds (e.g., an RBF reusing the prior round's inputs). Have them carry a record of those
+		// so that, should the channel be gone by the time a contribution is submitted, its
+		// rejection does not report them as discarded while a pending round could still confirm.
+		// This applies whether or not the template allows RBF, as a contribution may reuse them
+		// regardless. A queued contribution cannot exist here, as checked above.
+		let pending_components = self
+			.pending_splice
+			.as_ref()
+			.map(|pending_splice| pending_splice.funding_components().to_pending_components())
+			.unwrap_or_default();
+
 		Ok(FundingTemplate::new(
 			Some(shared_input),
 			min_rbf_feerate,
 			prior_contribution,
 			spliceable_balance,
+			pending_components,
 		))
 	}
 
@@ -13624,6 +13647,11 @@ where
 				.map_or(true, |funding_negotiation| !funding_negotiation.is_initiator()),
 			"A queued splice must not coexist with a funding negotiation we initiated",
 		);
+
+		// The channel's own state is authoritative for which inputs and outputs are committed to
+		// pending rounds from here on, so drop the record the contribution carried in, keeping it
+		// out of the channel state and thus out of anything derived from it.
+		let contribution = contribution.without_pending_components();
 
 		self.propose_quiescence(logger, QuiescentAction::Splice { contribution, locktime })
 	}

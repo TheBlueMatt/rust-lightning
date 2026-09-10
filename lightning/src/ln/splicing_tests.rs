@@ -27,7 +27,9 @@ use crate::ln::channelmanager::{
 	provided_init_features, PaymentId, RAACommitmentOrder, BREAKDOWN_TIMEOUT,
 };
 use crate::ln::functional_test_utils::*;
-use crate::ln::funding::{FundingContribution, FundingContributionError, FundingTemplate};
+use crate::ln::funding::{
+	FundingContribution, FundingContributionError, FundingTemplate, PendingFundingComponents,
+};
 use crate::ln::msgs::{self, BaseMessageHandler, ChannelMessageHandler, MessageSendEvent};
 use crate::ln::outbound_payment::RecipientOnionFields;
 use crate::ln::types::ChannelId;
@@ -6952,6 +6954,304 @@ fn test_funding_contributed_unfunded_channel() {
 	);
 
 	expect_discard_funding_event(&nodes[0], &unfunded_channel_id, funding_contribution);
+}
+
+/// The inputs and output scripts committed to by a negotiated splice round with the given
+/// contribution, as recorded on contributions built while that round is pending.
+#[cfg(test)]
+fn pending_components_of(contribution: &FundingContribution) -> PendingFundingComponents {
+	PendingFundingComponents::new(
+		contribution.contributed_inputs().collect(),
+		contribution.contributed_outputs().map(|script| script.to_owned()).collect(),
+	)
+}
+
+#[cfg(test)]
+fn splice_candidates<'a, 'b, 'c, 'd>(
+	node: &'a Node<'b, 'c, 'd>, channel_id: &ChannelId,
+) -> Vec<SpliceCandidateDetails> {
+	node.node
+		.list_channels()
+		.iter()
+		.find(|channel| channel.channel_id == *channel_id)
+		.unwrap()
+		.splice_details
+		.clone()
+		.unwrap()
+		.candidates
+}
+
+#[test]
+fn test_funding_contributed_after_force_close_withholds_pending_splice_funding() {
+	// Contributions built while a splice is pending may reuse its inputs and outputs, e.g., a fee
+	// bump reusing the prior round's inputs. If the channel is force closed before such a
+	// contribution is submitted, its rejection must not report those inputs and outputs as
+	// discarded: the pending splice transaction may still confirm, and re-spending them would
+	// double-spend it.
+	let chanmon_cfgs = create_chanmon_cfgs(2);
+	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
+	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
+	let nodes = create_network(2, &node_cfgs, &node_chanmgrs);
+
+	let node_id_1 = nodes[1].node.get_our_node_id();
+	let (_, _, channel_id, _) =
+		create_announced_chan_between_nodes_with_value(&nodes, 0, 1, 100_000, 0);
+
+	let added_value = Amount::from_sat(50_000);
+	provide_utxo_reserves(&nodes, 1, added_value * 2);
+
+	// Negotiate a splice that remains unconfirmed.
+	let prior_contribution = do_initiate_splice_in(&nodes[0], &nodes[1], channel_id, added_value);
+	let _ = splice_channel(&nodes[0], &nodes[1], channel_id, prior_contribution.clone());
+	let prior_inputs = prior_contribution.contributed_inputs().collect::<Vec<_>>();
+	let change_script = prior_contribution.change_output().unwrap().script_pubkey.clone();
+
+	// Build contributions from templates obtained while the splice is pending. Each must be built
+	// before the channel is closed, as a template requires the channel to exist.
+	let rbf_feerate = FeeRate::from_sat_per_kwu(FEERATE_FLOOR_SATS_PER_KW as u64 + 25);
+
+	// A fee bump reusing the pending splice's inputs and change output.
+	let wallet = WalletSync::new(Arc::clone(&nodes[0].wallet_source), nodes[0].logger);
+	let funding_template = nodes[0].node.splice_channel(&channel_id, &node_id_1).unwrap();
+	let rbf_contribution =
+		funding_template.rbf_prior_contribution_sync(None, FeeRate::MAX, &wallet).unwrap();
+	assert_eq!(rbf_contribution.contributed_inputs().collect::<Vec<_>>(), prior_inputs);
+	assert_eq!(rbf_contribution.change_output().unwrap().script_pubkey, change_script);
+
+	// A fee bump reusing the pending splice's inputs while adding a new output.
+	let new_output = TxOut {
+		value: Amount::from_sat(1_000),
+		script_pubkey: ScriptBuf::new_p2wpkh(&WPubkeyHash::all_zeros()),
+	};
+	let funding_template = nodes[0].node.splice_channel(&channel_id, &node_id_1).unwrap();
+	let rbf_with_output_contribution = funding_template
+		.with_prior_contribution(rbf_feerate, FeeRate::MAX)
+		.add_output(new_output.clone())
+		.build()
+		.unwrap();
+	assert_eq!(rbf_with_output_contribution.contributed_inputs().collect::<Vec<_>>(), prior_inputs);
+
+	// A fresh contribution from different UTXOs, sharing only the wallet's change script.
+	nodes[0].wallet_source.clear_utxos();
+	provide_utxo_reserves(&nodes, 1, added_value * 2);
+	let wallet = WalletSync::new(Arc::clone(&nodes[0].wallet_source), nodes[0].logger);
+	let funding_template = nodes[0].node.splice_channel(&channel_id, &node_id_1).unwrap();
+	let fresh_contribution = funding_template
+		.without_prior_contribution(rbf_feerate, FeeRate::MAX)
+		.with_coin_selection_source_sync(&wallet)
+		.add_value(added_value)
+		.unwrap()
+		.build()
+		.unwrap();
+	let fresh_inputs = fresh_contribution.contributed_inputs().collect::<Vec<_>>();
+	assert!(fresh_inputs.iter().all(|input| !prior_inputs.contains(input)));
+	assert_eq!(fresh_contribution.change_output().unwrap().script_pubkey, change_script);
+
+	// Force close the channel while the splice remains unconfirmed.
+	nodes[0]
+		.node
+		.force_close_broadcasting_latest_txn(&channel_id, &node_id_1, "test".to_owned())
+		.unwrap();
+	handle_bump_events(&nodes[0], true, 0);
+	check_closed_events(
+		&nodes[0],
+		&[ExpectedCloseEvent { channel_id: Some(channel_id), ..Default::default() }],
+	);
+	check_closed_broadcast(&nodes[0], 1, true);
+	check_added_monitors(&nodes[0], 1);
+
+	// A fee bump entirely reusing the pending splice's inputs and outputs has nothing to discard.
+	assert_eq!(
+		nodes[0].node.funding_contributed(&channel_id, &node_id_1, rbf_contribution, None),
+		Err(APIError::no_such_channel_for_peer(&channel_id, &node_id_1)),
+	);
+	assert!(nodes[0].node.get_and_clear_pending_events().is_empty());
+
+	// Only the output not committed to the pending splice is reported as discarded.
+	assert_eq!(
+		nodes[0].node.funding_contributed(
+			&channel_id,
+			&node_id_1,
+			rbf_with_output_contribution,
+			None
+		),
+		Err(APIError::no_such_channel_for_peer(&channel_id, &node_id_1)),
+	);
+	let (discarded_inputs, discarded_outputs) = expect_rejected_rbf_event(&nodes[0], &channel_id);
+	assert!(discarded_inputs.is_empty());
+	assert_eq!(discarded_outputs, vec![new_output.script_pubkey]);
+
+	// A fresh contribution's inputs are reported as discarded. Its change output is withheld since
+	// the pending splice's change output uses the same script.
+	assert_eq!(
+		nodes[0].node.funding_contributed(&channel_id, &node_id_1, fresh_contribution, None),
+		Err(APIError::no_such_channel_for_peer(&channel_id, &node_id_1)),
+	);
+	let (discarded_inputs, discarded_outputs) = expect_rejected_rbf_event(&nodes[0], &channel_id);
+	assert_eq!(discarded_inputs, fresh_inputs);
+	assert!(discarded_outputs.is_empty());
+}
+
+#[test]
+fn test_funding_contributed_drops_pending_components_from_channel_state() {
+	// A contribution built from a template records the inputs and outputs committed to pending
+	// splice rounds. The record only serves to reject the contribution without a channel to check
+	// against: it must not enter the channel state, be serialized, or affect equality.
+	let chanmon_cfgs = create_chanmon_cfgs(2);
+	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
+	let (persister_0, chain_monitor_0);
+	let node_0;
+	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
+	let mut nodes = create_network(2, &node_cfgs, &node_chanmgrs);
+
+	let node_id_1 = nodes[1].node.get_our_node_id();
+	let (_, _, channel_id, _) =
+		create_announced_chan_between_nodes_with_value(&nodes, 0, 1, 100_000, 0);
+
+	let added_value = Amount::from_sat(50_000);
+	provide_utxo_reserves(&nodes, 1, added_value * 2);
+
+	// With no splice pending, a contribution records nothing.
+	let prior_contribution = do_initiate_splice_in(&nodes[0], &nodes[1], channel_id, added_value);
+	assert!(prior_contribution.pending_components().is_none());
+	let _ = splice_channel(&nodes[0], &nodes[1], channel_id, prior_contribution.clone());
+	let pending_components = pending_components_of(&prior_contribution);
+
+	// With a splice pending, contributions built from a template record its inputs and outputs.
+	// The record is not compared.
+	let rbf_feerate = FeeRate::from_sat_per_kwu(FEERATE_FLOOR_SATS_PER_KW as u64 + 25);
+	let funding_template = nodes[0].node.splice_channel(&channel_id, &node_id_1).unwrap();
+	assert_eq!(
+		funding_template.prior_contribution().unwrap().pending_components(),
+		Some(&pending_components)
+	);
+	let rbf_contribution =
+		funding_template.with_prior_contribution(rbf_feerate, FeeRate::MAX).build().unwrap();
+	assert_eq!(rbf_contribution.pending_components(), Some(&pending_components));
+	let stripped_contribution = rbf_contribution.clone().without_pending_components();
+	assert!(stripped_contribution.pending_components().is_none());
+	assert_eq!(stripped_contribution, rbf_contribution);
+
+	// Once submitted, the channel holds the contribution without the record, both while queued
+	// and once negotiating.
+	nodes[0]
+		.node
+		.funding_contributed(&channel_id, &node_id_1, rbf_contribution.clone(), None)
+		.unwrap();
+	let candidates = splice_candidates(&nodes[0], &channel_id);
+	assert_eq!(candidates.len(), 2);
+	assert_eq!(candidates[1].status, SpliceCandidateStatus::WaitingOnQuiescence);
+	let queued_contribution = candidates[1].contribution.as_ref().unwrap();
+	assert_eq!(queued_contribution, &rbf_contribution);
+	assert!(queued_contribution.pending_components().is_none());
+
+	complete_rbf_handshake(&nodes[0], &nodes[1]);
+	let candidates = splice_candidates(&nodes[0], &channel_id);
+	assert_eq!(candidates.len(), 2);
+	assert!(matches!(candidates[1].status, SpliceCandidateStatus::ConstructingTransaction { .. }));
+	let negotiating_contribution = candidates[1].contribution.as_ref().unwrap();
+	assert_eq!(negotiating_contribution, &rbf_contribution);
+	assert!(negotiating_contribution.pending_components().is_none());
+
+	// Reloading drops the negotiation in progress and reports its contribution as failed. Nothing
+	// is discarded, as the fee bump only reused what the pending splice committed to. The failed
+	// contribution carries the record, which survives the failure event being serialized along
+	// with the channel manager, so a retry refused once the channel is gone still withholds them.
+	let encoded_monitor_0 = get_monitor!(nodes[0], channel_id).encode();
+	reload_node!(
+		nodes[0],
+		nodes[0].node.encode(),
+		&[&encoded_monitor_0],
+		persister_0,
+		chain_monitor_0,
+		node_0
+	);
+	let mut events = nodes[0].node.get_and_clear_pending_events();
+	assert_eq!(events.len(), 1, "{events:?}");
+	match events.pop().unwrap() {
+		Event::SpliceNegotiationFailed { contribution: Some(failed_contribution), .. } => {
+			assert_eq!(failed_contribution.contribution(), &rbf_contribution);
+			assert_eq!(
+				failed_contribution.contribution().pending_components(),
+				Some(&pending_components)
+			);
+			assert!(failed_contribution.contributed_inputs().is_empty());
+			assert!(failed_contribution.contributed_outputs().is_empty());
+		},
+		event => panic!("Unexpected event {event:?}"),
+	}
+
+	// The negotiated candidate survives the reload, still without a record.
+	let candidates = splice_candidates(&nodes[0], &channel_id);
+	assert_eq!(candidates.len(), 1);
+	let negotiated_contribution = candidates[0].contribution.as_ref().unwrap();
+	assert_eq!(negotiated_contribution, &prior_contribution);
+	assert!(negotiated_contribution.pending_components().is_none());
+}
+
+#[test]
+fn test_funding_contributed_retry_after_force_close_withholds_pending_splice_funding() {
+	// When a splice negotiation fails, the contribution reported with the failure can be fed back
+	// to `funding_contributed` to retry. If the channel is gone by then, the refusal must still
+	// withhold the inputs and outputs committed to a splice that remains pending.
+	let chanmon_cfgs = create_chanmon_cfgs(2);
+	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
+	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
+	let nodes = create_network(2, &node_cfgs, &node_chanmgrs);
+
+	let node_id_1 = nodes[1].node.get_our_node_id();
+	let (_, _, channel_id, _) =
+		create_announced_chan_between_nodes_with_value(&nodes, 0, 1, 100_000, 0);
+
+	let added_value = Amount::from_sat(50_000);
+	provide_utxo_reserves(&nodes, 1, added_value * 2);
+
+	// Negotiate a splice that remains unconfirmed.
+	let prior_contribution = do_initiate_splice_in(&nodes[0], &nodes[1], channel_id, added_value);
+	let _ = splice_channel(&nodes[0], &nodes[1], channel_id, prior_contribution.clone());
+	let pending_components = pending_components_of(&prior_contribution);
+
+	// Start negotiating a fee bump reusing the pending splice's inputs and change output.
+	let rbf_feerate = FeeRate::from_sat_per_kwu(FEERATE_FLOOR_SATS_PER_KW as u64 + 25);
+	let rbf_contribution = do_initiate_rbf_splice_in(&nodes[0], &nodes[1], channel_id, rbf_feerate);
+	complete_rbf_handshake(&nodes[0], &nodes[1]);
+	let _ = get_event_msg!(nodes[0], MessageSendEvent::SendTxAddInput, node_id_1);
+
+	// Force closing fails the negotiation. Nothing is discarded, as the fee bump only reused what
+	// the pending splice committed to, and the failed contribution records those components.
+	nodes[0]
+		.node
+		.force_close_broadcasting_latest_txn(&channel_id, &node_id_1, "test".to_owned())
+		.unwrap();
+	handle_bump_events(&nodes[0], true, 0);
+	let events = nodes[0].node.get_and_clear_pending_events();
+	assert_eq!(events.len(), 2, "{events:?}");
+	assert!(events.iter().any(|event| matches!(event, Event::ChannelClosed { .. })));
+	let failed_contribution = events
+		.into_iter()
+		.find_map(|event| match event {
+			Event::SpliceNegotiationFailed { contribution, .. } => contribution,
+			_ => None,
+		})
+		.unwrap();
+	assert_eq!(failed_contribution.contribution(), &rbf_contribution);
+	assert_eq!(failed_contribution.contribution().pending_components(), Some(&pending_components));
+	assert!(failed_contribution.contributed_inputs().is_empty());
+	assert!(failed_contribution.contributed_outputs().is_empty());
+	check_closed_broadcast(&nodes[0], 1, true);
+	check_added_monitors(&nodes[0], 1);
+
+	// Retrying once the channel is gone is refused without reporting anything as discarded.
+	assert_eq!(
+		nodes[0].node.funding_contributed(
+			&channel_id,
+			&node_id_1,
+			failed_contribution.into_contribution(),
+			None
+		),
+		Err(APIError::no_such_channel_for_peer(&channel_id, &node_id_1)),
+	);
+	assert!(nodes[0].node.get_and_clear_pending_events().is_empty());
 }
 
 #[test]

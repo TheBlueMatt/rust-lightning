@@ -7029,7 +7029,11 @@ impl<
 	/// When an error is returned, the contribution has been rejected without emitting an
 	/// [`Event::SpliceNegotiationFailed`], as the failure is already reported through the error.
 	/// Any contributed inputs and outputs not committed to an existing splice attempt will be
-	/// included in an [`Event::DiscardFunding`] and thus can be re-spent.
+	/// included in an [`Event::DiscardFunding`] and thus can be re-spent. If the channel is no
+	/// longer known (e.g., it was closed after the contribution was built), the splice attempts
+	/// pending when the contribution was built from its [`FundingTemplate`], or when it was
+	/// reported in an [`Event::SpliceNegotiationFailed`], are considered instead, as their
+	/// transactions may still confirm.
 	///
 	/// [`ChannelUnavailable`]: APIError::ChannelUnavailable
 	/// [`APIMisuseError`]: APIError::APIMisuseError
@@ -7039,15 +7043,20 @@ impl<
 	) -> Result<(), APIError> {
 		let mut result = Ok(());
 		PersistenceNotifierGuard::optionally_notify(self, || {
+			// Without a channel to check against, rely on what the contribution recorded when it was
+			// built about the inputs and outputs already committed to pending splice rounds. A fee
+			// bump reuses the prior round's inputs, and reporting them as discardable while that
+			// round can still confirm would invite the wallet to double-spend its own splice.
 			let push_discard_funding = |contribution: FundingContribution| {
-				let (inputs, outputs) = contribution.into_contributed_inputs_and_outputs();
-				self.pending_events.lock().unwrap().push_back((
-					events::Event::DiscardFunding {
-						channel_id: *channel_id,
-						funding_info: FundingInfo::Contribution { inputs, outputs },
-					},
-					None,
-				));
+				let funding_info = contribution
+					.to_unique_contributions()
+					.map(|(inputs, outputs)| FundingInfo::Contribution { inputs, outputs });
+				if let Some(funding_info) = funding_info {
+					self.pending_events.lock().unwrap().push_back((
+						events::Event::DiscardFunding { channel_id: *channel_id, funding_info },
+						None,
+					));
+				}
 			};
 
 			let per_peer_state = self.per_peer_state.read().unwrap();

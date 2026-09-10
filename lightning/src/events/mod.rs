@@ -143,7 +143,9 @@ impl FailedSpliceContribution {
 	/// including any that were also committed to an existing splice attempt (a prior negotiated
 	/// candidate, a round still under negotiation, or a splice that just locked). Those
 	/// overlapping inputs and outputs are intentionally omitted from the preceding
-	/// [`Event::DiscardFunding`], since they remain committed to that other splice.
+	/// [`Event::DiscardFunding`], since they remain committed to that other splice. Likewise, if
+	/// the channel has since closed, retrying the contribution is refused without reporting them
+	/// as discardable, as that other splice may still confirm.
 	///
 	/// [`ChannelManager::funding_contributed`]: crate::ln::channelmanager::ChannelManager::funding_contributed
 	/// [`ChannelManager::splice_channel`]: crate::ln::channelmanager::ChannelManager::splice_channel
