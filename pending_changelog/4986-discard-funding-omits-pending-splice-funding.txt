@@ -2,8 +2,7 @@
 
  * When `ChannelManager::funding_contributed` rejects a contribution because the channel or peer
    is unknown or the channel is not yet funded, the `Event::DiscardFunding` it emits no longer
-   lists inputs and outputs still committed to a splice that was pending when the contribution's
-   `FundingTemplate` was created. Previously, a fee bump built with
-   `FundingTemplate::rbf_prior_contribution` that was rejected because the channel had since
-   closed reported the pending splice's inputs as discardable while that splice could still
-   confirm, inviting a wallet to double-spend its own splice (#4986).
+   lists inputs and outputs the contribution reused from a pending splice's contribution.
+   Previously, a fee bump built with `FundingTemplate::rbf_prior_contribution` that was rejected
+   because the channel had since closed reported the pending splice's inputs as discardable while
+   that splice could still confirm, inviting a wallet to double-spend its own splice (#4986).

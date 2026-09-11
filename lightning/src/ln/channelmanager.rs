@@ -7030,10 +7030,10 @@ impl<
 	/// [`Event::SpliceNegotiationFailed`], as the failure is already reported through the error.
 	/// Any contributed inputs and outputs not committed to an existing splice attempt will be
 	/// included in an [`Event::DiscardFunding`] and thus can be re-spent. If the channel is no
-	/// longer known (e.g., it was closed after the contribution was built), the splice attempts
-	/// pending when the contribution was built from its [`FundingTemplate`], or when it was
-	/// reported in an [`Event::SpliceNegotiationFailed`], are considered instead, as their
-	/// transactions may still confirm.
+	/// longer known (e.g., it was closed after the contribution was built), those the contribution
+	/// inherited from the prior contribution of its [`FundingTemplate`], or that were committed to
+	/// a splice attempt still pending when it was reported in an [`Event::SpliceNegotiationFailed`],
+	/// are withheld instead, as the transactions of those attempts may still confirm.
 	///
 	/// [`ChannelUnavailable`]: APIError::ChannelUnavailable
 	/// [`APIMisuseError`]: APIError::APIMisuseError
@@ -7043,10 +7043,10 @@ impl<
 	) -> Result<(), APIError> {
 		let mut result = Ok(());
 		PersistenceNotifierGuard::optionally_notify(self, || {
-			// Without a channel to check against, rely on what the contribution recorded when it was
-			// built about the inputs and outputs already committed to pending splice rounds. A fee
-			// bump reuses the prior round's inputs, and reporting them as discardable while that
-			// round can still confirm would invite the wallet to double-spend its own splice.
+			// Without a channel to check against, rely on what the contribution recorded about its
+			// inputs and outputs being committed to another splice attempt. A fee bump reuses the
+			// prior attempt's inputs, and reporting them as discardable while that attempt can still
+			// confirm would invite the wallet to double-spend its own splice.
 			let push_discard_funding = |contribution: FundingContribution| {
 				let funding_info = contribution
 					.to_unique_contributions()

@@ -6956,16 +6956,6 @@ fn test_funding_contributed_unfunded_channel() {
 	expect_discard_funding_event(&nodes[0], &unfunded_channel_id, funding_contribution);
 }
 
-/// The inputs and output scripts committed to by a negotiated splice round with the given
-/// contribution, as recorded on contributions built while that round is pending.
-#[cfg(test)]
-fn pending_components_of(contribution: &FundingContribution) -> PendingFundingComponents {
-	PendingFundingComponents::new(
-		contribution.contributed_inputs().collect(),
-		contribution.contributed_outputs().map(|script| script.to_owned()).collect(),
-	)
-}
-
 #[cfg(test)]
 fn splice_candidates<'a, 'b, 'c, 'd>(
 	node: &'a Node<'b, 'c, 'd>, channel_id: &ChannelId,
@@ -7081,22 +7071,23 @@ fn test_funding_contributed_after_force_close_withholds_pending_splice_funding()
 	assert!(discarded_inputs.is_empty());
 	assert_eq!(discarded_outputs, vec![new_output.script_pubkey]);
 
-	// A fresh contribution's inputs are reported as discarded. Its change output is withheld since
-	// the pending splice's change output uses the same script.
+	// A fresh contribution's inputs and change output are reported as discarded, as they were
+	// selected for it alone, even though its change output uses the same script as the pending
+	// splice's.
 	assert_eq!(
 		nodes[0].node.funding_contributed(&channel_id, &node_id_1, fresh_contribution, None),
 		Err(APIError::no_such_channel_for_peer(&channel_id, &node_id_1)),
 	);
 	let (discarded_inputs, discarded_outputs) = expect_rejected_rbf_event(&nodes[0], &channel_id);
 	assert_eq!(discarded_inputs, fresh_inputs);
-	assert!(discarded_outputs.is_empty());
+	assert_eq!(discarded_outputs, vec![change_script]);
 }
 
 #[test]
 fn test_funding_contributed_drops_pending_components_from_channel_state() {
-	// A contribution built from a template records the inputs and outputs committed to pending
-	// splice rounds. The record only serves to reject the contribution without a channel to check
-	// against: it must not enter the channel state, be serialized, or affect equality.
+	// A contribution built from a template records the inputs and outputs it inherited from the
+	// prior contribution. The record only serves to reject the contribution without a channel to
+	// check against: it must not enter the channel state, be serialized, or affect equality.
 	let chanmon_cfgs = create_chanmon_cfgs(2);
 	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
 	let (persister_0, chain_monitor_0);
@@ -7111,14 +7102,14 @@ fn test_funding_contributed_drops_pending_components_from_channel_state() {
 	let added_value = Amount::from_sat(50_000);
 	provide_utxo_reserves(&nodes, 1, added_value * 2);
 
-	// With no splice pending, a contribution records nothing.
+	// With no prior contribution to inherit from, a contribution records nothing.
 	let prior_contribution = do_initiate_splice_in(&nodes[0], &nodes[1], channel_id, added_value);
 	assert!(prior_contribution.pending_components().is_none());
 	let _ = splice_channel(&nodes[0], &nodes[1], channel_id, prior_contribution.clone());
-	let pending_components = pending_components_of(&prior_contribution);
+	let pending_components = PendingFundingComponents::from_contribution(&prior_contribution);
 
-	// With a splice pending, contributions built from a template record its inputs and outputs.
-	// The record is not compared.
+	// With a splice pending, contributions reusing its contribution record that contribution's
+	// inputs and outputs. The record is not compared.
 	let rbf_feerate = FeeRate::from_sat_per_kwu(FEERATE_FLOOR_SATS_PER_KW as u64 + 25);
 	let funding_template = nodes[0].node.splice_channel(&channel_id, &node_id_1).unwrap();
 	assert_eq!(
@@ -7209,7 +7200,7 @@ fn test_funding_contributed_retry_after_force_close_withholds_pending_splice_fun
 	// Negotiate a splice that remains unconfirmed.
 	let prior_contribution = do_initiate_splice_in(&nodes[0], &nodes[1], channel_id, added_value);
 	let _ = splice_channel(&nodes[0], &nodes[1], channel_id, prior_contribution.clone());
-	let pending_components = pending_components_of(&prior_contribution);
+	let pending_components = PendingFundingComponents::from_contribution(&prior_contribution);
 
 	// Start negotiating a fee bump reusing the pending splice's inputs and change output.
 	let rbf_feerate = FeeRate::from_sat_per_kwu(FEERATE_FLOOR_SATS_PER_KW as u64 + 25);
@@ -7252,6 +7243,252 @@ fn test_funding_contributed_retry_after_force_close_withholds_pending_splice_fun
 		Err(APIError::no_such_channel_for_peer(&channel_id, &node_id_1)),
 	);
 	assert!(nodes[0].node.get_and_clear_pending_events().is_empty());
+}
+
+/// How a pending splice attempt is released while a template taken during it is still held.
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+enum PendingSpliceRelease {
+	/// A peer-initiated round we contributed to is aborted by force closing the channel.
+	ForceClose,
+	/// A peer-initiated round we contributed to is aborted by a disconnect, after which the channel
+	/// is force closed.
+	Disconnect,
+	/// A negotiated candidate is released by the monitor once a commitment transaction confirms
+	/// after the channel is force closed.
+	CommitmentConfirmation,
+}
+
+#[cfg(test)]
+fn do_test_funding_contributed_after_release_reports_reselected_inputs(
+	release: PendingSpliceRelease,
+) {
+	// A template taken while a splice attempt is pending may not be used until after that attempt
+	// has been released, at which point the wallet may legitimately hand out the attempt's inputs
+	// again. If the channel is gone by the time such a contribution is submitted, its rejection
+	// must report those inputs as discarded: the contribution reserved them itself, and nothing
+	// else will release them.
+	let chanmon_cfgs = create_chanmon_cfgs(2);
+	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
+	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
+	let nodes = create_network(2, &node_cfgs, &node_chanmgrs);
+
+	let node_id_0 = nodes[0].node.get_our_node_id();
+	let node_id_1 = nodes[1].node.get_our_node_id();
+	// Node 1 is given a balance so that its commitment transaction has an anchor output for it
+	// to fee bump when force closing.
+	let (_, _, channel_id, _) =
+		create_announced_chan_between_nodes_with_value(&nodes, 0, 1, 100_000, 50_000_000);
+
+	let added_value = Amount::from_sat(50_000);
+	provide_utxo_reserves(&nodes, 2, added_value * 2);
+
+	// Node 1 contributes to a splice attempt that remains pending. For a round aborted before
+	// signing, both nodes initiate a splice-in and node 0 wins the tie-break, leaving node 1's
+	// contribution in the round node 0 initiated.
+	let (node_0_contribution, splice, pending_contribution) = match release {
+		PendingSpliceRelease::ForceClose | PendingSpliceRelease::Disconnect => {
+			let node_0_contribution =
+				do_initiate_splice_in(&nodes[0], &nodes[1], channel_id, added_value);
+			let pending_contribution =
+				do_initiate_splice_in(&nodes[1], &nodes[0], channel_id, added_value);
+
+			let stfu_0 = get_event_msg!(nodes[0], MessageSendEvent::SendStfu, node_id_1);
+			let stfu_1 = get_event_msg!(nodes[1], MessageSendEvent::SendStfu, node_id_0);
+			nodes[1].node.handle_stfu(node_id_0, &stfu_0);
+			assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
+			nodes[0].node.handle_stfu(node_id_1, &stfu_1);
+
+			let splice_init = get_event_msg!(nodes[0], MessageSendEvent::SendSpliceInit, node_id_1);
+			nodes[1].node.handle_splice_init(node_id_0, &splice_init);
+			let splice_ack = get_event_msg!(nodes[1], MessageSendEvent::SendSpliceAck, node_id_0);
+			assert_ne!(splice_ack.funding_contribution_satoshis, 0);
+
+			(Some(node_0_contribution), None, pending_contribution)
+		},
+		PendingSpliceRelease::CommitmentConfirmation => {
+			let pending_contribution =
+				do_initiate_splice_in(&nodes[1], &nodes[0], channel_id, added_value);
+			let splice =
+				splice_channel(&nodes[1], &nodes[0], channel_id, pending_contribution.clone());
+			(None, Some(splice), pending_contribution)
+		},
+	};
+	let pending_inputs = pending_contribution.contributed_inputs().collect::<Vec<_>>();
+	let pending_outputs =
+		pending_contribution.contributed_outputs().map(|script| script.to_owned()).collect();
+	let pending_funding_info =
+		FundingInfo::Contribution { inputs: pending_inputs.clone(), outputs: pending_outputs };
+
+	// Take a template while the attempt is pending.
+	let funding_template = nodes[1].node.splice_channel(&channel_id, &node_id_0).unwrap();
+	let floor_feerate = FeeRate::from_sat_per_kwu(FEERATE_FLOOR_SATS_PER_KW as u64);
+	let feerate = funding_template.min_rbf_feerate().unwrap_or(floor_feerate);
+
+	// Release the attempt, which reports its inputs and outputs as discarded.
+	match release {
+		PendingSpliceRelease::ForceClose => {
+			nodes[1]
+				.node
+				.force_close_broadcasting_latest_txn(&channel_id, &node_id_0, "test".to_owned())
+				.unwrap();
+			handle_bump_events(&nodes[1], true, 0);
+			let events = nodes[1].node.get_and_clear_pending_events();
+			assert_eq!(events.len(), 3, "{events:?}");
+			assert!(events.iter().any(|event| matches!(event, Event::ChannelClosed { .. })));
+			assert!(events
+				.iter()
+				.any(|event| matches!(event, Event::SpliceNegotiationFailed { .. })));
+			assert!(events.iter().any(|event| matches!(
+				event,
+				Event::DiscardFunding { funding_info, .. } if *funding_info == pending_funding_info
+			)));
+			check_closed_broadcast(&nodes[1], 1, true);
+			check_added_monitors(&nodes[1], 1);
+		},
+		PendingSpliceRelease::Disconnect => {
+			nodes[1].node.peer_disconnected(node_id_0);
+			nodes[0].node.peer_disconnected(node_id_1);
+			expect_splice_failed_events(
+				&nodes[0],
+				&channel_id,
+				node_0_contribution.unwrap(),
+				NegotiationFailureReason::PeerDisconnected,
+			);
+			let events = nodes[1].node.get_and_clear_pending_events();
+			assert_eq!(events.len(), 2, "{events:?}");
+			assert!(events
+				.iter()
+				.any(|event| matches!(event, Event::SpliceNegotiationFailed { .. })));
+			assert!(events.iter().any(|event| matches!(
+				event,
+				Event::DiscardFunding { funding_info, .. } if *funding_info == pending_funding_info
+			)));
+
+			nodes[1]
+				.node
+				.force_close_broadcasting_latest_txn(&channel_id, &node_id_0, "test".to_owned())
+				.unwrap();
+			handle_bump_events(&nodes[1], true, 0);
+			check_closed_events(
+				&nodes[1],
+				&[ExpectedCloseEvent { channel_id: Some(channel_id), ..Default::default() }],
+			);
+			// No error message is sent, as the peer is disconnected.
+			check_closed_broadcast(&nodes[1], 1, false);
+			check_added_monitors(&nodes[1], 1);
+		},
+		PendingSpliceRelease::CommitmentConfirmation => {
+			nodes[1]
+				.node
+				.force_close_broadcasting_latest_txn(&channel_id, &node_id_0, "test".to_owned())
+				.unwrap();
+			handle_bump_events(&nodes[1], true, 0);
+			check_closed_events(
+				&nodes[1],
+				&[ExpectedCloseEvent { channel_id: Some(channel_id), ..Default::default() }],
+			);
+			check_closed_broadcast(&nodes[1], 1, true);
+			check_added_monitors(&nodes[1], 1);
+
+			let commitment_tx = {
+				let mut txn = nodes[1].tx_broadcaster.txn_broadcast();
+				assert_eq!(txn.len(), 1, "{txn:?}");
+				txn.remove(0)
+			};
+			// The monitor releases the candidate once the commitment transaction's spend of the
+			// funding output is considered irrevocable, which for our own commitment transaction
+			// is once our delayed output has matured.
+			mine_transaction(&nodes[1], &commitment_tx);
+			connect_blocks(&nodes[1], BREAKDOWN_TIMEOUT as u32);
+			let events = nodes[1].chain_monitor.chain_monitor.get_and_clear_pending_events();
+			assert_eq!(events.len(), 2, "{events:?}");
+			assert!(matches!(
+				&events[0],
+				Event::DiscardFunding { funding_info, .. } if *funding_info == pending_funding_info
+			));
+			assert!(matches!(&events[1], Event::SpendableOutputs { .. }));
+
+			// The monitor no longer tracks the released candidate's funding output, so stop
+			// watching it as well.
+			let (splice_tx, new_funding_script) = splice.unwrap();
+			let vout = splice_tx
+				.output
+				.iter()
+				.position(|output| output.script_pubkey == new_funding_script)
+				.unwrap();
+			let funding_outpoint = OutPoint { txid: splice_tx.compute_txid(), index: vout as u16 };
+			nodes[1]
+				.chain_source
+				.remove_watched_txn_and_outputs(funding_outpoint, new_funding_script);
+		},
+	}
+
+	// Build from the stale template. A new wallet instance has no record of the released attempt's
+	// selection, so coin selection hands out its inputs again, as would a wallet that unlocked them
+	// upon the discard.
+	let wallet = WalletSync::new(Arc::clone(&nodes[1].wallet_source), nodes[1].logger);
+	let fresh_contribution = funding_template
+		.clone()
+		.without_prior_contribution(feerate, FeeRate::MAX)
+		.with_coin_selection_source_sync(&wallet)
+		.add_value(added_value)
+		.unwrap()
+		.build()
+		.unwrap();
+	assert_eq!(fresh_contribution.contributed_inputs().collect::<Vec<_>>(), pending_inputs);
+
+	// A fee bump adding more value than the prior contribution's inputs can cover also falls back
+	// to coin selection, which again hands out the released inputs.
+	let rbf_feerate = FeeRate::from_sat_per_kwu(FEERATE_FLOOR_SATS_PER_KW as u64 + 25);
+	let wallet = WalletSync::new(Arc::clone(&nodes[1].wallet_source), nodes[1].logger);
+	let bumped_contribution = funding_template
+		.with_prior_contribution(rbf_feerate, FeeRate::MAX)
+		.with_coin_selection_source_sync(&wallet)
+		.add_value(added_value * 2)
+		.unwrap()
+		.build()
+		.unwrap();
+	let bumped_inputs = bumped_contribution.contributed_inputs().collect::<Vec<_>>();
+	assert!(bumped_inputs.len() > pending_inputs.len());
+	assert!(pending_inputs.iter().all(|input| bumped_inputs.contains(input)));
+
+	// Both are refused, as the channel is gone. Each reports everything it contributed, as none of
+	// it is still committed to the released attempt.
+	for contribution in [fresh_contribution, bumped_contribution] {
+		let inputs = contribution.contributed_inputs().collect::<Vec<_>>();
+		let outputs =
+			contribution.contributed_outputs().map(|script| script.to_owned()).collect::<Vec<_>>();
+		assert_eq!(
+			nodes[1].node.funding_contributed(&channel_id, &node_id_0, contribution, None),
+			Err(APIError::no_such_channel_for_peer(&channel_id, &node_id_0)),
+		);
+		let (discarded_inputs, discarded_outputs) =
+			expect_rejected_rbf_event(&nodes[1], &channel_id);
+		assert_eq!(discarded_inputs, inputs);
+		assert_eq!(discarded_outputs, outputs);
+	}
+}
+
+#[test]
+fn test_funding_contributed_after_force_close_reports_reselected_inputs() {
+	do_test_funding_contributed_after_release_reports_reselected_inputs(
+		PendingSpliceRelease::ForceClose,
+	);
+}
+
+#[test]
+fn test_funding_contributed_after_disconnect_reports_reselected_inputs() {
+	do_test_funding_contributed_after_release_reports_reselected_inputs(
+		PendingSpliceRelease::Disconnect,
+	);
+}
+
+#[test]
+fn test_funding_contributed_after_commitment_confirmation_reports_reselected_inputs() {
+	do_test_funding_contributed_after_release_reports_reselected_inputs(
+		PendingSpliceRelease::CommitmentConfirmation,
+	);
 }
 
 #[test]

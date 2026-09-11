@@ -248,10 +248,6 @@ pub struct FundingTemplate {
 	/// [`ChannelManager::splice_channel`]: crate::ln::channelmanager::ChannelManager::splice_channel
 	/// [`ChannelManager::funding_contributed`]: crate::ln::channelmanager::ChannelManager::funding_contributed
 	spliceable_balance: Amount,
-
-	/// What the channel's pending splice rounds had already committed to when this template was
-	/// created, carried by every contribution built from it.
-	pending_components: PendingFundingComponents,
 }
 
 impl FundingTemplate {
@@ -259,19 +255,15 @@ impl FundingTemplate {
 	pub(super) fn new(
 		shared_input: Option<Input>, min_rbf_feerate: Option<FeeRate>,
 		prior_contribution: Option<FundingContribution>, spliceable_balance: Amount,
-		pending_components: PendingFundingComponents,
 	) -> Self {
-		// The prior contribution is itself committed to a pending round and is what contributions
-		// built from this template are derived from, so have it carry the same record.
-		let prior_contribution = prior_contribution
-			.map(|contribution| contribution.with_pending_components(pending_components.clone()));
-		Self {
-			shared_input,
-			min_rbf_feerate,
-			prior_contribution,
-			spliceable_balance,
-			pending_components,
-		}
+		// The prior contribution is committed to a pending splice attempt, so it and anything
+		// reusing or amending it inherit that attempt's inputs and outputs rather than reserving
+		// their own. Have it carry them as its record, which those contributions inherit as well.
+		let prior_contribution = prior_contribution.map(|contribution| {
+			let pending_components = PendingFundingComponents::from_contribution(&contribution);
+			contribution.with_pending_components(pending_components)
+		});
+		Self { shared_input, min_rbf_feerate, prior_contribution, spliceable_balance }
 	}
 
 	/// Returns the minimum RBF feerate, if this template is for an RBF attempt.
@@ -623,16 +615,21 @@ impl_ser_tlv_based_enum!(FundingInputMode,
 	(3, ManuallySelected) => {}
 );
 
-/// The inputs and output scripts that a channel's pending splice rounds already committed to when
-/// a [`FundingContribution`] was built.
+/// The inputs and output scripts of a [`FundingContribution`] that are committed to another splice
+/// attempt on the channel, and so whose reservation the contribution does not own.
 ///
-/// A contribution built from a [`FundingTemplate`] may reuse these (e.g., an RBF attempt reusing
-/// the prior round's inputs). If the contribution is then rejected without a channel to filter it
-/// against (e.g., the channel closed in the meantime), they must not be reported as discarded, as
-/// the pending round they fund may still confirm.
+/// A contribution built from a [`FundingTemplate`] records what it inherited from the template's
+/// prior contribution (e.g., an RBF attempt reusing the prior attempt's inputs), while one reported
+/// by [`Event::SpliceNegotiationFailed`] records what the attempts still pending at that time had
+/// committed to. Anything else a contribution holds, such as inputs newly selected from a wallet,
+/// it reserved itself. If the contribution is then rejected without a channel to filter it against
+/// (e.g., the channel closed in the meantime), only what it reserved itself is reported as
+/// discarded, as the other attempt's transaction may still confirm.
 ///
 /// Only a contribution that has not yet reached a channel carries this, and it is serialized with
 /// such a contribution since one reported by an event may be persisted before being retried.
+///
+/// [`Event::SpliceNegotiationFailed`]: crate::events::Event::SpliceNegotiationFailed
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
 pub(super) struct PendingFundingComponents {
 	inputs: Vec<OutPoint>,
@@ -642,6 +639,23 @@ pub(super) struct PendingFundingComponents {
 impl PendingFundingComponents {
 	pub(super) fn new(inputs: Vec<OutPoint>, output_scripts: Vec<ScriptBuf>) -> Self {
 		Self { inputs, output_scripts }
+	}
+
+	/// The inputs and output scripts of `contribution`, for one committed to a pending splice
+	/// attempt.
+	pub(super) fn from_contribution(contribution: &FundingContribution) -> Self {
+		Self::new(
+			contribution.contributed_inputs().collect(),
+			contribution.contributed_outputs().map(|script| script.to_owned()).collect(),
+		)
+	}
+
+	/// The explicit outputs of `contribution`, which a contribution built from it with newly
+	/// selected inputs and change inherits.
+	fn from_explicit_outputs(contribution: &FundingContribution) -> Self {
+		let output_scripts =
+			contribution.outputs.iter().map(|output| output.script_pubkey.clone()).collect();
+		Self::new(Vec::new(), output_scripts)
 	}
 
 	pub(super) fn inputs(&self) -> impl Iterator<Item = OutPoint> + '_ {
@@ -707,15 +721,15 @@ pub struct FundingContribution {
 	/// `add_value` or `add_input` call on the builder.
 	input_mode: Option<FundingInputMode>,
 
-	/// What the channel's pending splice rounds already committed to when this contribution was
-	/// built, if anything. Only meaningful until the contribution reaches the channel, which has
-	/// authoritative state; it is cleared at that point so that channel state never carries it.
+	/// Which of this contribution's inputs and outputs are committed to another splice attempt, if
+	/// any. Only meaningful until the contribution reaches the channel, which has authoritative
+	/// state; it is cleared at that point so that channel state never carries it.
 	pending_components: Option<PendingFundingComponents>,
 }
 
-// `pending_components` is transient metadata describing the channel's state when the contribution
-// was built rather than part of the contribution itself, so it is excluded from equality and
-// hashing: a contribution obtained from an event compares equal to the one that was submitted.
+// `pending_components` is transient metadata about the channel's other splice attempts rather than
+// part of the contribution itself, so it is excluded from equality and hashing: a contribution
+// obtained from an event compares equal to the one that was submitted.
 impl PartialEq for FundingContribution {
 	fn eq(&self, other: &Self) -> bool {
 		let Self {
@@ -804,8 +818,8 @@ impl FundingContribution {
 		self.is_splice
 	}
 
-	/// Records what the channel's pending splice rounds already committed to when this
-	/// contribution was built, see [`PendingFundingComponents`].
+	/// Records which of this contribution's inputs and outputs are committed to another splice
+	/// attempt, see [`PendingFundingComponents`].
 	pub(super) fn with_pending_components(
 		mut self, pending_components: PendingFundingComponents,
 	) -> Self {
@@ -813,8 +827,8 @@ impl FundingContribution {
 		self
 	}
 
-	/// Clears the record of what the channel's pending splice rounds had committed to, once the
-	/// channel itself can determine this from its authoritative state.
+	/// Clears the record of what is committed to another splice attempt, once the channel itself
+	/// can determine this from its authoritative state.
 	pub(super) fn without_pending_components(mut self) -> Self {
 		self.pending_components = None;
 		self
@@ -1042,9 +1056,8 @@ impl FundingContribution {
 		filter_unique_contributions(inputs, outputs, existing_inputs, existing_outputs)
 	}
 
-	/// Returns this contribution's inputs and output scripts after removing any that the channel's
-	/// pending splice rounds had already committed to when the contribution was built, see
-	/// [`PendingFundingComponents`].
+	/// Returns this contribution's inputs and output scripts after removing any committed to another
+	/// splice attempt, see [`PendingFundingComponents`].
 	///
 	/// This is for rejecting a contribution without a channel to filter it against; the channel's
 	/// own state is authoritative when it is available.
@@ -1321,7 +1334,6 @@ struct FundingBuilderInner<State> {
 	min_rbf_feerate: Option<FeeRate>,
 	prior_contribution: Option<FundingContribution>,
 	spliceable_balance: Amount,
-	pending_components: PendingFundingComponents,
 	funding_inputs: Option<FundingInputs>,
 	outputs: Vec<TxOut>,
 	feerate: FeeRate,
@@ -1470,7 +1482,9 @@ impl<State> FundingBuilderInner<State> {
 				max_feerate: self.max_feerate,
 				is_splice: self.shared_input.is_some(),
 				input_mode,
-				pending_components: self.pending_components.clone().into_option(),
+				// Without a prior contribution to inherit from, nothing here is committed to
+				// another splice attempt.
+				pending_components: None,
 			};
 			let net_value = contribution.net_value();
 			if net_value.is_negative() {
@@ -1579,7 +1593,6 @@ impl FundingBuilder {
 			min_rbf_feerate,
 			prior_contribution,
 			spliceable_balance,
-			pending_components,
 		} = template;
 		let (funding_inputs, outputs) = match prior_contribution.as_ref() {
 			Some(prior_contribution) => {
@@ -1604,7 +1617,6 @@ impl FundingBuilder {
 			min_rbf_feerate,
 			prior_contribution,
 			spliceable_balance,
-			pending_components,
 			funding_inputs,
 			outputs,
 			feerate,
@@ -1726,7 +1738,6 @@ impl<State> FundingBuilderInner<State> {
 			min_rbf_feerate: self.min_rbf_feerate,
 			prior_contribution: self.prior_contribution,
 			spliceable_balance: self.spliceable_balance,
-			pending_components: self.pending_components,
 			funding_inputs: self.funding_inputs,
 			outputs: self.outputs,
 			feerate: self.feerate,
@@ -1938,7 +1949,11 @@ impl<W: CoinSelectionSource + MaybeSend> AsyncFundingBuilder<W> {
 			max_feerate: inner.max_feerate,
 			is_splice,
 			input_mode: Some(FundingInputMode::CoinSelected),
-			pending_components: inner.pending_components.into_option(),
+			// The inputs and change output were selected for this contribution alone, but explicit
+			// outputs carried over from the prior contribution remain committed to its attempt.
+			pending_components: inner.prior_contribution.as_ref().and_then(|prior_contribution| {
+				PendingFundingComponents::from_explicit_outputs(prior_contribution).into_option()
+			}),
 		});
 	}
 }
@@ -2046,7 +2061,11 @@ impl<W: CoinSelectionSourceSync> SyncFundingBuilder<W> {
 			max_feerate: inner.max_feerate,
 			is_splice,
 			input_mode: Some(FundingInputMode::CoinSelected),
-			pending_components: inner.pending_components.into_option(),
+			// The inputs and change output were selected for this contribution alone, but explicit
+			// outputs carried over from the prior contribution remain committed to its attempt.
+			pending_components: inner.prior_contribution.as_ref().and_then(|prior_contribution| {
+				PendingFundingComponents::from_explicit_outputs(prior_contribution).into_option()
+			}),
 		});
 	}
 }
@@ -2207,7 +2226,7 @@ mod tests {
 		let output = funding_output_sats(25_000);
 
 		let contribution = FundingBuilder::new(
-			FundingTemplate::new(None, None, None, Amount::MAX_MONEY, Default::default()),
+			FundingTemplate::new(None, None, None, Amount::MAX_MONEY),
 			feerate,
 			FeeRate::MAX,
 		)
@@ -2247,20 +2266,13 @@ mod tests {
 		);
 		let exact_balance = output.value + expected_fee;
 
-		let contribution =
-			FundingTemplate::new(None, None, None, exact_balance, Default::default())
-				.splice_out(vec![output.clone()], feerate, FeeRate::MAX)
-				.unwrap();
+		let contribution = FundingTemplate::new(None, None, None, exact_balance)
+			.splice_out(vec![output.clone()], feerate, FeeRate::MAX)
+			.unwrap();
 		assert_eq!(contribution.net_value(), -exact_balance.to_signed().unwrap());
 
-		let result = FundingTemplate::new(
-			None,
-			None,
-			None,
-			exact_balance - Amount::from_sat(1),
-			Default::default(),
-		)
-		.splice_out(vec![output], feerate, FeeRate::MAX);
+		let result = FundingTemplate::new(None, None, None, exact_balance - Amount::from_sat(1))
+			.splice_out(vec![output], feerate, FeeRate::MAX);
 		assert!(matches!(result, Err(FundingContributionError::InvalidSpliceValue)));
 	}
 
@@ -2268,7 +2280,7 @@ mod tests {
 	fn test_funding_builder_requires_wallet_for_splice_in() {
 		let feerate = FeeRate::from_sat_per_kwu(2000);
 		let builder = FundingBuilder::new(
-			FundingTemplate::new(None, None, None, Amount::ZERO, Default::default()),
+			FundingTemplate::new(None, None, None, Amount::ZERO),
 			feerate,
 			FeeRate::MAX,
 		);
@@ -2315,9 +2327,8 @@ mod tests {
 			total_input_value >= target_value_added.checked_add(estimated_fee_no_change).unwrap()
 		);
 
-		let builder =
-			FundingTemplate::new(None, None, Some(prior), Amount::MAX_MONEY, Default::default())
-				.with_prior_contribution(feerate, FeeRate::MAX);
+		let builder = FundingTemplate::new(None, None, Some(prior), Amount::MAX_MONEY)
+			.with_prior_contribution(feerate, FeeRate::MAX);
 		let contribution =
 			FundingBuilder(builder.0.add_value_inner(delta).unwrap()).build().unwrap();
 
@@ -2344,7 +2355,7 @@ mod tests {
 		let kept_output = TxOut { value: Amount::from_sat(15_000), script_pubkey: kept_script };
 
 		let contribution = FundingBuilder::new(
-			FundingTemplate::new(None, None, None, Amount::MAX_MONEY, Default::default()),
+			FundingTemplate::new(None, None, None, Amount::MAX_MONEY),
 			feerate,
 			FeeRate::MAX,
 		)
@@ -2380,7 +2391,7 @@ mod tests {
 		};
 
 		let contribution = FundingBuilder::new(
-			FundingTemplate::new(None, None, None, Amount::ZERO, Default::default()),
+			FundingTemplate::new(None, None, None, Amount::ZERO),
 			feerate,
 			FeeRate::MAX,
 		)
@@ -2426,7 +2437,7 @@ mod tests {
 		};
 
 		let contribution = FundingBuilder::new(
-			FundingTemplate::new(None, None, None, Amount::MAX_MONEY, Default::default()),
+			FundingTemplate::new(None, None, None, Amount::MAX_MONEY),
 			feerate,
 			FeeRate::MAX,
 		)
@@ -2447,7 +2458,7 @@ mod tests {
 		let feerate = FeeRate::from_sat_per_kwu(2000);
 		let output = funding_output_sats(8_000);
 		let contribution = FundingBuilder::new(
-			FundingTemplate::new(None, None, None, Amount::MAX_MONEY, Default::default()),
+			FundingTemplate::new(None, None, None, Amount::MAX_MONEY),
 			feerate,
 			FeeRate::MAX,
 		)
@@ -2472,7 +2483,7 @@ mod tests {
 		let input = funding_input_sats(100_000);
 		let output = funding_output_sats(25_000);
 
-		let contribution = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+		let contribution = FundingTemplate::new(None, None, None, Amount::ZERO)
 			.without_prior_contribution(feerate, FeeRate::MAX)
 			.add_input(input.clone())
 			.unwrap()
@@ -2512,7 +2523,7 @@ mod tests {
 		let second_input = funding_input_sats(60_000);
 		let output = funding_output_sats(25_000);
 
-		let contribution = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+		let contribution = FundingTemplate::new(None, None, None, Amount::ZERO)
 			.without_prior_contribution(feerate, FeeRate::MAX)
 			.add_inputs(vec![first_input.clone(), second_input.clone()])
 			.unwrap()
@@ -2544,7 +2555,7 @@ mod tests {
 		let feerate = FeeRate::from_sat_per_kwu(2000);
 		let input = funding_input_sats(100_000);
 
-		let result = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+		let result = FundingTemplate::new(None, None, None, Amount::ZERO)
 			.without_prior_contribution(feerate, FeeRate::MAX)
 			.add_inputs(vec![input.clone(), input])
 			.unwrap()
@@ -2561,7 +2572,7 @@ mod tests {
 		assert_ne!(first_output, second_output);
 		assert_eq!(first_output.script_pubkey, second_output.script_pubkey);
 
-		let result = FundingTemplate::new(None, None, None, Amount::MAX_MONEY, Default::default())
+		let result = FundingTemplate::new(None, None, None, Amount::MAX_MONEY)
 			.without_prior_contribution(feerate, FeeRate::MAX)
 			.add_outputs(vec![first_output, second_output])
 			.build();
@@ -2576,7 +2587,7 @@ mod tests {
 		let second_input = funding_input_sats(60_000);
 		let output = funding_output_sats(25_000);
 
-		let contribution = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+		let contribution = FundingTemplate::new(None, None, None, Amount::ZERO)
 			.without_prior_contribution(feerate, FeeRate::MAX)
 			.add_inputs(vec![first_input.clone(), second_input.clone()])
 			.unwrap()
@@ -2609,7 +2620,7 @@ mod tests {
 		let first_input = funding_input_sats(40_000);
 		let second_input = funding_input_sats(60_000);
 
-		let contribution = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+		let contribution = FundingTemplate::new(None, None, None, Amount::ZERO)
 			.splice_in_inputs(
 				vec![first_input.clone(), second_input.clone()],
 				feerate,
@@ -2657,10 +2668,9 @@ mod tests {
 			pending_components: Default::default(),
 		};
 
-		let contribution =
-			FundingTemplate::new(None, None, Some(prior), Amount::MAX_MONEY, Default::default())
-				.splice_in_inputs(vec![additional_input.clone()], feerate, FeeRate::MAX)
-				.unwrap();
+		let contribution = FundingTemplate::new(None, None, Some(prior), Amount::MAX_MONEY)
+			.splice_in_inputs(vec![additional_input.clone()], feerate, FeeRate::MAX)
+			.unwrap();
 
 		assert_eq!(contribution.inputs, vec![prior_input, additional_input]);
 		assert!(contribution.outputs.is_empty());
@@ -2670,7 +2680,7 @@ mod tests {
 	#[test]
 	fn test_sync_funding_builder_manual_inputs_insufficient_do_not_fallback_to_coin_selection() {
 		let feerate = FeeRate::from_sat_per_kwu(2000);
-		let builder = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+		let builder = FundingTemplate::new(None, None, None, Amount::ZERO)
 			.without_prior_contribution(feerate, FeeRate::MAX)
 			.add_input(funding_input_sats(1))
 			.unwrap();
@@ -2686,7 +2696,7 @@ mod tests {
 	#[test]
 	fn test_funding_builder_rejects_manual_inputs_with_value_request() {
 		let feerate = FeeRate::from_sat_per_kwu(2000);
-		let builder = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+		let builder = FundingTemplate::new(None, None, None, Amount::ZERO)
 			.without_prior_contribution(feerate, FeeRate::MAX)
 			.add_input(funding_input_sats(100_000))
 			.unwrap();
@@ -2716,9 +2726,8 @@ mod tests {
 			pending_components: Default::default(),
 		};
 
-		let builder =
-			FundingTemplate::new(None, None, Some(prior), Amount::MAX_MONEY, Default::default())
-				.with_prior_contribution(feerate, FeeRate::MAX);
+		let builder = FundingTemplate::new(None, None, Some(prior), Amount::MAX_MONEY)
+			.with_prior_contribution(feerate, FeeRate::MAX);
 
 		assert!(matches!(
 			builder.clone().add_input(funding_input_sats(50_000)),
@@ -2735,7 +2744,7 @@ mod tests {
 		let feerate = FeeRate::from_sat_per_kwu(2000);
 		let inputs = vec![funding_input_sats(Amount::MAX_MONEY.to_sat()), funding_input_sats(1)];
 
-		let builder = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+		let builder = FundingTemplate::new(None, None, None, Amount::ZERO)
 			.without_prior_contribution(feerate, FeeRate::MAX)
 			.add_inputs(inputs)
 			.unwrap();
@@ -2769,11 +2778,10 @@ mod tests {
 			pending_components: Default::default(),
 		};
 
-		let contribution =
-			FundingTemplate::new(None, None, Some(prior), Amount::MAX_MONEY, Default::default())
-				.with_prior_contribution(target_feerate, FeeRate::MAX)
-				.build()
-				.unwrap();
+		let contribution = FundingTemplate::new(None, None, Some(prior), Amount::MAX_MONEY)
+			.with_prior_contribution(target_feerate, FeeRate::MAX)
+			.build()
+			.unwrap();
 
 		assert_eq!(contribution.inputs, vec![input]);
 		assert_eq!(contribution.outputs, vec![output]);
@@ -2799,11 +2807,10 @@ mod tests {
 			pending_components: Default::default(),
 		};
 
-		let result =
-			FundingTemplate::new(None, None, Some(prior), Amount::ZERO, Default::default())
-				.with_prior_contribution(feerate, FeeRate::MAX)
-				.add_output(funding_output_sats(60_000))
-				.build();
+		let result = FundingTemplate::new(None, None, Some(prior), Amount::ZERO)
+			.with_prior_contribution(feerate, FeeRate::MAX)
+			.add_output(funding_output_sats(60_000))
+			.build();
 
 		assert!(matches!(
 			result,
@@ -2896,7 +2903,7 @@ mod tests {
 
 		// splice_in_sync with value_added > MAX_MONEY
 		{
-			let template = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default());
+			let template = FundingTemplate::new(None, None, None, Amount::ZERO);
 			assert!(matches!(
 				template.splice_in_sync(over_max, feerate, feerate, UnreachableWallet),
 				Err(FundingContributionError::InvalidSpliceValue),
@@ -2905,7 +2912,7 @@ mod tests {
 
 		// splice_out with single output value > MAX_MONEY
 		{
-			let template = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default());
+			let template = FundingTemplate::new(None, None, None, Amount::ZERO);
 			let outputs = vec![funding_output_sats(over_max.to_sat())];
 			assert!(matches!(
 				template.splice_out(outputs, feerate, feerate),
@@ -2915,7 +2922,7 @@ mod tests {
 
 		// splice_out with multiple outputs summing > MAX_MONEY
 		{
-			let template = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default());
+			let template = FundingTemplate::new(None, None, None, Amount::ZERO);
 			let half_over = Amount::MAX_MONEY / 2 + Amount::from_sat(1);
 			let outputs = vec![
 				funding_output_sats(half_over.to_sat()),
@@ -2935,7 +2942,7 @@ mod tests {
 
 		// Mixed add/remove request with value_added > MAX_MONEY.
 		assert!(matches!(
-			FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+			FundingTemplate::new(None, None, None, Amount::ZERO)
 				.without_prior_contribution(feerate, feerate)
 				.with_coin_selection_source_sync(UnreachableWallet)
 				.add_value(over_max)
@@ -2948,7 +2955,7 @@ mod tests {
 		// Mixed add/remove request with outputs summing > MAX_MONEY.
 		let half_over = Amount::MAX_MONEY / 2 + Amount::from_sat(1);
 		assert!(matches!(
-			FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+			FundingTemplate::new(None, None, None, Amount::ZERO)
 				.without_prior_contribution(feerate, feerate)
 				.with_coin_selection_source_sync(UnreachableWallet)
 				.add_value(Amount::from_sat(1_000))
@@ -2969,7 +2976,7 @@ mod tests {
 
 		// min_feerate > max_feerate is rejected
 		{
-			let template = FundingTemplate::new(None, None, None, Amount::ZERO, Default::default());
+			let template = FundingTemplate::new(None, None, None, Amount::ZERO);
 			assert!(matches!(
 				template.splice_in_sync(Amount::from_sat(10_000), high, low, UnreachableWallet),
 				Err(FundingContributionError::FeeRateExceedsMaximum { .. }),
@@ -2978,8 +2985,7 @@ mod tests {
 
 		// min_feerate < min_rbf_feerate is rejected
 		{
-			let template =
-				FundingTemplate::new(None, Some(high), None, Amount::ZERO, Default::default());
+			let template = FundingTemplate::new(None, Some(high), None, Amount::ZERO);
 			assert!(matches!(
 				template.splice_in_sync(
 					Amount::from_sat(10_000),
@@ -3024,7 +3030,7 @@ mod tests {
 			change_output: None,
 		};
 		assert!(matches!(
-			FundingTemplate::new(None, None, None, Amount::ZERO, Default::default())
+			FundingTemplate::new(None, None, None, Amount::ZERO)
 				.with_prior_contribution(feerate, feerate)
 				.with_coin_selection_source_sync(wallet)
 				.add_value(Amount::from_sat(10_000))
@@ -3817,13 +3823,8 @@ mod tests {
 		};
 
 		// max_feerate (2020) < min_rbf_feerate (2025).
-		let template = FundingTemplate::new(
-			None,
-			Some(min_rbf_feerate),
-			Some(prior),
-			Amount::MAX_MONEY,
-			Default::default(),
-		);
+		let template =
+			FundingTemplate::new(None, Some(min_rbf_feerate), Some(prior), Amount::MAX_MONEY);
 		assert!(matches!(
 			template.rbf_prior_contribution_sync(None, max_feerate, UnreachableWallet),
 			Err(FundingContributionError::FeeRateExceedsMaximum { .. }),
@@ -3856,13 +3857,8 @@ mod tests {
 			pending_components: Default::default(),
 		};
 
-		let template = FundingTemplate::new(
-			None,
-			Some(min_rbf_feerate),
-			Some(prior),
-			Amount::MAX_MONEY,
-			Default::default(),
-		);
+		let template =
+			FundingTemplate::new(None, Some(min_rbf_feerate), Some(prior), Amount::MAX_MONEY);
 		let contribution =
 			template.rbf_prior_contribution_sync(None, max_feerate, UnreachableWallet).unwrap();
 		assert_eq!(contribution.feerate, min_rbf_feerate);
@@ -3893,13 +3889,8 @@ mod tests {
 			pending_components: Default::default(),
 		};
 
-		let template = FundingTemplate::new(
-			None,
-			Some(min_rbf_feerate),
-			Some(prior),
-			Amount::MAX_MONEY,
-			Default::default(),
-		);
+		let template =
+			FundingTemplate::new(None, Some(min_rbf_feerate), Some(prior), Amount::MAX_MONEY);
 		let contribution = template
 			.rbf_prior_contribution_sync(Some(override_feerate), max_feerate, UnreachableWallet)
 			.unwrap();
@@ -3925,13 +3916,8 @@ mod tests {
 			pending_components: Default::default(),
 		};
 
-		let template = FundingTemplate::new(
-			None,
-			Some(min_rbf_feerate),
-			Some(prior),
-			Amount::MAX_MONEY,
-			Default::default(),
-		);
+		let template =
+			FundingTemplate::new(None, Some(min_rbf_feerate), Some(prior), Amount::MAX_MONEY);
 		assert!(matches!(
 			template.rbf_prior_contribution_sync(
 				Some(override_feerate),
@@ -3961,13 +3947,8 @@ mod tests {
 			pending_components: Default::default(),
 		};
 
-		let template = FundingTemplate::new(
-			None,
-			Some(min_rbf_feerate),
-			Some(prior),
-			Amount::MAX_MONEY,
-			Default::default(),
-		);
+		let template =
+			FundingTemplate::new(None, Some(min_rbf_feerate), Some(prior), Amount::MAX_MONEY);
 		assert!(matches!(
 			template.rbf_prior_contribution_sync(
 				Some(override_feerate),
@@ -4036,7 +4017,6 @@ mod tests {
 			Some(min_rbf_feerate),
 			Some(prior),
 			Amount::ZERO,
-			Default::default(),
 		);
 
 		let wallet = SingleUtxoWallet {
@@ -4081,7 +4061,6 @@ mod tests {
 			Some(min_rbf_feerate),
 			Some(prior),
 			Amount::MAX_MONEY,
-			Default::default(),
 		);
 
 		let wallet = SingleUtxoWallet {
@@ -4112,7 +4091,6 @@ mod tests {
 			Some(min_rbf_feerate),
 			None,
 			Amount::MAX_MONEY,
-			Default::default(),
 		);
 
 		let contribution =
@@ -4126,20 +4104,26 @@ mod tests {
 	/// A coin-selected splice-in contribution with a change output, as a channel would store it for
 	/// a negotiated round.
 	fn pending_round_contribution() -> FundingContribution {
+		pending_round_contribution_with_outputs(Vec::new())
+	}
+
+	/// A coin-selected splice-in contribution with the given explicit outputs and a change output,
+	/// as a channel would store it for a negotiated round.
+	fn pending_round_contribution_with_outputs(outputs: Vec<TxOut>) -> FundingContribution {
 		let feerate = FeeRate::from_sat_per_kwu(2000);
 		let inputs = vec![funding_input_sats(100_000)];
 		let change = funding_output_sats(40_000);
 		FundingContribution {
 			estimated_fee: estimate_transaction_fee(
 				&inputs,
-				&[],
+				&outputs,
 				Some(&change),
 				true,
 				true,
 				feerate,
 			),
 			inputs,
-			outputs: vec![],
+			outputs,
 			change_output: Some(change),
 			feerate,
 			max_feerate: FeeRate::MAX,
@@ -4149,72 +4133,109 @@ mod tests {
 		}
 	}
 
-	fn pending_components_of(contribution: &FundingContribution) -> PendingFundingComponents {
-		PendingFundingComponents::new(
-			contribution.contributed_inputs().collect(),
-			contribution.contributed_outputs().map(|script| script.to_owned()).collect(),
-		)
-	}
-
 	#[test]
-	fn pending_components_carried_by_every_built_contribution() {
-		// Whatever a template records as committed to the channel's pending splice rounds is
-		// carried by every contribution built from it: one reusing or amending the prior
-		// contribution, one built without it from the channel balance, and one from coin selection.
-		let prior = pending_round_contribution();
-		let pending_components = pending_components_of(&prior);
+	fn pending_components_record_what_is_inherited_from_prior_contribution() {
+		// A contribution built from a template records the inputs and outputs it inherited from the
+		// prior contribution, which remain committed to that contribution's splice attempt, and
+		// nothing that was selected for it alone.
+		let splice_out = TxOut {
+			value: Amount::from_sat(1_000),
+			script_pubkey: ScriptBuf::new_p2wsh(&WScriptHash::all_zeros()),
+		};
+		let prior = pending_round_contribution_with_outputs(vec![splice_out.clone()]);
+		let prior_components = PendingFundingComponents::from_contribution(&prior);
 		let rbf_feerate = FeeRate::from_sat_per_kwu(2025);
 		let template = FundingTemplate::new(
 			Some(shared_input(100_000)),
 			Some(rbf_feerate),
-			Some(prior),
+			Some(prior.clone()),
 			Amount::MAX_MONEY,
-			pending_components.clone(),
 		);
+
+		// The prior contribution owns none of its reservations, and neither does anything reusing
+		// or amending it.
 		assert_eq!(
 			template.prior_contribution().unwrap().pending_components(),
-			Some(&pending_components)
+			Some(&prior_components)
 		);
 
 		let reused = template
 			.clone()
 			.rbf_prior_contribution_sync(None, FeeRate::MAX, UnreachableWallet)
 			.unwrap();
-		assert_eq!(reused.pending_components(), Some(&pending_components));
+		assert_eq!(reused.pending_components(), Some(&prior_components));
+		assert!(reused.to_unique_contributions().is_none());
 
+		let new_output = TxOut {
+			value: Amount::from_sat(2_000),
+			script_pubkey: ScriptBuf::new_p2wsh(&WScriptHash::from_byte_array([1; 32])),
+		};
 		let amended = template
 			.clone()
 			.with_prior_contribution(rbf_feerate, FeeRate::MAX)
-			.add_output(TxOut {
-				value: Amount::from_sat(1_000),
-				script_pubkey: ScriptBuf::new_p2wsh(&WScriptHash::all_zeros()),
-			})
+			.add_output(new_output.clone())
 			.build()
 			.unwrap();
-		assert_eq!(amended.pending_components(), Some(&pending_components));
+		assert_eq!(amended.pending_components(), Some(&prior_components));
+		assert_eq!(
+			amended.to_unique_contributions(),
+			Some((Vec::new(), vec![new_output.script_pubkey]))
+		);
 
-		let splice_out = template
+		// Building without the prior contribution inherits nothing, whether paying from the
+		// channel balance or selecting new inputs.
+		let splice_out_only = template
 			.clone()
 			.without_prior_contribution(rbf_feerate, FeeRate::MAX)
 			.add_output(funding_output_sats(1_000))
 			.build()
 			.unwrap();
-		assert!(splice_out.inputs.is_empty());
-		assert_eq!(splice_out.pending_components(), Some(&pending_components));
+		assert!(splice_out_only.inputs.is_empty());
+		assert!(splice_out_only.pending_components().is_none());
 
 		let wallet = SingleUtxoWallet {
 			utxo: funding_input_sats(50_000),
 			change_output: Some(funding_output_sats(25_000)),
 		};
-		let coin_selected = template
+		let fresh = template
+			.clone()
 			.without_prior_contribution(rbf_feerate, FeeRate::MAX)
 			.with_coin_selection_source_sync(&wallet)
 			.add_value(Amount::from_sat(10_000))
 			.unwrap()
 			.build()
 			.unwrap();
-		assert_eq!(coin_selected.inputs, vec![wallet.utxo]);
-		assert_eq!(coin_selected.pending_components(), Some(&pending_components));
+		assert_eq!(fresh.inputs, vec![wallet.utxo]);
+		assert!(fresh.pending_components().is_none());
+
+		// Amending the prior contribution beyond what its inputs can cover selects new inputs and
+		// change, which are the contribution's own even if the wallet hands out the same ones.
+		// Only the explicit outputs carried over are inherited.
+		let wallet = SingleUtxoWallet {
+			utxo: prior.inputs[0].clone(),
+			change_output: prior.change_output.clone(),
+		};
+		let reselected = template
+			.with_prior_contribution(rbf_feerate, FeeRate::MAX)
+			.with_coin_selection_source_sync(&wallet)
+			.add_value(Amount::from_sat(100_000))
+			.unwrap()
+			.build()
+			.unwrap();
+		assert_eq!(reselected.inputs, prior.inputs);
+		assert_eq!(reselected.outputs, prior.outputs);
+		assert_eq!(reselected.change_output, prior.change_output);
+		assert_eq!(
+			reselected.pending_components(),
+			Some(&PendingFundingComponents::new(Vec::new(), vec![splice_out.script_pubkey]))
+		);
+		assert_eq!(
+			reselected.to_unique_contributions(),
+			Some((
+				prior.contributed_inputs().collect(),
+				vec![prior.change_output.unwrap().script_pubkey]
+			))
+		);
 	}
 
 	#[test]

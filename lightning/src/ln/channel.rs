@@ -13330,24 +13330,11 @@ where
 			satisfaction_weight: EMPTY_SCRIPT_SIG_WEIGHT + FUNDING_TRANSACTION_WITNESS_WEIGHT,
 		};
 
-		// Contributions built from the template may reuse inputs and outputs committed to pending
-		// rounds (e.g., an RBF reusing the prior round's inputs). Have them carry a record of those
-		// so that, should the channel be gone by the time a contribution is submitted, its
-		// rejection does not report them as discarded while a pending round could still confirm.
-		// This applies whether or not the template allows RBF, as a contribution may reuse them
-		// regardless. A queued contribution cannot exist here, as checked above.
-		let pending_components = self
-			.pending_splice
-			.as_ref()
-			.map(|pending_splice| pending_splice.funding_components().to_pending_components())
-			.unwrap_or_default();
-
 		Ok(FundingTemplate::new(
 			Some(shared_input),
 			min_rbf_feerate,
 			prior_contribution,
 			spliceable_balance,
-			pending_components,
 		))
 	}
 
