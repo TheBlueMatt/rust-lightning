@@ -6,3 +6,10 @@
    Previously, a fee bump built with `FundingTemplate::rbf_prior_contribution` that was rejected
    because the channel had since closed reported the pending splice's inputs as discardable while
    that splice could still confirm, inviting a wallet to double-spend its own splice (#4986).
+ * `ChannelManager::funding_contributed` now rejects a contribution as stale when the inputs and
+   outputs it reused from a pending splice's contribution are no longer committed to a pending
+   splice attempt, e.g., when it was built from a `FundingTemplate` obtained before the splice it
+   fee bumps failed or locked. A new contribution should be built from a fresh template instead.
+   `Event::DiscardFunding` events for contributions rejected by `funding_contributed` never list
+   inputs and outputs committed to a pending splice attempt, and are now persisted before the
+   method returns so they cannot be lost to a crash (#4986).

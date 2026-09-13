@@ -13,7 +13,9 @@ use core::borrow::Borrow;
 
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::PublicKey;
-use bitcoin::{Amount, FeeRate, OutPoint, ScriptBuf, SignedAmount, TxOut, WScriptHash, Weight};
+use bitcoin::{
+	Amount, FeeRate, OutPoint, ScriptBuf, SignedAmount, Transaction, TxOut, WScriptHash, Weight,
+};
 
 use crate::ln::chan_utils::{
 	make_funding_redeemscript, BASE_INPUT_WEIGHT, EMPTY_SCRIPT_SIG_WEIGHT,
@@ -619,17 +621,24 @@ impl_ser_tlv_based_enum!(FundingInputMode,
 /// attempt on the channel, and so whose reservation the contribution does not own.
 ///
 /// A contribution built from a [`FundingTemplate`] records what it inherited from the template's
-/// prior contribution (e.g., an RBF attempt reusing the prior attempt's inputs), while one reported
-/// by [`Event::SpliceNegotiationFailed`] records what the attempts still pending at that time had
-/// committed to. Anything else a contribution holds, such as inputs newly selected from a wallet,
-/// it reserved itself. If the contribution is then rejected without a channel to filter it against
-/// (e.g., the channel closed in the meantime), only what it reserved itself is reported as
-/// discarded, as the other attempt's transaction may still confirm.
+/// prior contribution (e.g., an RBF attempt reusing the prior attempt's inputs). Anything else a
+/// contribution holds, such as inputs newly selected from a wallet, it reserved itself. Whenever a
+/// contribution fails, only what it reserved itself is reported as discarded: what it inherited
+/// belongs to the attempt it was built from, whose transaction may still confirm, and is reported
+/// if and when that attempt itself fails.
 ///
-/// Only a contribution that has not yet reached a channel carries this, and it is serialized with
-/// such a contribution since one reported by an event may be persisted before being retried.
+/// The record stays with the contribution for its whole life -- through channel state, in the
+/// events reporting a failure, and across serialization round trips -- so a failure can always be
+/// reported from the contribution alone, even without a channel to check against (e.g., when the
+/// channel closed before the contribution was submitted).
 ///
-/// [`Event::SpliceNegotiationFailed`]: crate::events::Event::SpliceNegotiationFailed
+/// A record can go stale while the contribution is outside the channel: the attempt it was
+/// inherited from may be resolved before the contribution is submitted. Submission therefore
+/// rejects a contribution recording parts no longer committed to a live splice attempt, and
+/// records any parts committed to one that the record is missing (see
+/// [`FundingContribution::reconcile_with_committed_funding`]), so a record held in channel state
+/// always matches the live attempts, which are only resolved all at once when a candidate is
+/// promoted or the channel is closed.
 #[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
 pub(super) struct PendingFundingComponents {
 	inputs: Vec<OutPoint>,
@@ -722,14 +731,15 @@ pub struct FundingContribution {
 	input_mode: Option<FundingInputMode>,
 
 	/// Which of this contribution's inputs and outputs are committed to another splice attempt, if
-	/// any. Only meaningful until the contribution reaches the channel, which has authoritative
-	/// state; it is cleared at that point so that channel state never carries it.
+	/// any, and so are excluded from the funding reported as discarded when this contribution
+	/// fails.
 	pending_components: Option<PendingFundingComponents>,
 }
 
-// `pending_components` is transient metadata about the channel's other splice attempts rather than
-// part of the contribution itself, so it is excluded from equality and hashing: a contribution
-// obtained from an event compares equal to the one that was submitted.
+// `pending_components` describes which reservations the contribution owns rather than the
+// contribution's contents, and is rewritten when a template seeds a new build from a prior
+// contribution, so it is excluded from equality and hashing: a contribution obtained from an event
+// or inspected in channel state compares equal to the one that was submitted.
 impl PartialEq for FundingContribution {
 	fn eq(&self, other: &Self) -> bool {
 		let Self {
@@ -827,11 +837,88 @@ impl FundingContribution {
 		self
 	}
 
-	/// Clears the record of what is committed to another splice attempt, once the channel itself
-	/// can determine this from its authoritative state.
-	pub(super) fn without_pending_components(mut self) -> Self {
-		self.pending_components = None;
+	/// Additionally records any of this contribution's inputs and outputs among the given
+	/// `existing_inputs`/`existing_output_scripts` as committed to another splice attempt, see
+	/// [`PendingFundingComponents`].
+	pub(super) fn with_pending_components_overlapping(
+		mut self, existing_inputs: &[OutPoint], existing_output_scripts: &[ScriptBuf],
+	) -> Self {
+		let mut pending_components = self.pending_components.take().unwrap_or_default();
+		let inputs: Vec<OutPoint> = self
+			.contributed_inputs()
+			.filter(|input| {
+				existing_inputs.contains(input) && !pending_components.inputs.contains(input)
+			})
+			.collect();
+		let mut output_scripts: Vec<ScriptBuf> = Vec::new();
+		for script in self.contributed_outputs() {
+			if existing_output_scripts.iter().any(|existing| existing.as_script() == script)
+				&& !pending_components
+					.output_scripts
+					.iter()
+					.chain(output_scripts.iter())
+					.any(|existing| existing.as_script() == script)
+			{
+				output_scripts.push(script.to_owned());
+			}
+		}
+		pending_components.inputs.extend(inputs);
+		pending_components.output_scripts.extend(output_scripts);
+		self.pending_components = pending_components.into_option();
 		self
+	}
+
+	/// Additionally records any of this contribution's inputs and outputs that `transaction`
+	/// spends or creates as committed to another splice attempt, see
+	/// [`PendingFundingComponents`].
+	pub(super) fn with_pending_components_in_transaction(self, transaction: &Transaction) -> Self {
+		let inputs: Vec<OutPoint> =
+			transaction.input.iter().map(|txin| txin.previous_output).collect();
+		let output_scripts: Vec<ScriptBuf> =
+			transaction.output.iter().map(|txout| txout.script_pubkey.clone()).collect();
+		self.with_pending_components_overlapping(&inputs, &output_scripts)
+	}
+
+	/// Reconciles this contribution's record of inherited inputs and outputs with the inputs and
+	/// output scripts actually committed to the channel's live splice attempts, returning the
+	/// contribution with any of its parts among them additionally recorded. Recording such parts
+	/// keeps them out of any funding later reported as discarded while the attempt using them can
+	/// still confirm, no matter how the contribution came to hold them (inherited from a prior
+	/// contribution, handed out again by a wallet, or resubmitted after a failure).
+	///
+	/// Returns `Err` when the record is stale: a recorded input or output script is no longer
+	/// committed to a live attempt, meaning the attempt it was inherited from has since been
+	/// resolved -- failed, releasing its funding, or locked, spending it. The contribution was
+	/// built against splice state that no longer exists, so its accounting of what a failure
+	/// should release cannot be trusted, and a new contribution should be built from a fresh
+	/// [`FundingTemplate`]. The rejected contribution is returned reconciled the same way, so that
+	/// reporting its rejection releases only what no live attempt uses.
+	pub(super) fn reconcile_with_committed_funding(
+		self, committed_inputs: &[OutPoint], committed_output_scripts: &[ScriptBuf],
+	) -> Result<Self, Self> {
+		let stale = self.pending_components.as_ref().map_or(false, |record| {
+			record.inputs().any(|input| !committed_inputs.contains(&input))
+				|| record.output_scripts().any(|script| {
+					!committed_output_scripts
+						.iter()
+						.any(|committed| committed.as_script() == script)
+				})
+		});
+
+		let reconciled =
+			self.with_pending_components_overlapping(committed_inputs, committed_output_scripts);
+		if stale {
+			Err(reconciled)
+		} else {
+			Ok(reconciled)
+		}
+	}
+
+	/// Clears the record of what is committed to another splice attempt, once every attempt this
+	/// contribution could have inherited from is gone without using any of its inputs and outputs:
+	/// the contribution then owns all of its reservations, and a failure releases them all.
+	pub(super) fn clear_pending_components(&mut self) {
+		self.pending_components = None;
 	}
 
 	#[cfg(test)]
@@ -1028,8 +1115,9 @@ impl FundingContribution {
 		(contributed_inputs, contributed_outputs.map(|output| output.script_pubkey).collect())
 	}
 
-	/// Returns this contribution's inputs and outputs after removing any that overlap
-	/// with the provided `existing_inputs`/`existing_outputs`.
+	/// Returns this contribution's inputs and outputs after removing any recorded as committed to
+	/// another splice attempt (see [`PendingFundingComponents`]) as well as any that overlap with
+	/// the provided `existing_inputs`/`existing_outputs`.
 	///
 	/// Multiple contribution outputs sharing a `script_pubkey` are all dropped when any
 	/// existing output uses the same script.
@@ -1040,35 +1128,40 @@ impl FundingContribution {
 		existing_outputs: impl Iterator<Item = &'a bitcoin::Script>,
 	) -> Option<(Vec<OutPoint>, Vec<TxOut>)> {
 		let inputs: Vec<OutPoint> = self.contributed_inputs().collect();
-		let FundingContribution { outputs, change_output, .. } = self;
+		let FundingContribution { outputs, change_output, pending_components, .. } = self;
 		let outputs: Vec<TxOut> = outputs.into_iter().chain(change_output).collect();
-		filter_unique_contributions(inputs, outputs, existing_inputs, existing_outputs)
+		let pending_components = pending_components.unwrap_or_default();
+		filter_unique_contributions(inputs, outputs, existing_inputs, existing_outputs).and_then(
+			|(inputs, outputs)| {
+				filter_unique_contributions(
+					inputs,
+					outputs,
+					pending_components.inputs(),
+					pending_components.output_scripts(),
+				)
+			},
+		)
 	}
 
-	/// Like [`Self::into_unique_contributions`] but borrows the outputs, for when the contribution
-	/// is still needed afterwards.
-	pub(super) fn unique_contributions<'a>(
-		&self, existing_inputs: impl Iterator<Item = OutPoint>,
-		existing_outputs: impl Iterator<Item = &'a bitcoin::Script>,
-	) -> Option<(Vec<OutPoint>, Vec<&TxOut>)> {
+	/// Returns this contribution's inputs and outputs after removing any recorded as committed to
+	/// another splice attempt: the funding to report as discarded when this contribution fails,
+	/// see [`PendingFundingComponents`].
+	///
+	/// Returns `None` if every input and output is committed to another splice attempt.
+	pub(super) fn unique_contributions(&self) -> Option<(Vec<OutPoint>, Vec<&TxOut>)> {
 		let inputs: Vec<OutPoint> = self.contributed_inputs().collect();
 		let outputs: Vec<&TxOut> = self.outputs.iter().chain(self.change_output.iter()).collect();
-		filter_unique_contributions(inputs, outputs, existing_inputs, existing_outputs)
-	}
-
-	/// Returns this contribution's inputs and output scripts after removing any committed to another
-	/// splice attempt, see [`PendingFundingComponents`].
-	///
-	/// This is for rejecting a contribution without a channel to filter it against; the channel's
-	/// own state is authoritative when it is available.
-	///
-	/// Returns `None` if every input and output was filtered as overlapping.
-	pub(super) fn to_unique_contributions(&self) -> Option<(Vec<OutPoint>, Vec<ScriptBuf>)> {
-		self.unique_contributions(
+		filter_unique_contributions(
+			inputs,
+			outputs,
 			self.pending_components.iter().flat_map(|components| components.inputs()),
 			self.pending_components.iter().flat_map(|components| components.output_scripts()),
 		)
-		.map(|(inputs, outputs)| {
+	}
+
+	/// Like [`Self::unique_contributions`] but returns owned output scripts.
+	pub(super) fn to_unique_contributions(&self) -> Option<(Vec<OutPoint>, Vec<ScriptBuf>)> {
+		self.unique_contributions().map(|(inputs, outputs)| {
 			(inputs, outputs.into_iter().map(|output| output.script_pubkey.clone()).collect())
 		})
 	}
@@ -4240,10 +4333,10 @@ mod tests {
 
 	#[test]
 	fn pending_components_excluded_from_equality_and_preserved_by_serialization() {
-		// The record of what was pending when a contribution was built describes the channel at
-		// that time rather than the contribution itself, so it does not make the contribution a
-		// different one. It does survive a serialization round trip, as a contribution reported by
-		// an event may be persisted along with it before being retried.
+		// The record of what a contribution inherited describes which reservations it owns rather
+		// than its contents, so it does not make the contribution a different one. It does survive
+		// a serialization round trip, as a contribution is persisted along with the channel state
+		// or event holding it.
 		let contribution = pending_round_contribution();
 		let with_pending_components =
 			contribution.clone().with_pending_components(PendingFundingComponents::new(
@@ -4257,11 +4350,6 @@ mod tests {
 		let read = FundingContribution::read(&mut &encoded[..]).unwrap();
 		assert_eq!(read.pending_components(), with_pending_components.pending_components());
 		assert_eq!(read, contribution);
-
-		// A contribution whose record was cleared encodes identically to one that never had one.
-		let cleared = with_pending_components.without_pending_components();
-		assert!(cleared.pending_components().is_none());
-		assert_eq!(cleared.encode(), contribution.encode());
 	}
 
 	#[test]
@@ -4329,5 +4417,60 @@ mod tests {
 			vec![committed_output.script_pubkey, fresh_output.script_pubkey, change.script_pubkey],
 		));
 		assert_eq!(contribution.to_unique_contributions(), None);
+	}
+
+	#[test]
+	fn reconcile_with_committed_funding_records_overlap_and_rejects_stale() {
+		let withdrawal = TxOut {
+			value: Amount::from_sat(777),
+			script_pubkey: ScriptBuf::new_p2wsh(&WScriptHash::all_zeros()),
+		};
+		let contribution = pending_round_contribution_with_outputs(vec![withdrawal]);
+		let committed_input = contribution.inputs[0].outpoint();
+		let committed_script = contribution.change_output.as_ref().unwrap().script_pubkey.clone();
+
+		// With nothing committed and nothing recorded, there is nothing to reconcile.
+		let reconciled = contribution.clone().reconcile_with_committed_funding(&[], &[]).unwrap();
+		assert!(reconciled.pending_components().is_none());
+
+		// Parts committed to a live attempt are recorded, however the contribution came to hold
+		// them, and are no longer released.
+		let reconciled = contribution
+			.clone()
+			.reconcile_with_committed_funding(&[committed_input], &[committed_script.clone()])
+			.unwrap();
+		assert_eq!(
+			reconciled.pending_components(),
+			Some(&PendingFundingComponents::new(
+				vec![committed_input],
+				vec![committed_script.clone()]
+			))
+		);
+		let (unique_inputs, unique_outputs) = reconciled.to_unique_contributions().unwrap();
+		assert!(unique_inputs.is_empty());
+		assert_eq!(unique_outputs, vec![contribution.outputs[0].script_pubkey.clone()]);
+
+		// A record referring to funding no longer committed anywhere is stale: the contribution is
+		// rejected, reconciled the same way so that its rejection releases nothing still in use.
+		let stale = contribution
+			.clone()
+			.with_pending_components(PendingFundingComponents::new(
+				vec![funding_input_sats(1).outpoint()],
+				Vec::new(),
+			))
+			.reconcile_with_committed_funding(&[committed_input], &[committed_script.clone()])
+			.unwrap_err();
+		let (unique_inputs, unique_outputs) = stale.to_unique_contributions().unwrap();
+		assert!(unique_inputs.is_empty());
+		assert_eq!(unique_outputs, vec![contribution.outputs[0].script_pubkey.clone()]);
+
+		// A record whose entries all remain committed is accurate.
+		contribution
+			.with_pending_components(PendingFundingComponents::new(
+				vec![committed_input],
+				vec![committed_script.clone()],
+			))
+			.reconcile_with_committed_funding(&[committed_input], &[committed_script])
+			.unwrap();
 	}
 }

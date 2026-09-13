@@ -7028,12 +7028,19 @@ impl<
 	///
 	/// When an error is returned, the contribution has been rejected without emitting an
 	/// [`Event::SpliceNegotiationFailed`], as the failure is already reported through the error.
-	/// Any contributed inputs and outputs not committed to an existing splice attempt will be
-	/// included in an [`Event::DiscardFunding`] and thus can be re-spent. If the channel is no
-	/// longer known (e.g., it was closed after the contribution was built), those the contribution
-	/// inherited from the prior contribution of its [`FundingTemplate`], or that were committed to
-	/// a splice attempt still pending when it was reported in an [`Event::SpliceNegotiationFailed`],
-	/// are withheld instead, as the transactions of those attempts may still confirm.
+	/// Any contributed inputs and outputs will be included in an [`Event::DiscardFunding`] and
+	/// thus can be re-spent, except those still in use by another splice attempt, which are
+	/// withheld as that attempt's transaction may still confirm: parts the contribution inherited
+	/// from the prior contribution of its [`FundingTemplate`] (e.g., a fee bump reusing a pending
+	/// splice's inputs) -- even if the channel is no longer known (e.g., it was closed after the
+	/// contribution was built) -- parts committed to the channel's pending splice attempts, and
+	/// parts already held by a previously submitted contribution.
+	///
+	/// A contribution is rejected as stale when the inputs and outputs it inherited from its
+	/// [`FundingTemplate`]'s prior contribution are no longer committed to a pending splice
+	/// attempt: the attempt it amends has since been resolved, whether it failed, releasing its
+	/// funding, or locked, spending it. Build a new contribution from a fresh template in that
+	/// case.
 	///
 	/// [`ChannelUnavailable`]: APIError::ChannelUnavailable
 	/// [`APIMisuseError`]: APIError::APIMisuseError
@@ -7043,11 +7050,16 @@ impl<
 	) -> Result<(), APIError> {
 		let mut result = Ok(());
 		PersistenceNotifierGuard::optionally_notify(self, || {
-			// Without a channel to check against, rely on what the contribution recorded about its
-			// inputs and outputs being committed to another splice attempt. A fee bump reuses the
-			// prior attempt's inputs, and reporting them as discardable while that attempt can still
-			// confirm would invite the wallet to double-spend its own splice.
-			let push_discard_funding = |contribution: FundingContribution| {
+			// The contribution records which of its inputs and outputs are committed to another
+			// splice attempt, so a refusal releases only what it reserved itself even without a
+			// channel to check against. A fee bump reuses the prior attempt's inputs, and reporting
+			// them as discardable while that attempt can still confirm would invite the wallet to
+			// double-spend its own splice.
+			//
+			// A pushed event is the only unlock signal the caller will ever get for the released
+			// inputs, so the manager must be persisted with it lest a crash leave them reserved
+			// forever.
+			let push_discard_funding = |contribution: FundingContribution| -> NotifyOption {
 				let funding_info = contribution
 					.to_unique_contributions()
 					.map(|(inputs, outputs)| FundingInfo::Contribution { inputs, outputs });
@@ -7056,15 +7068,17 @@ impl<
 						events::Event::DiscardFunding { channel_id: *channel_id, funding_info },
 						None,
 					));
+					NotifyOption::DoPersist
+				} else {
+					NotifyOption::SkipPersistNoEvents
 				}
 			};
 
 			let per_peer_state = self.per_peer_state.read().unwrap();
 			let peer_state_mutex_opt = per_peer_state.get(counterparty_node_id);
 			if peer_state_mutex_opt.is_none() {
-				push_discard_funding(contribution);
 				result = Err(APIError::no_such_peer(counterparty_node_id));
-				return NotifyOption::SkipPersistNoEvents;
+				return push_discard_funding(contribution);
 			}
 
 			let mut peer_state = peer_state_mutex_opt.unwrap().lock().unwrap();
@@ -7136,21 +7150,19 @@ impl<
 						return NotifyOption::DoPersist;
 					},
 					None => {
-						push_discard_funding(contribution);
 						result = Err(APIError::APIMisuseError {
 							err: format!(
 								"Channel with id {} not expecting funding contribution",
 								channel_id
 							),
 						});
-						return NotifyOption::SkipPersistNoEvents;
+						return push_discard_funding(contribution);
 					},
 				},
 				None => {
-					push_discard_funding(contribution);
 					result =
 						Err(APIError::no_such_channel_for_peer(channel_id, counterparty_node_id));
-					return NotifyOption::SkipPersistNoEvents;
+					return push_discard_funding(contribution);
 				},
 			}
 		});
