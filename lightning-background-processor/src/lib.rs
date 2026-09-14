@@ -1349,7 +1349,10 @@ where
 		});
 		futures.set_f(pm_events_fut);
 
-		// Run persistence tasks in parallel and exit if any of them returns an error.
+		// Run tasks in parallel but exit if any return an error. Because halting the background
+		// processor is a rather extreme action that will leave the node hung, this should only be a
+		// last resort, and as such only the ChannelManager persistence task currently can return an
+		// error.
 		for res in futures.await {
 			res?;
 		}
