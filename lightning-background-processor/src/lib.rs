@@ -1143,6 +1143,7 @@ where
 				// Capture the monitor operations pending before we persist the ChannelManager.
 				let pending_monitor_writes = chain_monitor.get_cm().pending_operation_count();
 
+				log_trace!(logger, "Persisting ChannelManager...");
 				kv_store
 					.write(
 						CHANNEL_MANAGER_PERSISTENCE_PRIMARY_NAMESPACE,
@@ -1151,6 +1152,8 @@ where
 						channel_manager.get_cm().encode(),
 					)
 					.await?;
+
+				log_trace!(logger, "Done persisting ChannelManager, flushing {pending_monitor_writes} pending ChainMonitor writes");
 
 				// Flush monitor operations that were pending before we persisted. New updates
 				// that arrived after are left for the next iteration.
@@ -1165,8 +1168,6 @@ where
 		// won't block us for too long if the underlying future is actually async. We stash the
 		// outcome and feed it into the `Joiner` once it is constructed.
 		if needs_cm_persist {
-			log_trace!(logger, "Persisting ChannelManager...");
-
 			use core::future::Future;
 			let mut waker = dummy_waker();
 			let mut ctx = task::Context::from_waker(&mut waker);
@@ -1174,8 +1175,6 @@ where
 				task::Poll::Ready(res) => futures.set_a_res(res),
 				task::Poll::Pending => futures.set_a(cm_fut),
 			}
-
-			log_trace!(logger, "Done persisting ChannelManager.");
 		}
 
 		// Note that we want to archive stale ChannelMonitors and run a network graph prune once
@@ -1764,7 +1763,7 @@ impl BackgroundProcessor {
 						CHANNEL_MANAGER_PERSISTENCE_KEY,
 						channel_manager.get_cm().encode(),
 					))?;
-					log_trace!(logger, "Done persisting ChannelManager.");
+					log_trace!(logger, "Done persisting ChannelManager, flushing {pending_monitor_writes} pending ChainMonitor writes");
 
 					// Flush monitor operations that were pending before we persisted.
 					// New updates that arrived after are left for the next iteration.
