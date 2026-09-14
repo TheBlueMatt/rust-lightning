@@ -1352,6 +1352,15 @@ where
 		});
 		futures.set_e(lm_fut);
 
+		let pm_events_fut = core::pin::pin!(async {
+			// Once the persistence tasks are in-flight, also go ahead and process
+			// peer_manager events. For async operations this is "free" in that the cost of it is
+			// hidden behind the writes which we're waiting on anyway.
+			peer_manager.as_ref().process_events();
+			Ok(())
+		});
+		futures.set_f(pm_events_fut);
+
 		let ev_fut = core::pin::pin!(async {
 			channel_manager.get_cm().process_pending_events_async(async_event_handler).await;
 			chain_monitor.get_cm().process_pending_events_async(async_event_handler).await;
@@ -1360,16 +1369,7 @@ where
 			}
 			Ok(())
 		});
-		futures.set_f(ev_fut);
-
-		let pm_events_fut = core::pin::pin!(async {
-			// Once the persistence tasks are in-flight, also go ahead and process
-			// peer_manager events. For async operations this is "free" in that the cost of it is
-			// hidden behind the writes/event processing which we're waiting on anyway.
-			peer_manager.as_ref().process_events();
-			Ok(())
-		});
-		futures.set_g(pm_events_fut);
+		futures.set_g(ev_fut);
 
 		// Run tasks in parallel but exit if any return an error. Because halting the background
 		// processor is a rather extreme action that will leave the node hung, this should only be a
