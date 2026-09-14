@@ -1135,7 +1135,7 @@ where
 			None => {},
 		}
 
-		let mut futures = Joiner::new();
+		let mut futures = Joiner::<lightning::io::Error, _, _, _, _, _, _, _>::new();
 
 		let needs_cm_persist = channel_manager.get_cm().get_and_clear_needs_persistence();
 		let mut cm_fut = core::pin::pin!(async {
@@ -1332,7 +1332,7 @@ where
 
 		let lm_fut = core::pin::pin!(async {
 			if let Some(liquidity_manager) = liquidity_manager.as_ref() {
-				liquidity_manager
+				let _ = liquidity_manager
 					.get_lm()
 					.persist()
 					.await
@@ -1342,12 +1342,10 @@ where
 						}
 					})
 					.map_err(|e| {
-						log_error!(logger, "Persisting LiquidityManager failed: {}", e);
-						e
-					})
-			} else {
-				Ok(())
+						log_error!(logger, "Error: Failed to persist liquidity manager, check your disk and permissions {e}");
+					});
 			}
+			Ok(())
 		});
 		futures.set_e(lm_fut);
 
