@@ -13624,6 +13624,14 @@ where
 			funding_txo_to_channel_id.insert(funding_txo, channel.context.channel_id());
 			funding_txo_set.insert(funding_txo.clone());
 			if let Some(ref mut monitor) = args.channel_monitors.get_mut(&funding_txo) {
+				// Blocked updates the `ChannelMonitor` has since applied must be dropped before
+				// checking whether we're stale, as force-closing a stale channel fails back the
+				// HTLCs added in its blocked updates, which the counterparty is committed to if
+				// the update was applied.
+				channel.on_startup_drop_completed_blocked_mon_updates_through(
+					&logger,
+					monitor.get_latest_update_id(),
+				);
 				if channel.get_cur_holder_commitment_transaction_number() > monitor.get_cur_holder_commitment_number() ||
 						channel.get_revoked_counterparty_commitment_transaction_number() > monitor.get_min_seen_secret() ||
 						channel.get_cur_counterparty_commitment_transaction_number() > monitor.get_cur_counterparty_commitment_number() ||
@@ -13707,7 +13715,6 @@ where
 						}
 					}
 				} else {
-					channel.on_startup_drop_completed_blocked_mon_updates_through(&logger, monitor.get_latest_update_id());
 					log_info!(logger, "Successfully loaded channel {} at update_id {} against monitor at update id {} with {} blocked updates",
 						&channel.context.channel_id(), channel.context.get_latest_monitor_update_id(),
 						monitor.get_latest_update_id(), channel.blocked_monitor_updates_pending());
