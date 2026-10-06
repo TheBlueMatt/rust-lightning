@@ -9,6 +9,7 @@
 
 //! This module contains various types which are used to configure or process outbound payments.
 
+use bitcoin::constants::ChainHash;
 use bitcoin::hashes::sha256::Hash as Sha256;
 use bitcoin::hashes::Hash;
 use bitcoin::secp256k1::{self, Secp256k1, SecretKey};
@@ -679,6 +680,8 @@ pub enum Bolt12PaymentError {
 	///
 	/// [`ChannelManager::pay_for_bolt12_invoice`]: crate::ln::channelmanager::ChannelManager::pay_for_bolt12_invoice
 	InvalidAmount,
+	/// The invoice is for a chain other than the one we are operating on.
+	UnsupportedChain,
 	/// The invoice was valid for the corresponding [`PaymentId`], but sending the payment failed.
 	SendingFailed(RetryableSendFailure),
 	/// Failed to create a blinded path back to ourselves.
@@ -962,6 +965,7 @@ pub(super) struct SendAlongPathArgs<'a> {
 }
 
 pub(super) struct OutboundPayments {
+	chain_hash: ChainHash,
 	pub(super) pending_outbound_payments: Mutex<HashMap<PaymentId, PendingOutboundPayment>>,
 	awaiting_invoice: AtomicBool,
 	retry_lock: Mutex<()>,
@@ -969,6 +973,7 @@ pub(super) struct OutboundPayments {
 
 impl OutboundPayments {
 	pub(super) fn new(
+		chain_hash: ChainHash,
 		pending_outbound_payments: HashMap<PaymentId, PendingOutboundPayment>,
 	) -> Self {
 		let has_invoice_requests = pending_outbound_payments.values().any(|payment| {
@@ -981,6 +986,7 @@ impl OutboundPayments {
 		});
 
 		Self {
+			chain_hash,
 			pending_outbound_payments: Mutex::new(pending_outbound_payments),
 			awaiting_invoice: AtomicBool::new(has_invoice_requests),
 			retry_lock: Mutex::new(()),
@@ -1182,6 +1188,10 @@ impl OutboundPayments {
 	{
 		let OptionalBolt12PaymentParams { amount_msats, retry_strategy, route_params_config } =
 			optional_params;
+
+		if invoice.chain() != self.chain_hash {
+			return Err(Bolt12PaymentError::UnsupportedChain);
+		}
 
 		let invoice_amount = invoice.amount_msats();
 		let send_amount = amount_msats.unwrap_or(invoice_amount);
@@ -2972,6 +2982,7 @@ impl_writeable_tlv_based_enum_upgradable!(PendingOutboundPayment,
 
 #[cfg(test)]
 mod tests {
+	use bitcoin::constants::ChainHash;
 	use bitcoin::network::Network;
 	use bitcoin::secp256k1::{PublicKey, Secp256k1, SecretKey};
 
@@ -3047,7 +3058,7 @@ mod tests {
 		let logger = test_utils::TestLogger::new();
 		let logger_ref = &logger;
 		let log = WithContext::from(&logger_ref, None, None, Some(PaymentHash([0; 32])));
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let network_graph = Arc::new(NetworkGraph::new(Network::Testnet, &logger));
 		let scorer = RwLock::new(test_utils::TestScorer::new());
 		let router = test_utils::TestRouter::new(network_graph, &logger, &scorer);
@@ -3094,7 +3105,7 @@ mod tests {
 		let logger = test_utils::TestLogger::new();
 		let logger_ref = &logger;
 		let log = WithContext::from(&logger_ref, None, None, Some(PaymentHash([0; 32])));
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let network_graph = Arc::new(NetworkGraph::new(Network::Testnet, &logger));
 		let scorer = RwLock::new(test_utils::TestScorer::new());
 		let router = test_utils::TestRouter::new(network_graph, &logger, &scorer);
@@ -3135,7 +3146,7 @@ mod tests {
 		let logger = test_utils::TestLogger::new();
 		let logger_ref = &logger;
 		let log = WithContext::from(&logger_ref, None, None, Some(PaymentHash([0; 32])));
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let network_graph = Arc::new(NetworkGraph::new(Network::Testnet, &logger));
 		let scorer = RwLock::new(test_utils::TestScorer::new());
 		let router = test_utils::TestRouter::new(network_graph, &logger, &scorer);
@@ -3217,7 +3228,7 @@ mod tests {
 	#[rustfmt::skip]
 	fn removes_stale_awaiting_invoice_using_absolute_timeout() {
 		let pending_events = Mutex::new(VecDeque::new());
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let payment_id = PaymentId([0; 32]);
 		let absolute_expiry = 100;
 		let tick_interval = 10;
@@ -3272,7 +3283,7 @@ mod tests {
 	#[rustfmt::skip]
 	fn removes_stale_awaiting_invoice_using_timer_ticks() {
 		let pending_events = Mutex::new(VecDeque::new());
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let payment_id = PaymentId([0; 32]);
 		let timer_ticks = 3;
 		let expiration = StaleExpiration::TimerTicks(timer_ticks);
@@ -3326,7 +3337,7 @@ mod tests {
 	#[rustfmt::skip]
 	fn removes_abandoned_awaiting_invoice() {
 		let pending_events = Mutex::new(VecDeque::new());
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let payment_id = PaymentId([0; 32]);
 		let expiration = StaleExpiration::AbsoluteTimeout(Duration::from_secs(100));
 
@@ -3368,7 +3379,7 @@ mod tests {
 		let nonce = Nonce([0; 16]);
 
 		let pending_events = Mutex::new(VecDeque::new());
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let payment_id = PaymentId([0; 32]);
 		let expiration = StaleExpiration::AbsoluteTimeout(Duration::from_secs(100));
 
@@ -3423,7 +3434,7 @@ mod tests {
 		let keys_manager = test_utils::TestKeysInterface::new(&[0; 32], Network::Testnet);
 
 		let pending_events = Mutex::new(VecDeque::new());
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let expanded_key = ExpandedKey::new([42; 32]);
 		let nonce = Nonce([0; 16]);
 		let payment_id = PaymentId([0; 32]);
@@ -3488,7 +3499,7 @@ mod tests {
 		let keys_manager = test_utils::TestKeysInterface::new(&[0; 32], Network::Testnet);
 
 		let pending_events = Mutex::new(VecDeque::new());
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let expanded_key = ExpandedKey::new([42; 32]);
 		let nonce = Nonce([0; 16]);
 		let payment_id = PaymentId([0; 32]);
@@ -3652,7 +3663,7 @@ mod tests {
 	#[rustfmt::skip]
 	fn time_out_unreleased_async_payments() {
 		let pending_events = Mutex::new(VecDeque::new());
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let payment_id = PaymentId([0; 32]);
 		let absolute_expiry = 60;
 
@@ -3702,7 +3713,7 @@ mod tests {
 	#[rustfmt::skip]
 	fn abandon_unreleased_async_payment() {
 		let pending_events = Mutex::new(VecDeque::new());
-		let outbound_payments = OutboundPayments::new(new_hash_map());
+		let outbound_payments = OutboundPayments::new(ChainHash::using_genesis_block(Network::Bitcoin), new_hash_map());
 		let payment_id = PaymentId([0; 32]);
 		let absolute_expiry = 60;
 
