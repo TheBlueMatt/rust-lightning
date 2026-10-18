@@ -93,7 +93,8 @@ where
 		drop(state_lock);
 
 		if should_notify {
-			if let Some(waker) = self.waker.lock().unwrap().take() {
+			let waker = self.waker.lock().unwrap().take();
+			if let Some(waker) = waker {
 				waker.wake();
 			}
 
@@ -194,7 +195,8 @@ where
 		};
 
 		if should_notify {
-			if let Some(waker) = self.0.waker.lock().unwrap().take() {
+			let waker = self.0.waker.lock().unwrap().take();
+			if let Some(waker) = waker {
 				waker.wake();
 			}
 
