@@ -44,6 +44,9 @@ function PIN_RELEASE_DEPS {
 	# Starting with version 0.1.10, the `find-msvc-tools` crate has an MSRV of rustc 1.64
 	[ "$RUSTC_MINOR_VERSION" -lt 64 ] && cargo update -p find-msvc-tools --precise "0.1.9" --verbose
 
+	# Starting with version 1.54.0, the `tokio` crate has an MSRV of rustc 1.85.
+	[ "$RUSTC_MINOR_VERSION" -lt 85 ] && cargo update -p tokio --precise "1.53.3" --quiet
+
 	return 0 # Don't fail the script if our rustc is higher than the last check
 }
 
