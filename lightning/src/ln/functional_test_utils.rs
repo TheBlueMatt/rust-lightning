@@ -4077,6 +4077,8 @@ pub struct ClaimAlongRouteArgs<'a, 'b, 'c, 'd> {
 	// calculate their fee based on the inbound amount from their upstream peer, causing a difference
 	// in rounding.
 	pub allow_1_msat_fee_overpay: bool,
+	/// If set, each HTLC in the recipient's `PaymentClaimed` event must report this skimmed fee.
+	pub expected_skimmed_fee_per_htlc_msat: Option<u64>,
 }
 
 impl<'a, 'b, 'c, 'd> ClaimAlongRouteArgs<'a, 'b, 'c, 'd> {
@@ -4094,6 +4096,7 @@ impl<'a, 'b, 'c, 'd> ClaimAlongRouteArgs<'a, 'b, 'c, 'd> {
 			payment_preimage,
 			allow_1_msat_fee_overpay: false,
 			custom_tlvs: vec![],
+			expected_skimmed_fee_per_htlc_msat: None,
 		}
 	}
 	pub fn skip_last(mut self, skip_last: bool) -> Self {
@@ -4118,6 +4121,10 @@ impl<'a, 'b, 'c, 'd> ClaimAlongRouteArgs<'a, 'b, 'c, 'd> {
 	}
 	pub fn with_custom_tlvs(mut self, custom_tlvs: Vec<(u64, Vec<u8>)>) -> Self {
 		self.custom_tlvs = custom_tlvs;
+		self
+	}
+	pub fn with_expected_skimmed_fee_per_htlc_msat(mut self, fee_msat: u64) -> Self {
+		self.expected_skimmed_fee_per_htlc_msat = Some(fee_msat);
 		self
 	}
 }
@@ -4154,6 +4161,16 @@ macro_rules! single_fulfill_commit_from_ev {
 pub fn pass_claimed_payment_along_route(args: ClaimAlongRouteArgs) -> u64 {
 	let claim_event = args.expected_paths[0].last().unwrap().node.get_and_clear_pending_events();
 	assert_eq!(claim_event.len(), 1, "{claim_event:?}");
+	if let Some(expected_fee_msat) = args.expected_skimmed_fee_per_htlc_msat {
+		match &claim_event[0] {
+			Event::PaymentClaimed { htlcs, .. } => {
+				for htlc in htlcs {
+					assert_eq!(htlc.counterparty_skimmed_fee_msat, expected_fee_msat);
+				}
+			},
+			_ => panic!("Expected Event::PaymentClaimed"),
+		}
+	}
 	#[allow(unused)]
 	let mut fwd_amt_msat = 0;
 	match claim_event[0] {
