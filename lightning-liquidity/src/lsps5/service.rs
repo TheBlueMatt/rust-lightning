@@ -307,12 +307,6 @@ where
 		}
 
 		for client_id in need_remove {
-			// Persist the emptied state before removing the key so that if the removal
-			// below fails, the on-disk record matches the in-memory state. Otherwise a
-			// restart would reload the peer with the webhooks the client asked us to
-			// remove, resurrecting them.
-			self.persist_peer_state(client_id).await?;
-
 			let mut future_opt = None;
 			let mut removed_state = None;
 			{

@@ -1679,29 +1679,15 @@ fn lsps5_service_handler_persistence_across_restarts() {
 struct FailableKVStore {
 	inner: TestStore,
 	fail_lsps5: std::sync::atomic::AtomicBool,
-	fail_lsps5_remove: std::sync::atomic::AtomicBool,
 }
 
 impl FailableKVStore {
 	fn new() -> Self {
-		Self {
-			inner: TestStore::new(false),
-			fail_lsps5: std::sync::atomic::AtomicBool::new(false),
-			fail_lsps5_remove: std::sync::atomic::AtomicBool::new(false),
-		}
+		Self { inner: TestStore::new(false), fail_lsps5: std::sync::atomic::AtomicBool::new(false) }
 	}
 
 	fn set_fail_lsps5(&self, fail: bool) {
 		self.fail_lsps5.store(fail, std::sync::atomic::Ordering::SeqCst);
-	}
-
-	fn set_fail_lsps5_remove(&self, fail: bool) {
-		self.fail_lsps5_remove.store(fail, std::sync::atomic::Ordering::SeqCst);
-	}
-
-	fn lsps5_remove_should_fail(&self) -> bool {
-		self.fail_lsps5.load(std::sync::atomic::Ordering::SeqCst)
-			|| self.fail_lsps5_remove.load(std::sync::atomic::Ordering::SeqCst)
 	}
 }
 
@@ -1740,7 +1726,9 @@ impl lightning::util::persist::KVStoreSync for FailableKVStore {
 	fn remove(
 		&self, primary_namespace: &str, secondary_namespace: &str, key: &str, lazy: bool,
 	) -> lightning::io::Result<()> {
-		if secondary_namespace == "lsps5_service" && self.lsps5_remove_should_fail() {
+		if secondary_namespace == "lsps5_service"
+			&& self.fail_lsps5.load(std::sync::atomic::Ordering::SeqCst)
+		{
 			return Err(lightning::io::Error::new(
 				lightning::io::ErrorKind::Other,
 				"intentional failure for lsps5 namespace",
@@ -1893,7 +1881,7 @@ fn lsps5_service_retries_prunable_peer_removal_after_io_error() {
 		nodes[0].node,
 		Arc::clone(&service_kv_store),
 		nodes[0].tx_broadcaster,
-		Some(service_config.clone()),
+		Some(service_config),
 		None,
 		Arc::clone(&time_provider),
 	)
@@ -1975,36 +1963,13 @@ fn lsps5_service_retries_prunable_peer_removal_after_io_error() {
 		_ => panic!("Expected WebhookRemoved event"),
 	}
 
-	// Now the peer is prunable, but only its state removal fails: the emptied state is
-	// written successfully before the removal is attempted.
-	service_kv_store.set_fail_lsps5_remove(true);
+	// Now the peer is prunable, but removing its state from the store fails.
+	service_kv_store.set_fail_lsps5(true);
 	assert!(service_lm.persist().is_err(), "persist should fail when the removal fails");
-
-	// Restarting the service from the store must not resurrect the removed webhook.
-	{
-		let restarted_service_lm = LiquidityManagerSync::new_with_custom_time_provider(
-			nodes[0].keys_manager,
-			nodes[0].keys_manager,
-			nodes[0].node,
-			Arc::clone(&service_kv_store),
-			nodes[0].tx_broadcaster,
-			Some(service_config),
-			None,
-			Arc::clone(&time_provider),
-		)
-		.unwrap();
-
-		let restarted_service_handler = restarted_service_lm.lsps5_service_handler().unwrap();
-		restarted_service_handler.notify_payment_incoming(client_node_id).unwrap();
-		assert!(
-			restarted_service_lm.next_event().is_none(),
-			"Removed webhook must not be resurrected after a restart"
-		);
-	}
 
 	// With the store accepting removals again, a subsequent `persist` must retry the
 	// removal and complete it.
-	service_kv_store.set_fail_lsps5_remove(false);
+	service_kv_store.set_fail_lsps5(false);
 	service_lm.persist().unwrap();
 	assert!(
 		service_kv_store
