@@ -893,6 +893,8 @@ fn do_multi_hop_receiver_fail(check: ReceiveCheckFail) {
 		nodes.iter().skip(1).map(|n| n.node.get_our_node_id()).collect(), &[&chan_upd_1_2],
 		&chanmon_cfgs[2].keys_manager);
 
+	route_params.payment_params.max_path_length = 18;
+
 	let route = if check == ReceiveCheckFail::ProcessPendingHTLCsCheck {
 		let mut route = get_route(&nodes[0], &route_params).unwrap();
 		// Set the final CLTV expiry too low to trigger the failure in process_pending_htlc_forwards.
