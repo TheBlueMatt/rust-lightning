@@ -3039,13 +3039,15 @@ fn client_trusts_lsp_broadcasts_despite_unforwardable_held_htlc() {
 	let fee_base_msat: u64 = 10_000;
 
 	execute_lsps2_dance(
-		&lsps_nodes,
+		&service_node,
+		&client_node,
 		intercept_scid,
 		user_channel_id,
 		cltv_expiry_delta,
 		promise_secret,
 		payment_size_msat,
 		fee_base_msat,
+		128,
 	);
 
 	let invoice = create_jit_invoice(
