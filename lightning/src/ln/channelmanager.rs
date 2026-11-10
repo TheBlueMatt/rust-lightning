@@ -6935,6 +6935,13 @@ where
 			.and_then(|payment| payment.forward_info.incoming_amt_msat)
 	}
 
+	/// Returns whether the intercepted HTLC indicated by `intercept_id` is still held, i.e., has
+	/// neither been forwarded nor failed back yet.
+	#[doc(hidden)]
+	pub fn is_intercepted_htlc_pending(&self, intercept_id: InterceptId) -> bool {
+		self.pending_intercepted_htlcs.lock().unwrap().contains_key(&intercept_id)
+	}
+
 	/// Fails the intercepted HTLC indicated by intercept_id. Should only be called in response to
 	/// an [`HTLCIntercepted`] event. See [`ChannelManager::forward_intercepted_htlc`].
 	///

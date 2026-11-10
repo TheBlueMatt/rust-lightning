@@ -2345,6 +2345,7 @@ fn do_test_intercepted_payment(test: InterceptTest) {
 		},
 		_ => panic!(),
 	};
+	assert!(nodes[1].node.is_intercepted_htlc_pending(intercept_id));
 
 	// Check for unknown channel id error.
 	let chan_id = ChannelId::from_bytes([42; 32]);
@@ -2360,6 +2361,7 @@ fn do_test_intercepted_payment(test: InterceptTest) {
 	if test == InterceptTest::Fail {
 		// Ensure we can fail the intercepted payment back.
 		nodes[1].node.fail_intercepted_htlc(intercept_id).unwrap();
+		assert!(!nodes[1].node.is_intercepted_htlc_pending(intercept_id));
 		let fail =
 			HTLCHandlingFailureType::InvalidForward { requested_forward_scid: intercept_scid };
 		expect_htlc_failure_conditions(nodes[1].node.get_and_clear_pending_events(), &[fail]);
@@ -2396,6 +2398,7 @@ fn do_test_intercepted_payment(test: InterceptTest) {
 			.node
 			.forward_intercepted_htlc(intercept_id, &chan_id, node_c_id, outbound_amt)
 			.unwrap();
+		assert!(!nodes[1].node.is_intercepted_htlc_pending(intercept_id));
 		expect_and_process_pending_htlcs(&nodes[1], false);
 
 		let payment_event = {
@@ -2448,6 +2451,7 @@ fn do_test_intercepted_payment(test: InterceptTest) {
 			HTLCHandlingFailureType::InvalidForward { requested_forward_scid: intercept_scid };
 		expect_and_process_pending_htlcs_and_htlc_handling_failed(&nodes[1], &[fail_type]);
 		check_added_monitors!(nodes[1], 1);
+		assert!(!nodes[1].node.is_intercepted_htlc_pending(intercept_id));
 
 		let htlc_fail = get_htlc_update_msgs!(nodes[1], node_a_id);
 		assert!(htlc_fail.update_add_htlcs.is_empty());
