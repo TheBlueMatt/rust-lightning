@@ -22,7 +22,12 @@ PIN_RELEASE_DEPS # pin the release dependencies in our main workspace
 [ "$RUSTC_MINOR_VERSION" -ge 82 ] && [ "$RUSTC_MINOR_VERSION" -lt 88 ] && cargo update -p backtrace --precise "0.3.76" --quiet
 
 # The backtrace v0.3.75 crate relies on rustc 1.82
-[ "$RUSTC_MINOR_VERSION" -lt 82 ] && cargo update -p backtrace --precise "0.3.74" --quiet
+if [ "$RUSTC_MINOR_VERSION" -lt 82 ]; then
+	cargo update -p backtrace --precise "0.3.74" --quiet
+elif [ "$RUSTC_MINOR_VERSION" -lt 88 ]; then
+	# The backtrace v0.3.77 crate relies on rustc 1.88
+	cargo update -p backtrace --precise "0.3.76" --quiet
+fi
 
 # Starting with version 1.9.0, the `zeroize` crate uses Rust 2024.
 [ "$RUSTC_MINOR_VERSION" -lt 85 ] && cargo update -p zeroize --precise "1.8.2" --quiet
