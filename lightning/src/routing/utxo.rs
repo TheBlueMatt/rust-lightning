@@ -171,14 +171,28 @@ impl UtxoFuture {
 	}
 }
 
-/// The messages queued behind the single in-flight UTXO lookup for one SCID.
+enum LookupState {
+	Pending(UtxoFuture),
+	/// The lookup has completed and the channel announcements are being added to the graph.
+	/// Channel updates and node announcements in [`PendingLookup::updates`] and
+	/// [`PendingChecksContext::nodes`] will be added once announcement processing completes.
+	Resolved(Result<TxOut, UtxoLookupError>),
+}
+
+/// The messages queued behind the single UTXO lookup for one SCID.
 struct PendingLookup {
-	future: UtxoFuture,
+	state: LookupState,
 	/// The set of differently-keyed announcements, only one of which will be valid.
 	announcements: Vec<ChannelAnnouncement>,
-	/// The distinct `channel_update`s received for the SCID while the lookup was in flight. Their
-	/// signatures are only checked once we know the single valid announcement.
+	/// The distinct `channel_update`s received for the SCID before its announcements were added to
+	/// the graph. Their signatures are only checked once we know the single valid announcement.
 	updates: Vec<ChannelUpdate>,
+}
+
+struct CompletedLookup {
+	scid: u64,
+	result: Result<TxOut, UtxoLookupError>,
+	announcements: Vec<ChannelAnnouncement>,
 }
 
 struct PendingNode {
@@ -349,41 +363,40 @@ impl PendingChecks {
 			&Some(ref utxo_lookup) => utxo_lookup,
 		};
 
-		{
-			let mut pending_checks = self.internal.lock().unwrap();
-			let PendingChecksContext { channels, nodes } = &mut *pending_checks;
-			if let Some(lookup) = channels.get_mut(&msg.short_channel_id) {
-				return Err(self.queue_announcement(lookup, nodes, msg, full_msg));
-			}
-		}
-
-		let notifier = Arc::clone(&self.completion_notifier);
-		let future = match utxo_lookup.get_utxo(&msg.chain_hash, msg.short_channel_id, notifier) {
-			UtxoResult::Sync(res) => return handle_result(res),
-			UtxoResult::Async(future) => future,
-		};
 		let mut pending_checks = self.internal.lock().unwrap();
-		let mut future_state = future.state.lock().unwrap();
-		if let Some(res) = future_state.complete.take() {
-			// In the unlikely event the future resolved before we managed to get it, handle the
-			// result in-line.
-			drop(future_state);
+		if !pending_checks.channels.contains_key(&msg.short_channel_id) {
 			drop(pending_checks);
-			return handle_result(res);
+			let notifier = Arc::clone(&self.completion_notifier);
+			let lookup_res = utxo_lookup.get_utxo(&msg.chain_hash, msg.short_channel_id, notifier);
+			let future = match lookup_res {
+				UtxoResult::Sync(res) => return handle_result(res),
+				UtxoResult::Async(future) => future,
+			};
+			pending_checks = self.internal.lock().unwrap();
+			let mut future_state = future.state.lock().unwrap();
+			if let Some(res) = future_state.complete.take() {
+				// In the unlikely event the future resolved before we managed to get it, handle
+				// the result in-line.
+				drop(future_state);
+				drop(pending_checks);
+				return handle_result(res);
+			}
+			drop(future_state);
+			// If another thread started a lookup for the same SCID while ours was being created,
+			// we use that one and drop our future.
+			pending_checks.channels.entry(msg.short_channel_id).or_insert(PendingLookup {
+				state: LookupState::Pending(future),
+				announcements: Vec::new(),
+				updates: Vec::new(),
+			});
 		}
 
 		let PendingChecksContext { channels, nodes } = &mut *pending_checks;
-		let lookup = match channels.entry(msg.short_channel_id) {
-			hash_map::Entry::Vacant(e) => e.insert(PendingLookup {
-				future: future.clone(),
-				announcements: Vec::new(),
-				updates: Vec::new(),
-			}),
-			// Another thread started a lookup for the same SCID while ours was being created, so
-			// queue the announcement on that one and drop our future.
-			hash_map::Entry::Occupied(e) => e.into_mut(),
-		};
-		Err(self.queue_announcement(lookup, nodes, msg, full_msg))
+		let lookup = channels.get_mut(&msg.short_channel_id).expect("Lookup was inserted above");
+		match &lookup.state {
+			LookupState::Pending(_) => Err(self.queue_announcement(lookup, nodes, msg, full_msg)),
+			LookupState::Resolved(res) => handle_result(res.clone()),
+		}
 	}
 
 	/// The maximum number of lookups in flight before [`Self::too_many_checks_pending`] returns
@@ -410,30 +423,126 @@ impl PendingChecks {
 			|| pending_checks.queued_messages() > Self::MAX_PENDING_MESSAGES
 	}
 
-	fn resolve_single_lookup<L: Logger>(
-		graph: &NetworkGraph<L>, result: Result<TxOut, UtxoLookupError>,
-		announcements: Vec<ChannelAnnouncement>, node_announcements: Vec<NodeAnnouncement>,
-		mut updates: Vec<ChannelUpdate>, new_messages: &mut Vec<MessageSendEvent>,
-	) {
+	/// Releases the references the given queued announcements hold on their nodes, returning a copy
+	/// of any `node_announcement` held for those nodes so that it can be applied if a channel for
+	/// the node is accepted.
+	fn release_node_refs(
+		nodes: &mut HashMap<NodeId, PendingNode>, announcements: &[ChannelAnnouncement],
+	) -> Vec<NodeAnnouncement> {
+		let mut node_announcements = Vec::new();
+		for chan_announcement in announcements.iter() {
+			let contents = chan_announcement.contents();
+			for node_id in [contents.node_id_1, contents.node_id_2] {
+				let mut entry = match nodes.entry(node_id) {
+					hash_map::Entry::Occupied(entry) => entry,
+					hash_map::Entry::Vacant(_) => {
+						debug_assert!(false, "Queued announcements reference their nodes");
+						continue;
+					},
+				};
+				entry.get_mut().announcement_refs -= 1;
+				let node_announcement = if entry.get().announcement_refs == 0 {
+					entry.remove().announcement
+				} else {
+					entry.get().announcement.clone()
+				};
+				if let Some(announcement) = node_announcement {
+					node_announcements.push(announcement);
+				}
+			}
+		}
+		node_announcements
+	}
+
+	/// Moves lookups whose futures have completed to [`LookupState::Resolved`], returning their
+	/// results and queued announcements. Lookups whose futures were dropped are removed along with
+	/// any messages queued behind them.
+	fn take_completed_lookups(&self) -> Vec<CompletedLookup> {
+		let mut completed_lookups = Vec::new();
+		let mut pending_checks = self.internal.lock().unwrap();
+		let PendingChecksContext { channels, nodes } = &mut *pending_checks;
+		channels.retain(|scid, lookup| {
+			let future = match &lookup.state {
+				LookupState::Pending(future) => future,
+				LookupState::Resolved(_) => return true,
+			};
+			let mut state_lock = future.state.lock().unwrap();
+			if let Some(result) = state_lock.complete.take() {
+				drop(state_lock);
+				completed_lookups.push(CompletedLookup {
+					scid: *scid,
+					result: result.clone(),
+					announcements: core::mem::take(&mut lookup.announcements),
+				});
+				lookup.state = LookupState::Resolved(result);
+				true
+			} else if Arc::strong_count(&future.state) == 1 {
+				// If the downstream code has dropped the future, whatever the current result is
+				// isn't going to change.
+				drop(state_lock);
+				Self::release_node_refs(nodes, &lookup.announcements);
+				false
+			} else {
+				true
+			}
+		});
+		completed_lookups
+	}
+
+	/// Adds the announcements of the given completed lookups to the graph, then removes the lookups
+	/// and applies the other messages queued behind them.
+	fn apply_completed_lookups<L: Logger>(
+		&self, graph: &NetworkGraph<L>, completed_lookups: Vec<CompletedLookup>,
+	) -> Vec<MessageSendEvent> {
+		let mut new_messages = Vec::with_capacity(completed_lookups.len() * 5);
+
 		// Pass the pending messages back through the network graph with a different `UtxoLookup`
 		// which will resolve immediately.
 		// Note that we ignore errors as we don't disconnect peers anyway, so there's nothing to do
 		// with them.
-		let resolver = UtxoResolver(result);
-		for announcement in announcements {
-			match announcement {
-				ChannelAnnouncement::Full(signed_msg) => {
-					if graph.update_channel_from_announcement(&signed_msg, &Some(&resolver)).is_ok()
-					{
-						new_messages.push(MessageSendEvent::BroadcastChannelAnnouncement {
-							msg: signed_msg,
-							update_msg: None,
-						});
-					}
-				},
-				ChannelAnnouncement::Unsigned(msg) => {
-					let _ = graph.update_channel_from_unsigned_announcement(&msg, &Some(&resolver));
-				},
+		for lookup in completed_lookups.iter() {
+			let resolver = UtxoResolver(lookup.result.clone());
+			for announcement in lookup.announcements.iter() {
+				match announcement {
+					ChannelAnnouncement::Full(signed_msg) => {
+						if graph
+							.update_channel_from_announcement(signed_msg, &Some(&resolver))
+							.is_ok()
+						{
+							new_messages.push(MessageSendEvent::BroadcastChannelAnnouncement {
+								msg: signed_msg.clone(),
+								update_msg: None,
+							});
+						}
+					},
+					ChannelAnnouncement::Unsigned(msg) => {
+						let _ =
+							graph.update_channel_from_unsigned_announcement(msg, &Some(&resolver));
+					},
+				}
+			}
+		}
+
+		// Only once the announcements have been added to the graph can we remove the lookups, as
+		// until then messages for their channels and nodes must continue to be queued.
+		let mut node_announcements = Vec::new();
+		let mut updates = Vec::new();
+		{
+			let mut pending_checks = self.internal.lock().unwrap();
+			let PendingChecksContext { channels, nodes } = &mut *pending_checks;
+			for completed in completed_lookups {
+				let lookup = match channels.remove(&completed.scid) {
+					Some(lookup) => lookup,
+					None => {
+						debug_assert!(false, "Resolved lookups are only removed here");
+						continue;
+					},
+				};
+				debug_assert!(matches!(lookup.state, LookupState::Resolved(_)));
+				debug_assert!(lookup.announcements.is_empty());
+				let released = Self::release_node_refs(nodes, &completed.announcements);
+				node_announcements.extend(released);
+				updates.extend(lookup.updates);
 			}
 		}
 
@@ -469,72 +578,14 @@ impl PendingChecks {
 				},
 			}
 		}
+		new_messages
 	}
 
 	pub(super) fn check_resolved_futures<L: Logger>(
 		&self, graph: &NetworkGraph<L>,
 	) -> Vec<MessageSendEvent> {
-		let mut completed_lookups = Vec::new();
-		{
-			let mut pending_checks = self.internal.lock().unwrap();
-			let PendingChecksContext { channels, nodes } = &mut *pending_checks;
-			channels.retain(|_, lookup| {
-				let state = &lookup.future.state;
-				let mut state_lock = state.lock().unwrap();
-				let result = state_lock.complete.take();
-				// If the downstream code has dropped the future, whatever the
-				// current result is isn't going to change.
-				if result.is_none() && Arc::strong_count(state) != 1 {
-					return true;
-				}
-				drop(state_lock);
-				let announcements = core::mem::take(&mut lookup.announcements);
-				let updates = core::mem::take(&mut lookup.updates);
-
-				// Release the queued announcements' references to their nodes, keeping a copy of
-				// any held `node_announcement` so that it can be applied if a channel for the
-				// node is accepted.
-				let mut node_announcements = Vec::new();
-				for chan_announcement in announcements.iter() {
-					let contents = chan_announcement.contents();
-					for node_id in [contents.node_id_1, contents.node_id_2] {
-						let mut entry = match nodes.entry(node_id) {
-							hash_map::Entry::Occupied(entry) => entry,
-							hash_map::Entry::Vacant(_) => {
-								debug_assert!(false, "Queued announcements reference their nodes");
-								continue;
-							},
-						};
-						entry.get_mut().announcement_refs -= 1;
-						let node_announcement = if entry.get().announcement_refs == 0 {
-							entry.remove().announcement
-						} else {
-							entry.get().announcement.clone()
-						};
-						if let Some(announcement) = node_announcement {
-							node_announcements.push(announcement);
-						}
-					}
-				}
-
-				if let Some(result) = result {
-					completed_lookups.push((result, announcements, node_announcements, updates));
-				}
-				false
-			});
-		}
-		let mut res = Vec::with_capacity(completed_lookups.len() * 5);
-		for (result, announcements, node_announcements, updates) in completed_lookups {
-			Self::resolve_single_lookup(
-				graph,
-				result,
-				announcements,
-				node_announcements,
-				updates,
-				&mut res,
-			);
-		}
-		res
+		let completed_lookups = self.take_completed_lookups();
+		self.apply_completed_lookups(graph, completed_lookups)
 	}
 }
 
@@ -1179,6 +1230,68 @@ mod tests {
 			.is_some());
 		assert_eq!(pending_message_count(&network_graph), 0);
 		assert!(network_graph.pending_checks.internal.lock().unwrap().nodes.is_empty());
+	}
+
+	#[test]
+	fn test_messages_queued_while_applying_completed_lookup() {
+		// Messages which arrive after a lookup completes but before its announcement has been
+		// added to the graph must still be queued and applied rather than rejected.
+		let (
+			valid_announcement,
+			chain_source,
+			network_graph,
+			good_script,
+			node_a_announce,
+			_,
+			chan_update_a,
+			..,
+		) = get_test_objects();
+		let scid = valid_announcement.contents.short_channel_id;
+		let node_a_id = node_a_announce.contents.node_id;
+
+		let notifier = Arc::new(Notifier::new());
+		let future = UtxoFuture::new(Arc::clone(&notifier));
+		*chain_source.utxo_ret.lock().unwrap() = UtxoResult::Async(future.clone());
+		network_graph
+			.update_channel_from_announcement(&valid_announcement, &Some(&chain_source))
+			.unwrap_err();
+
+		future
+			.resolve(Ok(TxOut { value: Amount::from_sat(1_000_000), script_pubkey: good_script }));
+		let completed_lookups = network_graph.pending_checks.take_completed_lookups();
+		assert_eq!(completed_lookups.len(), 1);
+		assert!(network_graph.read_only().channels().get(&scid).is_none());
+
+		assert_eq!(
+			network_graph.update_channel(&chan_update_a).unwrap_err().err,
+			"Awaiting channel_announcement validation to accept channel_update"
+		);
+		assert_eq!(
+			network_graph.update_node_from_announcement(&node_a_announce).unwrap_err().err,
+			"Awaiting channel_announcement validation to accept node_announcement"
+		);
+
+		// Further announcements for the SCID are checked against the completed lookup's result
+		// rather than starting a new lookup.
+		let mismatched_announcement = get_mismatched_announcement(scid);
+		let err = network_graph
+			.update_channel_from_announcement(&mismatched_announcement, &Some(&chain_source))
+			.unwrap_err();
+		assert!(err.err.contains("didn't match on-chain script"));
+		assert_eq!(chain_source.get_utxo_call_count.load(Ordering::Relaxed), 1);
+
+		let msgs =
+			network_graph.pending_checks.apply_completed_lookups(&network_graph, completed_lookups);
+		assert_eq!(msgs.len(), 3);
+		assert_eq!(pending_lookup_count(&network_graph), 0);
+		assert_eq!(pending_message_count(&network_graph), 0);
+		assert!(network_graph.pending_checks.internal.lock().unwrap().nodes.is_empty());
+
+		let graph_lock = network_graph.read_only();
+		let channel = graph_lock.channels().get(&scid).unwrap();
+		assert_eq!(channel.node_one, valid_announcement.contents.node_id_1);
+		assert!(channel.one_to_two.is_some());
+		assert!(graph_lock.nodes().get(&node_a_id).unwrap().announcement_info.is_some());
 	}
 
 	#[test]
