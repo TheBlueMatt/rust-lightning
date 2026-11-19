@@ -674,6 +674,10 @@ pub enum Bolt12PaymentError {
 	/// Payment for an invoice with the corresponding [`PaymentId`] was already initiated.
 	DuplicateInvoice,
 	/// The invoice was valid for the corresponding [`PaymentId`], but required unknown features.
+	///
+	/// Also returned when the invoice contains TLV records with a type above the experimental
+	/// invoice range, which are valid per the spec but unknown to this version of LDK, and are
+	/// refused for payment.
 	UnknownRequiredFeatures,
 	/// Incorrect amount was provided to [`ChannelManager::pay_for_bolt12_invoice`].
 	///
@@ -1165,6 +1169,13 @@ impl OutboundPayments {
 			return Err(Bolt12PaymentError::UnknownRequiredFeatures);
 		}
 
+		if invoice.has_records_above_experimental_range() {
+			self.abandon_payment(
+				payment_id, PaymentFailureReason::UnknownRequiredFeatures, pending_events,
+			);
+			return Err(Bolt12PaymentError::UnknownRequiredFeatures);
+		}
+
 		let route_params = Self::bolt12_route_params(invoice, invoice.amount_msats(), params_config);
 		let invoice = PaidBolt12Invoice::Bolt12Invoice(invoice.clone());
 		self.send_payment_for_bolt12_invoice_internal(
@@ -1213,6 +1224,10 @@ impl OutboundPayments {
 		}
 
 		if invoice.invoice_features().requires_unknown_bits_from(&features) {
+			return Err(Bolt12PaymentError::UnknownRequiredFeatures);
+		}
+
+		if invoice.has_records_above_experimental_range() {
 			return Err(Bolt12PaymentError::UnknownRequiredFeatures);
 		}
 
@@ -1408,6 +1423,10 @@ impl OutboundPayments {
 						return Err(Bolt12PaymentError::UnexpectedInvoice);
 					}
 					if invoice.invoice_features().requires_unknown_bits_from(&features) {
+						abandon_with_entry!(entry, PaymentFailureReason::UnknownRequiredFeatures);
+						return Err(Bolt12PaymentError::UnknownRequiredFeatures);
+					}
+					if invoice.has_records_above_experimental_range() {
 						abandon_with_entry!(entry, PaymentFailureReason::UnknownRequiredFeatures);
 						return Err(Bolt12PaymentError::UnknownRequiredFeatures);
 					}
