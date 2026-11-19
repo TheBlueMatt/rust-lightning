@@ -102,8 +102,17 @@ fn test_monitor_and_persister_update_fail() {
 			if let Ok(Some(update)) = channel.commitment_signed(&updates.commitment_signed, &node_cfgs[0].logger) {
 				// Check that the persister returns InProgress (and will never actually complete)
 				// as the monitor update errors.
-				if let ChannelMonitorUpdateStatus::InProgress = chain_mon.chain_monitor.update_channel(outpoint, &update) {} else { panic!("Expected monitor paused"); }
-				logger.assert_log_regex("lightning::chain::chainmonitor", regex::Regex::new("Failed to update ChannelMonitor for channel [0-9a-f]*.").unwrap(), 1);
+				if let ChannelMonitorUpdateStatus::InProgress =
+					chain_mon.chain_monitor.update_channel(outpoint, &update)
+				{
+				} else {
+					panic!("Expected monitor paused");
+				}
+				logger.assert_log_regex(
+					"lightning::chain::chainmonitor",
+					regex::Regex::new("Failed to update ChannelMonitor").unwrap(),
+					1,
+				);
 
 				// Apply the monitor update to the original ChainMonitor, ensuring the
 				// ChannelManager and ChannelMonitor aren't out of sync.

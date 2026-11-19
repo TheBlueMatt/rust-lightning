@@ -830,17 +830,19 @@ where C::Target: chain::Filter,
 				let update_res = monitor.update_monitor(update, &self.broadcaster, &self.fee_estimator, &self.logger);
 
 				let update_id = update.update_id;
-				let persist_res = if update_res.is_err() {
-					// Even if updating the monitor returns an error, the monitor's state will
-					// still be changed. Therefore, we should persist the updated monitor despite the error.
-					// We don't want to persist a `monitor_update` which results in a failure to apply later
-					// while reading `channel_monitor` with updates from storage. Instead, we should persist
-					// the entire `channel_monitor` here.
-					log_warn!(logger, "Failed to update ChannelMonitor for channel {}. Going ahead and persisting the entire ChannelMonitor", log_funding_info!(monitor));
-					self.persister.update_persisted_channel(funding_txo, None, monitor)
-				} else {
-					self.persister.update_persisted_channel(funding_txo, Some(update), monitor)
-				};
+				// The update may have been `Err`ed because the channel is closed, but it was
+				// still applied to the in-memory monitor, so persist it like any other update.
+				if update_res.is_err() {
+					log_info!(
+						logger,
+						"Failed to update ChannelMonitor, likely due to the channel being closed already"
+					);
+				}
+				let persist_res = self.persister.update_persisted_channel(
+					funding_txo,
+					Some(update),
+					monitor,
+				);
 				match persist_res {
 					ChannelMonitorUpdateStatus::InProgress => {
 						// If the update was refused by the `ChannelMonitor`, then it was not individually
