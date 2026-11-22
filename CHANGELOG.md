@@ -1,3 +1,37 @@
+# 0.2.9 - Nov XX, 2026 - "XXX"
+
+## API Updates
+ * When using async persistence, `ChannelMonitorUpdate`s which are applied after
+   channel closure are now written to disk, fixing some update-tracking bugs.
+   Note that this means, on startup, when applying `ChannelMonitorUpdate`s on
+   disk, `ChannelMonitor::update_monitor` is expected to occasionally `Err`.
+   This should be treated as non-fatal and the `Result` ignored (#5663).
+ * Static invoice servers now mark forwarded invoice requests with the new
+   `forwarded_message` onion message TLV, ignoring any which loop back (#5720).
+ * Documentation for `PaymentId` has been updated to clarify that an ID must
+   only be reused to retry the same payment for the same amount (#5635).
+
+## Bug Fixes
+ * Payments for large values or for BOLT 12 invoices over very long routes are
+   now failed earlier to avoid infinite retries (#5287).
+ * Reused `channel_id`s no longer result in closed channel balances missing
+   from `ChainMonitor::get_claimable_balances` (#5675).
+ * A crash while `MonitorUpdatingPersister` archives a `ChannelMonitor` can no
+   longer result in a stale `ChannelMonitor` being loaded on restart (#5577).
+ * `ChannelMonitor`s for inbound channels with non-zero `push_msat` value
+   which are never funded are now properly archived (#5669).
+ * Unanswered pending LSPS2 requests are now properly cleaned up on peer
+   disconnection, ensuring further messages are properly handled (#5672).
+ * The LSPS2 service now waits for all parts of a fixed-size payment before
+   forwarding it over a JIT channel, rather than forwarding an incomplete
+   payment in some cases (#5721).
+ * `OnionMessenger` now reserves some buffer space for connected peers, ensuring
+   peers awaiting connection can't use all the available buffer space (#5644).
+
+Thanks to Project Loupe, Anthropic's OSS Scanner, and Martin Saposnic for
+reporting issues fixed in this release, some of them duplicatively.
+
+
 # 0.2.8 - Nov 10, 2026 - "Rising Tide"
 
 ## API Updates
