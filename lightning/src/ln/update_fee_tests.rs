@@ -9,7 +9,7 @@ use crate::ln::channel::{
 	get_holder_selected_channel_reserve_satoshis, ANCHOR_OUTPUT_VALUE_SATOSHI,
 	CONCURRENT_INBOUND_HTLC_FEE_BUFFER, MIN_AFFORDABLE_HTLC_COUNT,
 };
-use crate::ln::channelmanager::PaymentId;
+use crate::ln::channelmanager::{PaymentId, RAACommitmentOrder};
 use crate::ln::functional_test_utils::*;
 use crate::ln::msgs::{
 	self, BaseMessageHandler, ChannelMessageHandler, ErrorAction, MessageSendEvent,
@@ -20,6 +20,7 @@ use crate::sign::ChannelSigner;
 use crate::types::features::ChannelTypeFeatures;
 use crate::util::config::UserConfig;
 use crate::util::errors::APIError;
+use crate::util::ser::Writeable;
 
 use lightning_macros::xtest;
 
@@ -332,6 +333,144 @@ pub fn test_multi_flight_update_fee() {
 	nodes[1].node.handle_revoke_and_ack(node_a_id, &as_second_revoke);
 	assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
 	check_added_monitors(&nodes[1], 1);
+}
+
+fn do_test_update_fee_replacing_committed_update_fee(reconnect: bool, reload: bool) {
+	// A                                        B
+	// update_fee/commitment_signed          ->
+	//                                       <- revoke_and_ack/(1) commitment_signed
+	// update_fee/commitment_signed          ->
+	//                                       <- (2) revoke_and_ack
+	// (1) delivered, (3) revoke_and_ack
+	// update_fee                            ->
+	// (3) delivered                         ->
+	//                                       <- (4) commitment_signed
+	// (2) delivered, commitment_signed      ->
+	// The protocol allows A to send the last update_fee before (3), though LDK only sends it after
+	// (2), so we generate it manually as in `test_multi_flight_update_fee`. B's own commitment
+	// uses the feerate A committed before that update_fee, and B must use it for (4) too.
+	let chanmon_cfgs = create_chanmon_cfgs(2);
+	let node_cfgs = create_node_cfgs(2, &chanmon_cfgs);
+	let persister;
+	let new_chain_monitor;
+	let nodes_1_deserialized;
+	let node_chanmgrs = create_node_chanmgrs(2, &node_cfgs, &[None, None]);
+	let mut nodes = create_network(2, &node_cfgs, &node_chanmgrs);
+
+	let node_a_id = nodes[0].node.get_our_node_id();
+	let node_b_id = nodes[1].node.get_our_node_id();
+
+	let chan_id = create_announced_chan_between_nodes(&nodes, 0, 1).2;
+
+	let initial_feerate = *chanmon_cfgs[0].fee_estimator.sat_per_kw.lock().unwrap();
+	let committed_feerate = initial_feerate * 4;
+	let final_feerate = initial_feerate + 20;
+
+	*chanmon_cfgs[0].fee_estimator.sat_per_kw.lock().unwrap() = initial_feerate + 10;
+	nodes[0].node.timer_tick_occurred();
+	check_added_monitors(&nodes[0], 1);
+	let as_first_update = get_htlc_update_msgs(&nodes[0], &node_b_id);
+	nodes[1].node.handle_update_fee(node_a_id, as_first_update.update_fee.as_ref().unwrap());
+	nodes[1]
+		.node
+		.handle_commitment_signed_batch_test(node_a_id, &as_first_update.commitment_signed);
+	check_added_monitors(&nodes[1], 1);
+	let (bs_first_raa, bs_first_cs) = get_revoke_commit_msgs(&nodes[1], &node_a_id);
+	nodes[0].node.handle_revoke_and_ack(node_b_id, &bs_first_raa);
+	check_added_monitors(&nodes[0], 1);
+
+	*chanmon_cfgs[0].fee_estimator.sat_per_kw.lock().unwrap() = committed_feerate;
+	nodes[0].node.timer_tick_occurred();
+	check_added_monitors(&nodes[0], 1);
+	let as_second_update = get_htlc_update_msgs(&nodes[0], &node_b_id);
+	nodes[1].node.handle_update_fee(node_a_id, as_second_update.update_fee.as_ref().unwrap());
+	nodes[1]
+		.node
+		.handle_commitment_signed_batch_test(node_a_id, &as_second_update.commitment_signed);
+	check_added_monitors(&nodes[1], 1);
+	let mut bs_second_raa = get_event_msg!(nodes[1], MessageSendEvent::SendRevokeAndACK, node_a_id);
+
+	nodes[0].node.handle_commitment_signed_batch_test(node_b_id, &bs_first_cs);
+	check_added_monitors(&nodes[0], 1);
+	let mut as_first_raa = get_event_msg!(nodes[0], MessageSendEvent::SendRevokeAndACK, node_b_id);
+
+	let update_fee = msgs::UpdateFee { channel_id: chan_id, feerate_per_kw: final_feerate };
+	nodes[1].node.handle_update_fee(node_a_id, &update_fee);
+
+	if reconnect {
+		nodes[0].node.peer_disconnected(node_b_id);
+		nodes[1].node.peer_disconnected(node_a_id);
+		if reload {
+			let node_b_ser = nodes[1].node.encode();
+			let mon_ser = get_monitor!(nodes[1], chan_id).encode();
+			reload_node!(
+				nodes[1],
+				&node_b_ser,
+				&[&mon_ser],
+				persister,
+				new_chain_monitor,
+				nodes_1_deserialized
+			);
+		}
+		connect_nodes(&nodes[0], &nodes[1]);
+		let as_reestablish = get_chan_reestablish_msgs!(nodes[0], nodes[1]);
+		let bs_reestablish = get_chan_reestablish_msgs!(nodes[1], nodes[0]);
+		nodes[0].node.handle_channel_reestablish(node_b_id, &bs_reestablish[0]);
+		nodes[1].node.handle_channel_reestablish(node_a_id, &as_reestablish[0]);
+		let as_resend = handle_chan_reestablish_msgs!(nodes[0], nodes[1]);
+		let bs_resend = handle_chan_reestablish_msgs!(nodes[1], nodes[0]);
+		assert!(as_resend.2.is_none() && bs_resend.2.is_none());
+		as_first_raa = as_resend.1.unwrap();
+		bs_second_raa = bs_resend.1.unwrap();
+		// The update_fee was never committed, so nodes[1] forgot it on disconnect.
+		nodes[1].node.handle_update_fee(node_a_id, &update_fee);
+	}
+
+	nodes[1].node.handle_revoke_and_ack(node_a_id, &as_first_raa);
+	check_added_monitors(&nodes[1], 1);
+	let bs_second_cs = get_htlc_update_msgs(&nodes[1], &node_a_id);
+	assert_eq!(get_feerate!(nodes[1], nodes[0], chan_id), committed_feerate);
+
+	nodes[0].node.handle_revoke_and_ack(node_b_id, &bs_second_raa);
+	check_added_monitors(&nodes[0], 1);
+	*chanmon_cfgs[0].fee_estimator.sat_per_kw.lock().unwrap() = final_feerate;
+	nodes[0].node.timer_tick_occurred();
+	check_added_monitors(&nodes[0], 1);
+	let as_third_update = get_htlc_update_msgs(&nodes[0], &node_b_id);
+	assert_eq!(as_third_update.update_fee.as_ref().unwrap(), &update_fee);
+
+	// nodes[0] validates nodes[1]'s signature on a commitment at the feerate it committed.
+	nodes[0].node.handle_commitment_signed_batch_test(node_b_id, &bs_second_cs.commitment_signed);
+	check_added_monitors(&nodes[0], 1);
+	let as_second_raa = get_event_msg!(nodes[0], MessageSendEvent::SendRevokeAndACK, node_b_id);
+
+	nodes[1]
+		.node
+		.handle_commitment_signed_batch_test(node_a_id, &as_third_update.commitment_signed);
+	check_added_monitors(&nodes[1], 1);
+	let bs_third_raa = get_event_msg!(nodes[1], MessageSendEvent::SendRevokeAndACK, node_a_id);
+	nodes[1].node.handle_revoke_and_ack(node_a_id, &as_second_raa);
+	check_added_monitors(&nodes[1], 1);
+	let bs_third_cs = get_htlc_update_msgs(&nodes[1], &node_a_id);
+
+	nodes[0].node.handle_revoke_and_ack(node_b_id, &bs_third_raa);
+	check_added_monitors(&nodes[0], 1);
+	nodes[0].node.handle_commitment_signed_batch_test(node_b_id, &bs_third_cs.commitment_signed);
+	check_added_monitors(&nodes[0], 1);
+	let as_third_raa = get_event_msg!(nodes[0], MessageSendEvent::SendRevokeAndACK, node_b_id);
+	nodes[1].node.handle_revoke_and_ack(node_a_id, &as_third_raa);
+	check_added_monitors(&nodes[1], 1);
+	assert!(nodes[1].node.get_and_clear_pending_msg_events().is_empty());
+
+	assert_eq!(get_feerate!(nodes[0], nodes[1], chan_id), final_feerate);
+	assert_eq!(get_feerate!(nodes[1], nodes[0], chan_id), final_feerate);
+}
+
+#[xtest(feature = "_externalize_tests")]
+pub fn test_update_fee_replacing_committed_update_fee() {
+	do_test_update_fee_replacing_committed_update_fee(false, false);
+	do_test_update_fee_replacing_committed_update_fee(true, false);
+	do_test_update_fee_replacing_committed_update_fee(true, true);
 }
 
 #[xtest(feature = "_externalize_tests")]

@@ -144,8 +144,8 @@ pub struct AvailableBalances {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum FeeUpdateState {
-	// Inbound states mirroring InboundHTLCState
-	RemoteAnnounced,
+	// Inbound state mirroring InboundHTLCState. Updates mirroring `RemoteAnnounced` are tracked
+	// separately in `ChannelContext::remote_announced_update_fee`.
 	AwaitingRemoteRevokeToAnnounce,
 	// Note that we do not have a AwaitingAnnouncedRemoteRevoke variant here as it is universally
 	// handled the same as `Committed`, with the only exception in `InboundHTLCState` being the
@@ -3749,13 +3749,19 @@ pub(super) struct ChannelContext<SP: SignerProvider> {
 	// number and secret to perform the verification when the signer is ready.
 	signer_pending_stale_state_verification: Option<(u64, SecretKey)>,
 
-	// pending_update_fee is filled when sending and receiving update_fee.
+	// pending_update_fee is filled when sending update_fee and when the counterparty commits to an
+	// update_fee it sent.
 	//
 	// Because it follows the same commitment flow as HTLCs, `FeeUpdateState` is either `Outbound`
 	// or matches a subset of the `InboundHTLCOutput` variants. It is then updated/used when
 	// generating new commitment transactions with exactly the same criteria as inbound/outbound
 	// HTLCs with similar state.
 	pending_update_fee: Option<(u32, FeeUpdateState)>,
+	// An `update_fee` the counterparty sent but has not yet committed to in a `commitment_signed`.
+	// It is used when generating new commitment transactions with the same criteria as
+	// `RemoteAnnounced` inbound HTLCs, while `pending_update_fee` may still hold an update the
+	// counterparty committed to before.
+	remote_announced_update_fee: Option<u32>,
 	// If a `send_update_fee()` call is made with ChannelState::AwaitingRemoteRevoke set, we place
 	// it here instead of `pending_update_fee` in the same way as we place outbound HTLC updates in
 	// `holding_cell_htlc_updates` instead of `pending_outbound_htlcs`. It is released into
@@ -4571,6 +4577,7 @@ impl<SP: SignerProvider> ChannelContext<SP> {
 			pending_outbound_htlcs: Vec::new(),
 			holding_cell_htlc_updates: Vec::new(),
 			pending_update_fee: None,
+			remote_announced_update_fee: None,
 			holding_cell_update_fee: None,
 			next_holder_htlc_id: 0,
 			next_counterparty_htlc_id: 0,
@@ -4884,6 +4891,7 @@ impl<SP: SignerProvider> ChannelContext<SP> {
 			pending_outbound_htlcs: Vec::new(),
 			holding_cell_htlc_updates: Vec::new(),
 			pending_update_fee: None,
+			remote_announced_update_fee: None,
 			holding_cell_update_fee: None,
 			next_holder_htlc_id: 0,
 			next_counterparty_htlc_id: 0,
@@ -5095,6 +5103,7 @@ impl<SP: SignerProvider> ChannelContext<SP> {
 		self.pending_inbound_htlcs.is_empty()
 			&& self.pending_outbound_htlcs.is_empty()
 			&& self.pending_update_fee.is_none()
+			&& self.remote_announced_update_fee.is_none()
 			&& is_ready_to_close
 	}
 
@@ -5152,7 +5161,7 @@ impl<SP: SignerProvider> ChannelContext<SP> {
 		}
 
 		// A fee update is pending on either commitment.
-		if self.pending_update_fee.is_some() {
+		if self.pending_update_fee.is_some() || self.remote_announced_update_fee.is_some() {
 			return true;
 		}
 
@@ -6074,8 +6083,7 @@ impl<SP: SignerProvider> ChannelContext<SP> {
 
 		// If our counterparty updated the channel fee in this commitment transaction, check that
 		// they can actually afford the new fee now.
-		if let Some((new_feerate_per_kw, FeeUpdateState::RemoteAnnounced)) = self.pending_update_fee
-		{
+		if let Some(new_feerate_per_kw) = self.remote_announced_update_fee {
 			debug_assert!(!funding.is_outbound());
 			self.validate_update_fee(funding, fee_estimator, new_feerate_per_kw)?;
 		}
@@ -6209,8 +6217,9 @@ impl<SP: SignerProvider> ChannelContext<SP> {
 		// single HTLC here, not the entire channel, so we opt to be conservative
 		// in what we accept to forward.
 		// Similar reasoning as above
-		let feerate =
-			cmp::max(self.feerate_per_kw, self.pending_update_fee.map(|(fee, _)| fee).unwrap_or(0));
+		let pending_feerate = self.pending_update_fee.map(|(fee, _)| fee).unwrap_or(0);
+		let announced_feerate = self.remote_announced_update_fee.unwrap_or(0);
+		let feerate = cmp::max(self.feerate_per_kw, cmp::max(pending_feerate, announced_feerate));
 		// A `None` `HTLCCandidate` is used as in this case because we're already accounting for
 		// the incoming HTLC as it has been fully committed by both sides.
 		let (local_stats, _local_htlcs) = self
@@ -6314,10 +6323,15 @@ impl<SP: SignerProvider> ChannelContext<SP> {
 			if match update_state {
 				// Note that these match the inclusion criteria when scanning
 				// pending_inbound_htlcs below.
-				FeeUpdateState::RemoteAnnounced => { debug_assert!(!funding.is_outbound()); !generated_by_local },
 				FeeUpdateState::AwaitingRemoteRevokeToAnnounce => { debug_assert!(!funding.is_outbound()); !generated_by_local },
 				FeeUpdateState::Outbound => { assert!(funding.is_outbound()); generated_by_local },
 			} {
+				feerate_per_kw = feerate;
+			}
+		}
+		if let Some(feerate) = self.remote_announced_update_fee {
+			debug_assert!(!funding.is_outbound());
+			if !generated_by_local {
 				feerate_per_kw = feerate;
 			}
 		}
@@ -6513,6 +6527,9 @@ impl<SP: SignerProvider> ChannelContext<SP> {
 		// If there's a pending update fee, use it to ensure we aren't under-estimating
 		// potential feerate updates coming soon.
 		if let Some((feerate, _)) = self.pending_update_fee {
+			feerate_per_kw = cmp::max(feerate_per_kw, feerate);
+		}
+		if let Some(feerate) = self.remote_announced_update_fee {
 			feerate_per_kw = cmp::max(feerate_per_kw, feerate);
 		}
 		if let Some(feerate) = outbound_feerate_update {
@@ -7946,6 +7963,7 @@ where
 		assert!(self.context.pending_inbound_htlcs.is_empty());
 		assert!(self.context.pending_outbound_htlcs.is_empty());
 		assert!(self.context.pending_update_fee.is_none());
+		assert!(self.context.remote_announced_update_fee.is_none());
 
 		let mut total_fee_satoshis = proposed_total_fee_satoshis;
 		let mut value_to_holder: i64 = (self.funding.value_to_self_msat as i64) / 1000
@@ -9160,11 +9178,11 @@ where
 
 		// Update state now that we've passed all the can-fail calls...
 		let mut need_commitment = false;
-		if let &mut Some((_, ref mut update_state)) = &mut self.context.pending_update_fee {
-			if *update_state == FeeUpdateState::RemoteAnnounced {
-				*update_state = FeeUpdateState::AwaitingRemoteRevokeToAnnounce;
-				need_commitment = true;
-			}
+		if let Some(feerate) = self.context.remote_announced_update_fee.take() {
+			debug_assert!(!self.funding.is_outbound());
+			self.context.pending_update_fee =
+				Some((feerate, FeeUpdateState::AwaitingRemoteRevokeToAnnounce));
+			need_commitment = true;
 		}
 
 		for htlc in self.context.pending_inbound_htlcs.iter_mut() {
@@ -9807,9 +9825,6 @@ where
 					self.context.pending_update_fee = None;
 					self.context.expecting_peer_commitment_signed = true;
 				},
-				FeeUpdateState::RemoteAnnounced => {
-					debug_assert!(!self.funding.is_outbound());
-				},
 				FeeUpdateState::AwaitingRemoteRevokeToAnnounce => {
 					debug_assert!(!self.funding.is_outbound());
 					log_trace!(logger, " ...promoting inbound AwaitingRemoteRevokeToAnnounce fee update {} to Committed", feerate);
@@ -10259,12 +10274,7 @@ where
 		});
 		self.context.next_counterparty_htlc_id -= inbound_drop_count;
 
-		if let Some((_, update_state)) = self.context.pending_update_fee {
-			if update_state == FeeUpdateState::RemoteAnnounced {
-				debug_assert!(!self.funding.is_outbound());
-				self.context.pending_update_fee = None;
-			}
-		}
+		self.context.remote_announced_update_fee = None;
 
 		for htlc in self.context.pending_outbound_htlcs.iter_mut() {
 			if let OutboundHTLCState::RemoteRemoved(_) = htlc.state {
@@ -10527,7 +10537,7 @@ where
 			.chain(self.pending_funding())
 			.try_for_each(|funding| FundedChannel::<SP>::check_remote_fee(funding.get_channel_type(), fee_estimator, msg.feerate_per_kw, Some(self.context.feerate_per_kw), logger))?;
 
-		self.context.pending_update_fee = Some((msg.feerate_per_kw, FeeUpdateState::RemoteAnnounced));
+		self.context.remote_announced_update_fee = Some(msg.feerate_per_kw);
 		self.context.update_time_counter += 1;
 		Ok(())
 	}
@@ -10689,7 +10699,9 @@ where
 		}
 
 		let (closing_signed, signed_closing_tx, shutdown_result) = if self.context.signer_pending_closing {
-			if self.context.pending_update_fee.is_some() {
+			if self.context.pending_update_fee.is_some()
+				|| self.context.remote_announced_update_fee.is_some()
+			{
 				return Err(ChannelError::close(
 					"Cannot retry closing_signed while there is still a pending fee update".to_owned(),
 				));
@@ -11862,7 +11874,9 @@ where
 					.to_owned(),
 			));
 		}
-		if self.context.pending_update_fee.is_some() {
+		if self.context.pending_update_fee.is_some()
+			|| self.context.remote_announced_update_fee.is_some()
+		{
 			return Err(ChannelError::close(
 				"Remote end sent us a closing_signed while there was still a pending fee update"
 					.to_owned(),
@@ -17095,17 +17109,7 @@ impl<SP: SignerProvider> Writeable for FundedChannel<SP> {
 			fail_reason.write(writer)?;
 		}
 
-		if self.funding.is_outbound() {
-			self.context.pending_update_fee.map(|(a, _)| a).write(writer)?;
-		} else if let Some((feerate, FeeUpdateState::AwaitingRemoteRevokeToAnnounce)) =
-			self.context.pending_update_fee
-		{
-			Some(feerate).write(writer)?;
-		} else {
-			// As for inbound HTLCs, if the update was only announced and never committed in a
-			// commitment_signed, drop it.
-			None::<u32>.write(writer)?;
-		}
+		self.context.pending_update_fee.map(|(a, _)| a).write(writer)?;
 		self.context.holding_cell_update_fee.write(writer)?;
 
 		self.context.next_holder_htlc_id.write(writer)?;
@@ -18145,6 +18149,7 @@ impl<'a, 'b, 'c, ES: EntropySource, SP: SignerProvider>
 				signer_pending_stale_state_verification: None,
 
 				pending_update_fee,
+				remote_announced_update_fee: None,
 				holding_cell_update_fee,
 				next_holder_htlc_id,
 				next_counterparty_htlc_id,
