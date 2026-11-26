@@ -1,5 +1,13 @@
 # 0.3.0 - TODO - "TODO"
 
+Due to the rapid improvement in LLM-based bug finding, the 0.3 release features
+a large number of bug fixes ranging from minor to nontrivial. Also thanks to the
+rapid improvement in LLM-based development tools, we expect LDK users to have an
+easier time adapting to API changes and upgrade more painlessly to new major
+versions. As such, with the 0.3 release we will no longer be supporting LDK 0.1
+and backporting bug fixes to the 0.1 branch. Going forward, LDK will only
+support the two latest major versions.
+
 During the 0.3 release cycle, and due to persistent outages and issues with
 GitHub, primary development for `rust-lightning` moved to
 https://git.rust-bitcoin.org/lightningdevkit/rust-lightning. Issues filed on the
@@ -30,6 +38,10 @@ GitHub regularly.
    forwarded to the new `channel_closed` method (#4656).
  * Any HTLC can now be intercepted by setting
    `UserConfig::htlc_interception_flags` to the appropriate value (#4300, #4338)
+ * Due to the Electrum protocol's incompatibility with syncing a lightning node
+   and persistent issues with it, Electrum-based sync in
+   `lightning-transaction-sync` has been removed until Electrum 1.7 is more
+   broadly supported (#5700).
  * `LSPS1` service support has been added (#4282).
  * Support for BOLT 12 `PayerProof`s has been added (#4297).
  * Log output has been updated to avoid including the peer, channel, and payment
